@@ -1,0 +1,54 @@
+{
+  "version": "1.0",
+  "specId": "example-flow",
+  "groundedAt": "2026-07-23T12:31:05.116Z",
+  "groundedUrl": "https://example.com",
+  "steps": [
+    {
+      "stepId": "s1",
+      "resolution": {
+        "status": "grounded",
+        "confidence": 0.7799999999999999,
+        "band": "high",
+        "selected": "cand_0",
+        "cachedSelector": null,
+        "candidates": [
+          {
+            "id": "cand_0",
+            "selector": "xpath=/html[1]/body[1]/div[1]/p[2]/a[1]",
+            "label": "Learn more",
+            "boundingBox": {
+              "x": 256,
+              "y": 186.078125,
+              "width": 82,
+              "height": 18
+            },
+            "anchors": {
+              "attributes": {
+                "href": "https://iana.org/domains/example"
+              },
+              "xpath": "/html[1]/body[1]/div[1]/p[2]/a[1]",
+              "contextPath": [
+                "p",
+                "div",
+                "body",
+                "html"
+              ],
+              "siblingIndex": 0,
+              "nearbyText": "Learn more"
+            },
+            "signals": {
+              "semantics": 1,
+              "affordance": 1,
+              "context": 0.6,
+              "structure": 0.5,
+              "index": 0.5
+            },
+            "score": 0.7799999999999999,
+            "band": "high"
+          }
+        ]
+      }
+    }
+  ]
+}

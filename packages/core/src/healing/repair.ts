@@ -1,4 +1,4 @@
-import type { GroundedTest, RepairPayload, SpecIR } from "@axiom/shared";
+import type { GroundedTest, RepairPayload, SpecIR } from "@gimbal/shared";
 import type { AuthoringService } from "../authoring/index.js";
 import type { ArtifactStore } from "../storage/index.js";
 import type { GroundingService } from "../grounding/index.js";

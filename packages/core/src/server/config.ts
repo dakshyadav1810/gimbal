@@ -1,15 +1,15 @@
 import fs from "node:fs";
-import { AxiomConfig } from "@axiom/shared";
+import { GimbalConfig } from "@gimbal/shared";
 
-export function loadConfig(): AxiomConfig {
+export function loadConfig(): GimbalConfig {
   let fileConfig: Record<string, unknown> = {};
   try {
-    fileConfig = JSON.parse(fs.readFileSync("axiom.config.json", "utf-8"));
+    fileConfig = JSON.parse(fs.readFileSync("gimbal.config.json", "utf-8"));
   } catch {
     // no project config — defaults + env only
   }
-  const envConfig = process.env.AXIOM_PORT
-    ? { port: Number(process.env.AXIOM_PORT) }
+  const envConfig = process.env.GIMBAL_PORT
+    ? { port: Number(process.env.GIMBAL_PORT) }
     : {};
-  return AxiomConfig.parse({ ...fileConfig, ...envConfig });
+  return GimbalConfig.parse({ ...fileConfig, ...envConfig });
 }

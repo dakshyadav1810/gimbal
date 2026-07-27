@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
-import { CandidatesDoc, GroundedTest, SpecIR } from "@axiom/shared";
+import { CandidatesDoc, GroundedTest, SpecIR } from "@gimbal/shared";
 import { candidatesPath, groundedPath, specPath, testDir } from "./layout.js";
 
 export interface TestSummary {

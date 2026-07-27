@@ -1,9 +1,9 @@
-# Axiom — Walkthrough
+# Gimbal — Walkthrough
 
-A from-scratch guide to running Axiom locally and driving a test through the full
+A from-scratch guide to running Gimbal locally and driving a test through the full
 **author → ground → run** loop, starting from a fresh `git clone`.
 
-This complements the [README](README.md) (what Axiom is) and [CONTRIBUTING.md](CONTRIBUTING.md)
+This complements the [README](README.md) (what Gimbal is) and [CONTRIBUTING.md](CONTRIBUTING.md)
 (how to contribute). Everything below was verified end-to-end on macOS with Node 20.20.2.
 
 ---
@@ -32,7 +32,7 @@ This complements the [README](README.md) (what Axiom is) and [CONTRIBUTING.md](C
 | **Playwright Chromium** | Grounding and execution launch a real browser. |
 | **Network (first run only)** | The first grounding downloads the `Xenova/all-MiniLM-L6-v2` embedding model (~90 MB) to `~/.cache/huggingface`. Everything after that is offline and deterministic. |
 
-Axiom itself never calls an LLM provider and holds no API key. The only model in the loop is
+Gimbal itself never calls an LLM provider and holds no API key. The only model in the loop is
 the local embedding model above, plus whatever your own coding agent already talks to over MCP.
 
 > **Note on switching Node versions:** `better-sqlite3` compiles a native binding against your
@@ -44,8 +44,8 @@ the local embedding model above, plus whatever your own coding agent already tal
 ## 2. Clone, install, build
 
 ```bash
-git clone https://github.com/dakshyadav1810/axiom.git
-cd axiom
+git clone https://github.com/dakshyadav1810/gimbal.git
+cd gimbal
 
 corepack enable            # once, if corepack isn't already active
 corepack pnpm install      # ~40s on a cold pnpm store
@@ -60,15 +60,15 @@ corepack pnpm build        # ~10s
    `packages/core/static`, which does not exist in a fresh clone. Core's static handler roots
    there, so starting core before building the dashboard will fail.
 
-The turbo warning `no output files found for task @axiom/dashboard#build` is expected and
+The turbo warning `no output files found for task @gimbal/dashboard#build` is expected and
 harmless — the dashboard writes outside its own package directory.
 
-Install Chromium if you don't already have it. Playwright is a dependency of `@axiom/core`, not
+Install Chromium if you don't already have it. Playwright is a dependency of `@gimbal/core`, not
 of the workspace root, so the `--filter` is required — a bare `pnpm exec playwright` fails with
 `Command "playwright" not found`:
 
 ```bash
-corepack pnpm --filter @axiom/core exec playwright install chromium
+corepack pnpm --filter @gimbal/core exec playwright install chromium
 ```
 
 Verify the workspace is sound:
@@ -113,7 +113,7 @@ or `..`, so this gets parsed as CSS and throws. It affects any element without a
    };
 ```
 
-### Fix 2 — `axiom start` exits immediately and does nothing
+### Fix 2 — `gimbal start` exits immediately and does nothing
 
 In [`packages/cli/src/core-process.ts`](packages/cli/src/core-process.ts), `startCore` ends with
 `return child`. `execa()` returns a *thenable that settles only when the spawned process exits*,
@@ -123,13 +123,13 @@ core *dies*. Since core runs forever, it never resolves: the event loop empties 
 run. Core itself starts fine, which makes this look like it worked.
 
 ```diff
--export async function startCore(config: AxiomConfig, coreEntry: string) {
+-export async function startCore(config: GimbalConfig, coreEntry: string) {
 +export async function startCore(
-+  config: AxiomConfig,
++  config: GimbalConfig,
 +  coreEntry: string,
 +): Promise<number | undefined> {
    const child = execa("node", [coreEntry], { ... });
-   fs.mkdirSync(".axiom", { recursive: true });
+   fs.mkdirSync(".gimbal", { recursive: true });
    fs.writeFileSync(PID_FILE, String(child.pid));
    child.unref();
 
@@ -152,7 +152,7 @@ corepack pnpm build
 
 ## 4. Start the server
 
-Scaffold the project state (creates `.axiom/tests/` and `axiom.config.json`):
+Scaffold the project state (creates `.gimbal/tests/` and `gimbal.config.json`):
 
 ```bash
 node packages/cli/dist/index.js init
@@ -195,7 +195,7 @@ curl -s http://127.0.0.1:4319/health     # → {"ok":true,"version":"0.1.0"}
 
 ### 5.1 Submit a spec
 
-**Axiom has no LLM of its own, so there is deliberately no `axiom author` command.** A spec
+**Gimbal has no LLM of its own, so there is deliberately no `gimbal author` command.** A spec
 enters the system exactly one way: an agent authors it and hands core the finished IR, via
 `POST /tests` or the `submitSpec` MCP tool.
 
@@ -283,7 +283,7 @@ artifact) vs `resolver` (drift detected, re-resolved locally).
 ### 5.4 Where the artifacts live
 
 ```
-.axiom/
+.gimbal/
 ├── cache.db                        # SQLite: embeddings, selector cache, run reports
 └── tests/<testId>/
     ├── spec.json                   # DOM-blind intent — what the agent authored
@@ -312,14 +312,14 @@ The dashboard is deliberately minimal and never executes anything itself — it 
 For dashboard UI work, run Vite separately for hot reload (it proxies API calls to core on 4319):
 
 ```bash
-corepack pnpm --filter @axiom/dashboard dev
+corepack pnpm --filter @gimbal/dashboard dev
 ```
 
 ---
 
 ## 7. Connecting a coding agent (MCP)
 
-`axiom start` mounts an MCP server over stdio exposing 10 tools:
+`gimbal start` mounts an MCP server over stdio exposing 10 tools:
 
 `getMap`, `getDelta`, `submitSpec`, `groundTest`, `runTest`, `getReport`, `pollRun`,
 `healing`, `updateTest`, `deleteTest`
@@ -327,7 +327,7 @@ corepack pnpm --filter @axiom/dashboard dev
 Register it with any MCP client. For Claude Code:
 
 ```bash
-claude mcp add axiom -- node /absolute/path/to/axiom/packages/cli/dist/index.js start
+claude mcp add gimbal -- node /absolute/path/to/gimbal/packages/cli/dist/index.js start
 ```
 
 Then drive it in plain language — *"test the login flow"* — and the agent authors the spec,
@@ -339,8 +339,8 @@ Every MCP tool proxies to core over REST; nothing shortcuts into core's internal
 
 ## 8. Knobs for experiments
 
-Edit `axiom.config.json` (created by `axiom init`) or set `AXIOM_PORT`. Precedence is
-CLI flags → env → `axiom.config.json` → defaults.
+Edit `gimbal.config.json` (created by `gimbal init`) or set `GIMBAL_PORT`. Precedence is
+CLI flags → env → `gimbal.config.json` → defaults.
 
 ```jsonc
 {
@@ -353,8 +353,8 @@ CLI flags → env → `axiom.config.json` → defaults.
   },
   "timeouts": { "actionMs": 15000, "navMs": 30000 },
   "embeddingModel": "Xenova/all-MiniLM-L6-v2",
-  "dbPath": ".axiom/cache.db",
-  "artifactsDir": ".axiom/tests"
+  "dbPath": ".gimbal/cache.db",
+  "artifactsDir": ".gimbal/tests"
 }
 ```
 
@@ -367,7 +367,7 @@ Experiments worth trying:
   inspect `candidates.json` to see the score breakdown.
 - **Weaken the target** (drop `semantics` entries, use a vaguer `label`) and watch confidence fall.
 
-To reset all state, delete `.axiom/` and start over.
+To reset all state, delete `.gimbal/` and start over.
 
 ---
 
@@ -376,10 +376,10 @@ To reset all state, delete `.axiom/` and start over.
 | Symptom | Cause / fix |
 |---|---|
 | `Unexpected token "/" while parsing css selector "/html[1]/..."` | Fix 1 in [§3](#3-apply-the-two-required-fixes) not applied. |
-| `axiom start` prints nothing and exits 0, but core is running | Fix 2 in [§3](#3-apply-the-two-required-fixes) not applied. |
+| `gimbal start` prints nothing and exits 0, but core is running | Fix 2 in [§3](#3-apply-the-two-required-fixes) not applied. |
 | `ENOENT` on `packages/core/static` at startup | You skipped `pnpm build`. The dashboard build creates that directory. |
 | Changes to source have no effect | You're running stale committed `dist/`. Re-run `pnpm build`. |
-| `EADDRINUSE` on 4319 | An orphaned core is still running: `kill -9 $(lsof -ti :4319)`. Note `axiom stop` only works if `.axiom/axiom.pid` exists. |
+| `EADDRINUSE` on 4319 | An orphaned core is still running: `kill -9 $(lsof -ti :4319)`. Note `gimbal stop` only works if `.gimbal/gimbal.pid` exists. |
 | `NODE_MODULE_VERSION` mismatch from `better-sqlite3` | You changed Node major versions. Re-run `pnpm install`. |
 | `WARN Unsupported engine: wanted {"node":">=22"}` | Expected on Node 20. It's a warning; everything works. |
 | `pnpm lint` fails on a clean checkout with 27 errors | Pre-existing, not caused by your setup: 7 formatting, 6 `noNonNullAssertion`, 4 `noExplicitAny`, 3 import-order, plus others. `corepack pnpm format` fixes only the formatting subset; `corepack pnpm exec biome check --write .` fixes the auto-fixable rules, but the `noExplicitAny` ones need real edits. Lint is not currently a clean gate. |
@@ -399,7 +399,7 @@ Don't design an experiment around these — they aren't built:
 - **Test coverage is thin** — 7 unit tests, no integration tests. Both bugs in [§3](#3-apply-the-two-required-fixes)
   survived precisely because nothing exercises the end-to-end path.
 
-Also note: `axiom start` writes `core listening on ...` to stdout, which is the same channel as
+Also note: `gimbal start` writes `core listening on ...` to stdout, which is the same channel as
 the MCP JSON-RPC transport. Lenient clients ignore the non-JSON line; a strict one may complain.
 Moving that log to stderr would be the correct fix.
 

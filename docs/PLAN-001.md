@@ -1,4 +1,4 @@
-# PLAN-001: Axiom Tech Stack — All-TypeScript, Bundled Dashboard, MCP-in-CLI
+# PLAN-001: Gimbal Tech Stack — All-TypeScript, Bundled Dashboard, MCP-in-CLI
 
 **Status:** Proposed
 **Date:** 2026-07-10
@@ -7,7 +7,7 @@
 
 ## Context
 
-Axiom is an intent-driven, **deterministic-first** testing platform. The ADRs fix the
+Gimbal is an intent-driven, **deterministic-first** testing platform. The ADRs fix the
 architecture: LLMs author only, runtime is deterministic (ADR-001); intent compiles through
 `spec.json → grounding → candidates.json → normalize → resolver → SQLite cache → Playwright`
 with an MCP server as the agent-facing control plane (ADR-002).
@@ -32,7 +32,7 @@ as a separate deployable package.
    and served by the TS server; no separate deployable.
 4. **CLI is the Node orchestration + MCP comms layer** between developer/agent and the core.
 
-Intended outcome: one language, one runtime, one `npx axiom` install (no Python venv/uv), and a
+Intended outcome: one language, one runtime, one `npx gimbal` install (no Python venv/uv), and a
 single shared IR contract end-to-end.
 
 ---
@@ -63,9 +63,9 @@ single shared IR contract end-to-end.
 
 ### `packages/cli` (Node orchestration + MCP)
 
-- CLI framework: **commander**. Commands: `init`, `start`, `stop`, `author`, `ground`, `test`, `heal`, `report` (LLD-009 §2). `start` writes `.axiom/axiom.pid`; `stop` reads it to SIGTERM core.
+- CLI framework: **commander**. Commands: `init`, `start`, `stop`, `author`, `ground`, `test`, `heal`, `report` (LLD-009 §2). `start` writes `.gimbal/gimbal.pid`; `stop` reads it to SIGTERM core.
 - **@modelcontextprotocol/sdk** (official TS, stdio transport) — the agent-facing MCP server started by
-  `axiom start`, exposing `getMap`, `getDelta`, `healing`, and test CRUD (run/report/poll/update/delete).
+  `gimbal start`, exposing `getMap`, `getDelta`, `healing`, and test CRUD (run/report/poll/update/delete).
 - Orchestration via `node:child_process`/**execa**: spawn + health-check the core server, open the dashboard (`open`).
 - **MCP tools translate to REST/WS calls into core** — never internal cross-package calls (invariant #7). The CLI contains no execution logic (invariant #4).
 
@@ -116,8 +116,8 @@ single shared IR contract end-to-end.
 ## Verification
 
 - `pnpm -w build && pnpm -w test` (Turborepo) — Vitest resolver golden cases confirm signal parity with the Python behavior.
-- `npx axiom start`: one Node process spawns the Fastify core (localhost), brings up the MCP server (stdio), and serves the dashboard at the core base path.
+- `npx gimbal start`: one Node process spawns the Fastify core (localhost), brings up the MCP server (stdio), and serves the dashboard at the core base path.
 - Author a spec via an MCP `healing`/CRUD tool → run Grounding against a live page → assert `candidates.json` + `cachedSelector` written and `band ≥ medium` (else `ungrounded`).
-- `npx axiom test` runs deterministically from cache; break a selector to trigger the runtime heal → `stale` path.
+- `npx gimbal test` runs deterministically from cache; break a selector to trigger the runtime heal → `stale` path.
 - Open the dashboard: edit a JSON test in CodeMirror and watch a live run stream over WebSocket in the plain log view.
 - Connect an agent to the MCP server and exercise `getMap` / `getDelta` / `healing` + test CRUD.

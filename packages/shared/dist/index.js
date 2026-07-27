@@ -241,19 +241,20 @@ function isStepGrounded(step) {
 
 // src/schema/config.ts
 import { z as z8 } from "zod";
-var AxiomConfig = z8.object({
+var GimbalConfig = z8.object({
   port: z8.number().default(4319),
   browser: z8.enum(["chromium", "firefox", "webkit"]).default("chromium"),
   headless: z8.boolean().default(true),
-  dbPath: z8.string().default(".axiom/cache.db"),
-  artifactsDir: z8.string().default(".axiom/tests"),
+  dbPath: z8.string().default(".gimbal/cache.db"),
+  artifactsDir: z8.string().default(".gimbal/tests"),
+  screenshotsDir: z8.string().default(".gimbal/screenshots"),
   embeddingModel: z8.string().default("Xenova/all-MiniLM-L6-v2"),
   bands: z8.object({ high: Score.default(0.7), medium: Score.default(0.5) }).default({}),
   timeouts: z8.object({
     actionMs: z8.number().default(15e3),
     navMs: z8.number().default(3e4)
   }).default({}),
-  // No `llm` block: Axiom never calls a model provider. Authoring/maintenance happens entirely inside
+  // No `llm` block: Gimbal never calls a model provider. Authoring/maintenance happens entirely inside
   // the developer's own connected agent (Claude Code, Cursor, ...) via MCP — there is no API key here.
   db: z8.object({ url: z8.string().optional(), readOnly: z8.boolean().default(true) }).default({})
 });
@@ -294,6 +295,14 @@ var RepairPayload = z9.object({
   kdg: z9.unknown()
   // KDG data structure deferred (ADR-002 out-of-scope)
 });
+var RunSummary = RunReport.omit({ steps: true });
+var ReviewRecord = z9.object({
+  testId: z9.string(),
+  stepId: z9.string(),
+  url: z9.string(),
+  screenshotPath: z9.string().optional(),
+  candidatesJson: z9.string().optional()
+});
 
 // src/schema/ws.ts
 import { z as z10 } from "zod";
@@ -323,7 +332,6 @@ export {
   ApiError,
   ApiStep,
   Assertion,
-  AxiomConfig,
   Band,
   BoundingBox,
   Candidate,
@@ -331,6 +339,7 @@ export {
   DbStep,
   ExpectedOutcome,
   Generalization,
+  GimbalConfig,
   GroundRequest,
   GroundedResolution,
   GroundedStep,
@@ -343,8 +352,10 @@ export {
   RepairPayload,
   Resolution,
   ResolutionStatus,
+  ReviewRecord,
   RunReport,
   RunRequest,
+  RunSummary,
   Score,
   SignalName,
   SignalScores,

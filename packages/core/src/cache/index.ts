@@ -1,5 +1,5 @@
-import type { Band, RunReport, StepResult } from "@axiom/shared";
-import { and, eq } from "drizzle-orm";
+import type { Band, RunReport, RunSummary, StepResult } from "@gimbal/shared";
+import { and, desc, eq } from "drizzle-orm";
 import type { DrizzleDb } from "./db.js";
 import * as schema from "./schema.js";
 
@@ -41,6 +41,7 @@ export interface CacheStore {
   putEmbedding(hash: string, model: string, v: Float32Array): void;
   saveRun(report: RunReport): void;
   getRun(runId: string): RunReport | null;
+  listRuns(testId: string): RunSummary[];
   appendHeal(entry: HealAuditEntry): void;
   enqueueReview(rec: ReviewRecord): void;
   resolveReview(testId: string, stepId: string): void;
@@ -177,6 +178,23 @@ export class SqliteCacheStore implements CacheStore {
         screenshot: s.screenshotPath ?? undefined,
       })),
     };
+  }
+
+  listRuns(testId: string): RunSummary[] {
+    const rows = this.db
+      .select()
+      .from(schema.runs)
+      .where(eq(schema.runs.testId, testId))
+      .orderBy(desc(schema.runs.startedAt))
+      .all();
+    return rows.map((run) => ({
+      runId: run.runId,
+      testId: run.testId,
+      status: run.status as "passed" | "failed",
+      needsReview: run.needsReview,
+      startedAt: run.startedAt,
+      finishedAt: run.finishedAt,
+    }));
   }
 
   appendHeal(entry: HealAuditEntry): void {

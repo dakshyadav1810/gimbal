@@ -4,7 +4,7 @@ __pycache__/
 **/node_modules/
 **/dist/
 .turbo/
-.axiom/
+.gimbal/
 packages/core/static/*
 !packages/core/static/.gitkeep
 *.log

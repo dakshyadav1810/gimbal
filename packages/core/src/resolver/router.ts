@@ -1,4 +1,4 @@
-import type { SignalName } from "@axiom/shared";
+import type { SignalName } from "@gimbal/shared";
 import type { DomCandidate, PageContext } from "./base.js";
 
 export const BASE_WEIGHTS: Record<

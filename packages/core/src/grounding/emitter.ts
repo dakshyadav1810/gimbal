@@ -3,7 +3,7 @@ import type {
   GroundedStep,
   SpecIR,
   Step,
-} from "@axiom/shared";
+} from "@gimbal/shared";
 
 // Merge a winner-only resolution into a UI step's target, producing the grounded step shape.
 export function mergeResolution(

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { MaintainRequest, RunRequest } from "@axiom/shared";
+import { MaintainRequest, RunRequest } from "@gimbal/shared";
 import type { FastifyInstance } from "fastify";
 import type { Container } from "./container.js";
 import type { WsHub } from "./ws-hub.js";
@@ -8,6 +8,10 @@ function apiError(code: string, message: string) {
   return { error: { code, message } };
 }
 
+// Every route here is registered under the /api prefix (see app.ts) except /health, which stays
+// unprefixed as a bare liveness probe. The prefix exists so the dashboard's own client-side routes
+// (/tests, /tests/:id, /reviews, ...) can occupy the same path space without colliding with the
+// REST API that serves them (LLD-010 §3.2 vs. this file's existing paths).
 export async function registerRoutes(
   app: FastifyInstance,
   c: Container,
@@ -15,6 +19,15 @@ export async function registerRoutes(
 ) {
   app.get("/health", async () => ({ ok: true, version: "0.1.0" }));
 
+  await app.register(
+    async (api) => {
+      registerApiRoutes(api, c, hub);
+    },
+    { prefix: "/api" },
+  );
+}
+
+function registerApiRoutes(app: FastifyInstance, c: Container, hub: WsHub) {
   // --- tests ---
   // The only way a spec is created: the connected agent has already authored it and submits the
   // finished SpecIR here. Core validates + stores; it never generates one itself.
@@ -66,6 +79,16 @@ export async function registerRoutes(
     return c.healing.buildRepairPayload(id);
   });
 
+  app.get("/tests/:id/runs", async (req) => {
+    const { id } = req.params as { id: string };
+    return c.cache.listRuns(id);
+  });
+
+  app.get("/tests/:id/reviews", async (req) => {
+    const { id } = req.params as { id: string };
+    return c.cache.openReviews(id);
+  });
+
   app.post("/tests/:id/maintain", async (req) => {
     const { id } = req.params as { id: string };
     const { stepIds, spec } = MaintainRequest.parse(req.body);
@@ -74,6 +97,9 @@ export async function registerRoutes(
     return result;
   });
 
+  // --- reviews ---
+  app.get("/reviews", async () => c.cache.openReviews());
+
   // --- runs ---
   app.post("/runs", async (req) => {
     const { testId, vars } = RunRequest.parse(req.body);
@@ -81,7 +107,12 @@ export async function registerRoutes(
     const runId = randomUUID();
     // fire-and-forget: client polls GET /runs/:id or streams GET /ws/runs/:id (LLD-008 §3-4)
     c.runner
-      .run(test, { vars, runId, emit: (m) => hub.emit(`run:${runId}`, m) })
+      .run(test, {
+        testId,
+        vars,
+        runId,
+        emit: (m) => hub.emit(`run:${runId}`, m),
+      })
       .catch((e) => req.log.error(e));
     return { runId };
   });

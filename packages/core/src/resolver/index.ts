@@ -1,4 +1,4 @@
-import type { AxiomConfig, Candidate, Resolution } from "@axiom/shared";
+import type { GimbalConfig, Candidate, Resolution } from "@gimbal/shared";
 import { selectBest } from "./banding.js";
 import type { DomCandidate, ResolverInput } from "./base.js";
 import type { CachedEmbedder } from "./embeddings.js";
@@ -23,7 +23,7 @@ export class MultiSignalResolver implements Resolver {
 
   constructor(
     embedder: CachedEmbedder,
-    private bands: AxiomConfig["bands"],
+    private bands: GimbalConfig["bands"],
   ) {
     this.semantics = new SemanticsSignal(embedder);
   }

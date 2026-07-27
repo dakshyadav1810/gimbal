@@ -4,7 +4,7 @@
 **Implements:** [SPEC-001](../specs/SPEC-001-authoring.md), [ADR-002 §1](../adr/ADR-002.md)
 **Depends on:** [LLD-001](./LLD-001-shared-ir.md) (SpecIR), [LLD-008](./LLD-008-mcp-server.md) (MCP)
 
-> Axiom holds no LLM provider client, no API key, and no prompt-building logic. The connected agent
+> Gimbal holds no LLM provider client, no API key, and no prompt-building logic. The connected agent
 > (Claude Code, Cursor, ...) is the LLM — it authors the spec entirely in its own session and hands core
 > a finished `SpecIR`. Core's only job is to supply KDG context, then validate and store what comes back.
 
@@ -71,10 +71,10 @@ async submit(raw) {
 
 - `submit()` is deterministic: same input spec, same validation result. Whatever nondeterminism produced
   the spec's content happened upstream, in the agent's own model call — outside this module and outside
-  Axiom's process entirely.
+  Gimbal's process entirely.
 - Authoring **never** sees the live DOM and **never** emits selectors (that's grounding, LLD-003).
 - It writes only `spec.json` via `storage` (LLD-007); it does not run tests.
-- **No provider key exists anywhere in Axiom's config.** There is nothing to hold (invariant #6 is
+- **No provider key exists anywhere in Gimbal's config.** There is nothing to hold (invariant #6 is
   satisfied trivially — there's no secret to leak because there's no provider client).
 
 ## 6. Maintenance reuses this exact path

@@ -5,6 +5,7 @@ var __export = (target, all) => {
 };
 
 // src/server/app.ts
+import fs from "fs";
 import path from "path";
 import fastifyStatic from "@fastify/static";
 import fastifyWebsocket from "@fastify/websocket";
@@ -16,12 +17,20 @@ import {
 
 // src/server/routes.ts
 import { randomUUID } from "crypto";
-import { MaintainRequest, RunRequest } from "@axiom/shared";
+import { MaintainRequest, RunRequest } from "@gimbal/shared";
 function apiError(code, message) {
   return { error: { code, message } };
 }
 async function registerRoutes(app2, c, hub) {
   app2.get("/health", async () => ({ ok: true, version: "0.1.0" }));
+  await app2.register(
+    async (api) => {
+      registerApiRoutes(api, c, hub);
+    },
+    { prefix: "/api" }
+  );
+}
+function registerApiRoutes(app2, c, hub) {
   app2.post("/tests", async (req, reply) => {
     try {
       const spec = await c.authoring.submit(req.body);
@@ -64,6 +73,14 @@ async function registerRoutes(app2, c, hub) {
     const { id } = req.params;
     return c.healing.buildRepairPayload(id);
   });
+  app2.get("/tests/:id/runs", async (req) => {
+    const { id } = req.params;
+    return c.cache.listRuns(id);
+  });
+  app2.get("/tests/:id/reviews", async (req) => {
+    const { id } = req.params;
+    return c.cache.openReviews(id);
+  });
   app2.post("/tests/:id/maintain", async (req) => {
     const { id } = req.params;
     const { stepIds, spec } = MaintainRequest.parse(req.body);
@@ -71,11 +88,17 @@ async function registerRoutes(app2, c, hub) {
     await c.store.saveGrounded(id, result.after);
     return result;
   });
+  app2.get("/reviews", async () => c.cache.openReviews());
   app2.post("/runs", async (req) => {
     const { testId, vars } = RunRequest.parse(req.body);
     const test = await c.store.loadGrounded(testId);
     const runId = randomUUID();
-    c.runner.run(test, { vars, runId, emit: (m) => hub.emit(`run:${runId}`, m) }).catch((e) => req.log.error(e));
+    c.runner.run(test, {
+      testId,
+      vars,
+      runId,
+      emit: (m) => hub.emit(`run:${runId}`, m)
+    }).catch((e) => req.log.error(e));
     return { runId };
   });
   app2.get("/runs/:id", async (req, reply) => {
@@ -137,9 +160,22 @@ async function buildApp(config2, container2) {
     root: path.join(import.meta.dirname, "..", "static"),
     prefix: "/"
   });
+  fs.mkdirSync(config2.screenshotsDir, { recursive: true });
+  await app2.register(fastifyStatic, {
+    root: path.resolve(config2.screenshotsDir),
+    prefix: "/screenshots/",
+    decorateReply: false
+  });
   const hub = new WsHub();
   await registerRoutes(app2, container2, hub);
   await registerWsRoutes(app2, hub);
+  app2.setNotFoundHandler((req, reply) => {
+    const isServerPath = req.url.startsWith("/api/") || req.url.startsWith("/screenshots/");
+    if (req.method === "GET" && !isServerPath) {
+      return reply.sendFile("index.html");
+    }
+    reply.code(404).send({ error: { code: "not_found", message: "not found" } });
+  });
   app2.setErrorHandler((err, _req, reply) => {
     reply.code(err.statusCode ?? 500).send({ error: { code: "validation", message: err.message } });
   });
@@ -147,20 +183,20 @@ async function buildApp(config2, container2) {
 }
 
 // src/server/config.ts
-import fs from "fs";
-import { AxiomConfig } from "@axiom/shared";
+import fs2 from "fs";
+import { GimbalConfig } from "@gimbal/shared";
 function loadConfig() {
   let fileConfig = {};
   try {
-    fileConfig = JSON.parse(fs.readFileSync("axiom.config.json", "utf-8"));
+    fileConfig = JSON.parse(fs2.readFileSync("gimbal.config.json", "utf-8"));
   } catch {
   }
-  const envConfig = process.env.AXIOM_PORT ? { port: Number(process.env.AXIOM_PORT) } : {};
-  return AxiomConfig.parse({ ...fileConfig, ...envConfig });
+  const envConfig = process.env.GIMBAL_PORT ? { port: Number(process.env.GIMBAL_PORT) } : {};
+  return GimbalConfig.parse({ ...fileConfig, ...envConfig });
 }
 
 // src/authoring/index.ts
-import { lintSpec, SpecIR } from "@axiom/shared";
+import { lintSpec, SpecIR } from "@gimbal/shared";
 
 // src/authoring/emitter.ts
 function normalizeLlmOutput(raw) {
@@ -208,7 +244,7 @@ var EmptyKdgContextProvider = class {
 };
 
 // src/cache/db.ts
-import fs2 from "fs";
+import fs3 from "fs";
 import path2 from "path";
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
@@ -277,14 +313,14 @@ var reviewQueue = sqliteTable("review_queue", {
 
 // src/cache/db.ts
 function openDb(dbPath) {
-  fs2.mkdirSync(path2.dirname(dbPath), { recursive: true });
+  fs3.mkdirSync(path2.dirname(dbPath), { recursive: true });
   const sqlite = new Database(dbPath);
   sqlite.pragma("journal_mode = WAL");
   return drizzle(sqlite, { schema: schema_exports });
 }
 
 // src/cache/index.ts
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 var SqliteCacheStore = class {
   constructor(db) {
     this.db = db;
@@ -378,6 +414,17 @@ var SqliteCacheStore = class {
         screenshot: s.screenshotPath ?? void 0
       }))
     };
+  }
+  listRuns(testId) {
+    const rows = this.db.select().from(runs).where(eq(runs.testId, testId)).orderBy(desc(runs.startedAt)).all();
+    return rows.map((run) => ({
+      runId: run.runId,
+      testId: run.testId,
+      status: run.status,
+      needsReview: run.needsReview,
+      startedAt: run.startedAt,
+      finishedAt: run.finishedAt
+    }));
   }
   appendHeal(entry) {
     this.db.insert(healAudit).values({
@@ -515,8 +562,8 @@ async function evaluateExpectedOutcome(o, ctx) {
 function ok(b) {
   return b ? { ok: true } : { ok: false, reason: "assertion returned false" };
 }
-function getPath(obj, path4) {
-  return path4.split(".").reduce((o, k) => o?.[k], obj);
+function getPath(obj, path5) {
+  return path5.split(".").reduce((o, k) => o?.[k], obj);
 }
 
 // src/execution/adapters/api.ts
@@ -601,6 +648,11 @@ var DbAdapter = class {
   }
 };
 
+// src/execution/adapters/ui.ts
+import fs4 from "fs/promises";
+import path3 from "path";
+import pino from "pino";
+
 // src/execution/act.ts
 function interpolate3(value, vars) {
   if (!value) return "";
@@ -680,15 +732,15 @@ function extractInteractiveElementsInPage() {
     return `/${parts.join("/")}`;
   };
   const contextPathFor = (el) => {
-    const path4 = [];
+    const path5 = [];
     let node = el.parentElement;
     let depth = 0;
     while (node && depth < 5) {
-      path4.push(node.tagName.toLowerCase() + (node.id ? `#${node.id}` : ""));
+      path5.push(node.tagName.toLowerCase() + (node.id ? `#${node.id}` : ""));
       node = node.parentElement;
       depth++;
     }
-    return path4;
+    return path5;
   };
   const regionFor = (el) => {
     if (el.closest('[role="dialog"], .modal, dialog')) return "modal";
@@ -821,6 +873,23 @@ function checkPrecondition(step, page) {
 }
 
 // src/execution/adapters/ui.ts
+var logger = pino({ name: "ui-adapter" });
+async function captureScreenshot(ctx, stepId) {
+  try {
+    const dir = path3.join(ctx.screenshotsDir, ctx.runId);
+    await fs4.mkdir(dir, { recursive: true });
+    const relPath = path3.join(ctx.runId, `${stepId}.jpg`);
+    await ctx.page.screenshot({
+      path: path3.join(ctx.screenshotsDir, relPath),
+      type: "jpeg",
+      quality: 70
+    });
+    return relPath;
+  } catch (e) {
+    logger.warn({ err: e, stepId }, "screenshot capture failed");
+    return void 0;
+  }
+}
 var UiAdapter = class {
   kind = "ui";
   async execute(step, ctx) {
@@ -871,52 +940,58 @@ var UiAdapter = class {
         band
       );
     }
+    let outcomeFailure;
     for (const outcome of step.expectedOutcome) {
       const res = await evaluateExpectedOutcome(outcome, {
         page: ctx.page,
         urlBefore,
         vars: ctx.vars
       });
-      if (!res.ok)
-        return maybeInvert(
-          step,
-          fail(
-            step.id,
-            "EXPECTED_OUTCOME_FAILED",
-            res.reason ?? "",
-            start,
-            selection,
-            band
-          ),
+      if (!res.ok) {
+        outcomeFailure = fail(
+          step.id,
+          "EXPECTED_OUTCOME_FAILED",
+          res.reason ?? "",
+          start,
           selection,
           band
         );
+        break;
+      }
     }
-    for (const a of step.assertions) {
-      const res = await evaluateAssertion(a, {
-        page: ctx.page,
-        vars: ctx.vars
-      });
-      if (!res.ok)
-        return maybeInvert(
-          step,
-          fail(
+    if (!outcomeFailure) {
+      for (const a of step.assertions) {
+        const res = await evaluateAssertion(a, {
+          page: ctx.page,
+          vars: ctx.vars
+        });
+        if (!res.ok) {
+          outcomeFailure = fail(
             step.id,
             "ASSERTION_FAILED",
             res.reason ?? "",
             start,
             selection,
             band
-          ),
-          selection,
-          band
-        );
+          );
+          break;
+        }
+      }
     }
+    const screenshot = await captureScreenshot(ctx, step.id);
+    if (outcomeFailure)
+      return maybeInvert(
+        step,
+        { ...outcomeFailure, screenshot },
+        selection,
+        band
+      );
     const passed = {
       stepId: step.id,
       status: "passed",
       selection,
       band,
+      screenshot,
       durationMs: Date.now() - start
     };
     return maybeInvert(step, passed, selection, band);
@@ -949,6 +1024,7 @@ function maybeInvert(step, result, selection, band) {
       status: "passed",
       selection,
       band,
+      screenshot: result.screenshot,
       durationMs: result.durationMs
     };
   return result;
@@ -981,7 +1057,7 @@ async function openSession(config2) {
 }
 
 // src/execution/verdict.ts
-function aggregate(runId, test, results, startedAt) {
+function aggregate(runId, testId, results, startedAt) {
   const executed = results.filter((r) => r.status !== "skipped");
   const hasFailed = results.some(
     (r) => r.status === "failed" || r.status === "stale"
@@ -989,7 +1065,7 @@ function aggregate(runId, test, results, startedAt) {
   const needsReview = results.some((r) => r.status === "stale");
   return {
     runId,
-    testId: test.flow.id,
+    testId,
     status: !hasFailed && executed.length > 0 ? "passed" : "failed",
     needsReview,
     steps: results,
@@ -1025,10 +1101,12 @@ var PlaywrightTestRunner = class {
       page: session.page,
       vars: { ...test.flow.vars, ...opts.vars ?? {} },
       cache: this.cache,
-      healing: this.healing
+      healing: this.healing,
+      runId,
+      screenshotsDir: this.config.screenshotsDir
     };
     const results = [];
-    opts.emit?.({ type: "run.start", runId, testId: test.flow.id });
+    opts.emit?.({ type: "run.start", runId, testId: opts.testId });
     try {
       await session.page.goto(test.groundedUrl);
       for (const step of test.steps) {
@@ -1046,7 +1124,7 @@ var PlaywrightTestRunner = class {
     } finally {
       await session.close();
     }
-    const report = aggregate(runId, test, results, startedAt);
+    const report = aggregate(runId, opts.testId, results, startedAt);
     this.cache.saveRun(report);
     opts.emit?.({ type: "run.complete", report });
     return report;
@@ -1629,22 +1707,22 @@ var MultiSignalResolver = class {
 
 // src/storage/index.ts
 import { randomUUID as randomUUID3 } from "crypto";
-import fs3 from "fs/promises";
-import { CandidatesDoc, GroundedTest, SpecIR as SpecIR2 } from "@axiom/shared";
+import fs5 from "fs/promises";
+import { CandidatesDoc, GroundedTest, SpecIR as SpecIR2 } from "@gimbal/shared";
 
 // src/storage/layout.ts
-import path3 from "path";
+import path4 from "path";
 function testDir(artifactsDir, testId) {
-  return path3.join(artifactsDir, testId);
+  return path4.join(artifactsDir, testId);
 }
 function specPath(artifactsDir, testId) {
-  return path3.join(testDir(artifactsDir, testId), "spec.json");
+  return path4.join(testDir(artifactsDir, testId), "spec.json");
 }
 function candidatesPath(artifactsDir, testId) {
-  return path3.join(testDir(artifactsDir, testId), "candidates.json");
+  return path4.join(testDir(artifactsDir, testId), "candidates.json");
 }
 function groundedPath(artifactsDir, testId) {
-  return path3.join(testDir(artifactsDir, testId), "grounded.json");
+  return path4.join(testDir(artifactsDir, testId), "grounded.json");
 }
 
 // src/storage/index.ts
@@ -1655,8 +1733,8 @@ var FsArtifactStore = class {
   artifactsDir;
   async saveSpec(spec, testId = randomUUID3()) {
     const validated = SpecIR2.parse(spec);
-    await fs3.mkdir(testDir(this.artifactsDir, testId), { recursive: true });
-    await fs3.writeFile(
+    await fs5.mkdir(testDir(this.artifactsDir, testId), { recursive: true });
+    await fs5.writeFile(
       specPath(this.artifactsDir, testId),
       JSON.stringify(validated, null, 2)
     );
@@ -1664,39 +1742,39 @@ var FsArtifactStore = class {
   }
   async saveGrounded(testId, test) {
     const validated = GroundedTest.parse(test);
-    await fs3.mkdir(testDir(this.artifactsDir, testId), { recursive: true });
-    await fs3.writeFile(
+    await fs5.mkdir(testDir(this.artifactsDir, testId), { recursive: true });
+    await fs5.writeFile(
       groundedPath(this.artifactsDir, testId),
       JSON.stringify(validated, null, 2)
     );
   }
   async saveCandidates(testId, doc) {
     const validated = CandidatesDoc.parse(doc);
-    await fs3.mkdir(testDir(this.artifactsDir, testId), { recursive: true });
-    await fs3.writeFile(
+    await fs5.mkdir(testDir(this.artifactsDir, testId), { recursive: true });
+    await fs5.writeFile(
       candidatesPath(this.artifactsDir, testId),
       JSON.stringify(validated, null, 2)
     );
   }
   async loadSpec(testId) {
-    const raw = await fs3.readFile(specPath(this.artifactsDir, testId), "utf-8");
+    const raw = await fs5.readFile(specPath(this.artifactsDir, testId), "utf-8");
     return SpecIR2.parse(JSON.parse(raw));
   }
   async loadGrounded(testId) {
-    const raw = await fs3.readFile(
+    const raw = await fs5.readFile(
       groundedPath(this.artifactsDir, testId),
       "utf-8"
     );
     return GroundedTest.parse(JSON.parse(raw));
   }
   async list() {
-    await fs3.mkdir(this.artifactsDir, { recursive: true });
-    const ids = await fs3.readdir(this.artifactsDir);
+    await fs5.mkdir(this.artifactsDir, { recursive: true });
+    const ids = await fs5.readdir(this.artifactsDir);
     const out = [];
     for (const testId of ids) {
       try {
         const spec = await this.loadSpec(testId);
-        const grounded = await fs3.access(groundedPath(this.artifactsDir, testId)).then(() => true).catch(() => false);
+        const grounded = await fs5.access(groundedPath(this.artifactsDir, testId)).then(() => true).catch(() => false);
         out.push({ testId, name: spec.flow.name, grounded });
       } catch {
       }
@@ -1704,7 +1782,7 @@ var FsArtifactStore = class {
     return out;
   }
   async delete(testId) {
-    await fs3.rm(testDir(this.artifactsDir, testId), {
+    await fs5.rm(testDir(this.artifactsDir, testId), {
       recursive: true,
       force: true
     });

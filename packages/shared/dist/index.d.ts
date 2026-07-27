@@ -10535,12 +10535,13 @@ declare const GroundedTest: z.ZodObject<Omit<{
 type GroundedTest = z.infer<typeof GroundedTest>;
 declare function isStepGrounded(step: GroundedStep): boolean;
 
-declare const AxiomConfig: z.ZodObject<{
+declare const GimbalConfig: z.ZodObject<{
     port: z.ZodDefault<z.ZodNumber>;
     browser: z.ZodDefault<z.ZodEnum<["chromium", "firefox", "webkit"]>>;
     headless: z.ZodDefault<z.ZodBoolean>;
     dbPath: z.ZodDefault<z.ZodString>;
     artifactsDir: z.ZodDefault<z.ZodString>;
+    screenshotsDir: z.ZodDefault<z.ZodString>;
     embeddingModel: z.ZodDefault<z.ZodString>;
     bands: z.ZodDefault<z.ZodObject<{
         high: z.ZodDefault<z.ZodNumber>;
@@ -10582,6 +10583,7 @@ declare const AxiomConfig: z.ZodObject<{
     headless: boolean;
     dbPath: string;
     artifactsDir: string;
+    screenshotsDir: string;
     embeddingModel: string;
     bands: {
         high: number;
@@ -10601,6 +10603,7 @@ declare const AxiomConfig: z.ZodObject<{
     headless?: boolean | undefined;
     dbPath?: string | undefined;
     artifactsDir?: string | undefined;
+    screenshotsDir?: string | undefined;
     embeddingModel?: string | undefined;
     bands?: {
         high?: number | undefined;
@@ -10611,7 +10614,7 @@ declare const AxiomConfig: z.ZodObject<{
         navMs?: number | undefined;
     } | undefined;
 }>;
-type AxiomConfig = z.infer<typeof AxiomConfig>;
+type GimbalConfig = z.infer<typeof GimbalConfig>;
 
 declare const GroundRequest: z.ZodObject<{
     specId: z.ZodString;
@@ -17996,6 +17999,89 @@ declare const RepairPayload: z.ZodObject<{
     kdg?: unknown;
 }>;
 type RepairPayload = z.infer<typeof RepairPayload>;
+declare const RunSummary: z.ZodObject<Omit<{
+    runId: z.ZodString;
+    testId: z.ZodString;
+    status: z.ZodEnum<["passed", "failed"]>;
+    needsReview: z.ZodDefault<z.ZodBoolean>;
+    steps: z.ZodArray<z.ZodObject<{
+        stepId: z.ZodString;
+        status: z.ZodEnum<["passed", "failed", "warning", "skipped", "stale"]>;
+        selection: z.ZodOptional<z.ZodEnum<["cached", "resolver", "none"]>>;
+        band: z.ZodOptional<z.ZodEnum<["high", "medium", "low"]>>;
+        failure: z.ZodOptional<z.ZodObject<{
+            reason: z.ZodString;
+            message: z.ZodString;
+        }, "strip", z.ZodTypeAny, {
+            message: string;
+            reason: string;
+        }, {
+            message: string;
+            reason: string;
+        }>>;
+        durationMs: z.ZodNumber;
+        screenshot: z.ZodOptional<z.ZodString>;
+    }, "strip", z.ZodTypeAny, {
+        status: "stale" | "passed" | "failed" | "warning" | "skipped";
+        stepId: string;
+        durationMs: number;
+        band?: "high" | "medium" | "low" | undefined;
+        selection?: "cached" | "resolver" | "none" | undefined;
+        failure?: {
+            message: string;
+            reason: string;
+        } | undefined;
+        screenshot?: string | undefined;
+    }, {
+        status: "stale" | "passed" | "failed" | "warning" | "skipped";
+        stepId: string;
+        durationMs: number;
+        band?: "high" | "medium" | "low" | undefined;
+        selection?: "cached" | "resolver" | "none" | undefined;
+        failure?: {
+            message: string;
+            reason: string;
+        } | undefined;
+        screenshot?: string | undefined;
+    }>, "many">;
+    startedAt: z.ZodString;
+    finishedAt: z.ZodString;
+}, "steps">, "strip", z.ZodTypeAny, {
+    status: "passed" | "failed";
+    testId: string;
+    runId: string;
+    needsReview: boolean;
+    startedAt: string;
+    finishedAt: string;
+}, {
+    status: "passed" | "failed";
+    testId: string;
+    runId: string;
+    startedAt: string;
+    finishedAt: string;
+    needsReview?: boolean | undefined;
+}>;
+type RunSummary = z.infer<typeof RunSummary>;
+declare const ReviewRecord: z.ZodObject<{
+    testId: z.ZodString;
+    stepId: z.ZodString;
+    url: z.ZodString;
+    screenshotPath: z.ZodOptional<z.ZodString>;
+    candidatesJson: z.ZodOptional<z.ZodString>;
+}, "strip", z.ZodTypeAny, {
+    url: string;
+    testId: string;
+    stepId: string;
+    screenshotPath?: string | undefined;
+    candidatesJson?: string | undefined;
+}, {
+    url: string;
+    testId: string;
+    stepId: string;
+    screenshotPath?: string | undefined;
+    candidatesJson?: string | undefined;
+}>;
+type ReviewRecord = z.infer<typeof ReviewRecord>;
 
 declare const WsMessage: z.ZodDiscriminatedUnion<"type", [z.ZodObject<{
     type: z.ZodLiteral<"run.start">;
@@ -18250,4 +18336,4 @@ declare const WsMessage: z.ZodDiscriminatedUnion<"type", [z.ZodObject<{
 }>]>;
 type WsMessage = z.infer<typeof WsMessage>;
 
-export { ActionType, ApiError, ApiStep, Assertion, AxiomConfig, Band, BoundingBox, Candidate, CandidatesDoc, DbStep, ExpectedOutcome, Generalization, GroundRequest, GroundedResolution, GroundedStep, GroundedTarget, GroundedTest, GroundedUiStep, MaintainRequest, OnFailure, Precondition, RepairPayload, Resolution, ResolutionStatus, RunReport, RunRequest, Score, SignalName, SignalScores, SpecIR, Step, StepKind, StepResult, Tier1Target, UiStep, WsMessage, isStepGrounded, lintSpec };
+export { ActionType, ApiError, ApiStep, Assertion, Band, BoundingBox, Candidate, CandidatesDoc, DbStep, ExpectedOutcome, Generalization, GimbalConfig, GroundRequest, GroundedResolution, GroundedStep, GroundedTarget, GroundedTest, GroundedUiStep, MaintainRequest, OnFailure, Precondition, RepairPayload, Resolution, ResolutionStatus, ReviewRecord, RunReport, RunRequest, RunSummary, Score, SignalName, SignalScores, SpecIR, Step, StepKind, StepResult, Tier1Target, UiStep, WsMessage, isStepGrounded, lintSpec };

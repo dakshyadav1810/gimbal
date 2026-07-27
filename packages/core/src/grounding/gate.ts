@@ -3,7 +3,7 @@ import type {
   Candidate,
   GroundedResolution,
   Resolution,
-} from "@axiom/shared";
+} from "@gimbal/shared";
 
 export function accept(band: Band): boolean {
   return band !== "low";

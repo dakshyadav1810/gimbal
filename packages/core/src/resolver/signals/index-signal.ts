@@ -1,4 +1,4 @@
-import type { Tier1Target } from "@axiom/shared";
+import type { Tier1Target } from "@gimbal/shared";
 import type { DomCandidate, PageContext, SignalStrategy } from "../base.js";
 
 // "is it identified by position?" — last-resort, unweighted tiebreak (LLD-004 §3, §5)

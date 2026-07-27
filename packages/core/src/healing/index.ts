@@ -1,5 +1,5 @@
 import type { Page } from "playwright";
-import type { GroundedTest, RepairPayload, SpecIR } from "@axiom/shared";
+import type { GroundedTest, RepairPayload, SpecIR } from "@gimbal/shared";
 import type { AuthoringService } from "../authoring/index.js";
 import type { CacheStore } from "../cache/index.js";
 import type { GroundingService } from "../grounding/index.js";

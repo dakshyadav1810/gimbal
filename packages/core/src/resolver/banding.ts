@@ -1,9 +1,9 @@
-import type { AxiomConfig, Band, Generalization } from "@axiom/shared";
+import type { GimbalConfig, Band, Generalization } from "@gimbal/shared";
 import type { DomCandidate } from "./base.js";
 
 export const CONFIDENCE_MARGIN = 0.15;
 
-export function toBand(score: number, bands: AxiomConfig["bands"]): Band {
+export function toBand(score: number, bands: GimbalConfig["bands"]): Band {
   if (score >= bands.high) return "high";
   if (score >= bands.medium) return "medium";
   return "low";
@@ -19,7 +19,7 @@ export interface Scored {
 export function selectBest(
   scored: Scored[],
   generalization: Generalization,
-  bands: AxiomConfig["bands"],
+  bands: GimbalConfig["bands"],
 ): { winner: Scored | null; band: Band; ambiguous: boolean } {
   if (scored.length === 0)
     return { winner: null, band: "low", ambiguous: false };

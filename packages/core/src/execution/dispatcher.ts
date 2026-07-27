@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
 import type {
-  AxiomConfig,
+  GimbalConfig,
   GroundedTest,
   RunReport,
   StepResult,
   WsMessage,
-} from "@axiom/shared";
+} from "@gimbal/shared";
 import type { CacheStore } from "../cache/index.js";
 import type { HealingService } from "../healing/index.js";
 import { ApiAdapter } from "./adapters/api.js";
@@ -19,6 +19,7 @@ export interface TestRunner {
   run(
     test: GroundedTest,
     opts: {
+      testId: string;
       vars?: Record<string, string>;
       emit?: (m: WsMessage) => void;
       runId?: string;
@@ -38,7 +39,7 @@ export class PlaywrightTestRunner implements TestRunner {
   };
 
   constructor(
-    private config: AxiomConfig,
+    private config: GimbalConfig,
     private cache: CacheStore,
     private healing: HealingService,
   ) {}
@@ -46,6 +47,7 @@ export class PlaywrightTestRunner implements TestRunner {
   async run(
     test: GroundedTest,
     opts: {
+      testId: string;
       vars?: Record<string, string>;
       emit?: (m: WsMessage) => void;
       runId?: string;
@@ -60,10 +62,12 @@ export class PlaywrightTestRunner implements TestRunner {
       vars: { ...test.flow.vars, ...(opts.vars ?? {}) },
       cache: this.cache,
       healing: this.healing,
+      runId,
+      screenshotsDir: this.config.screenshotsDir,
     };
     const results: StepResult[] = [];
 
-    opts.emit?.({ type: "run.start", runId, testId: test.flow.id });
+    opts.emit?.({ type: "run.start", runId, testId: opts.testId });
     try {
       await session.page.goto(test.groundedUrl);
       for (const step of test.steps) {
@@ -82,7 +86,7 @@ export class PlaywrightTestRunner implements TestRunner {
       await session.close();
     }
 
-    const report = aggregate(runId, test, results, startedAt);
+    const report = aggregate(runId, opts.testId, results, startedAt);
     this.cache.saveRun(report);
     opts.emit?.({ type: "run.complete", report });
     return report;

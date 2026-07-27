@@ -1,4 +1,4 @@
-import type { WsMessage } from "@axiom/shared";
+import type { WsMessage } from "@gimbal/shared";
 
 type Socket = { send(data: string): void };
 

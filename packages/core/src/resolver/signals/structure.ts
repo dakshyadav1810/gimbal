@@ -1,4 +1,4 @@
-import type { Tier1Target } from "@axiom/shared";
+import type { Tier1Target } from "@gimbal/shared";
 import type { DomCandidate, PageContext, SignalStrategy } from "../base.js";
 
 const ROLE_SYNONYMS: Record<string, string[]> = {

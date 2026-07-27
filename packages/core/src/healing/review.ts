@@ -1,4 +1,4 @@
-import type { Candidate } from "@axiom/shared";
+import type { Candidate } from "@gimbal/shared";
 import type { CacheStore } from "../cache/index.js";
 
 export function enqueue(

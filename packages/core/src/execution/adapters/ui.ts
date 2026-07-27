@@ -1,4 +1,7 @@
-import type { StepResult, UiStep } from "@axiom/shared";
+import fs from "node:fs/promises";
+import path from "node:path";
+import type { StepResult, UiStep } from "@gimbal/shared";
+import pino from "pino";
 import { act } from "../act.js";
 import { evaluateAssertion, evaluateExpectedOutcome } from "../assert.js";
 import { locate } from "../locate.js";
@@ -7,6 +10,29 @@ import {
   type StepAdapter,
   checkPrecondition,
 } from "../types.js";
+
+const logger = pino({ name: "ui-adapter" });
+
+// Capture failure must never fail the step — observability, not correctness (LLD-010 §2.4).
+async function captureScreenshot(
+  ctx: RunContext,
+  stepId: string,
+): Promise<string | undefined> {
+  try {
+    const dir = path.join(ctx.screenshotsDir, ctx.runId);
+    await fs.mkdir(dir, { recursive: true });
+    const relPath = path.join(ctx.runId, `${stepId}.jpg`);
+    await ctx.page.screenshot({
+      path: path.join(ctx.screenshotsDir, relPath),
+      type: "jpeg",
+      quality: 70,
+    });
+    return relPath;
+  } catch (e) {
+    logger.warn({ err: e, stepId }, "screenshot capture failed");
+    return undefined;
+  }
+}
 
 export class UiAdapter implements StepAdapter {
   readonly kind = "ui" as const;
@@ -66,53 +92,60 @@ export class UiAdapter implements StepAdapter {
       );
     }
 
+    let outcomeFailure: StepResult | undefined;
     for (const outcome of step.expectedOutcome) {
       const res = await evaluateExpectedOutcome(outcome, {
         page: ctx.page,
         urlBefore,
         vars: ctx.vars,
       });
-      if (!res.ok)
-        return maybeInvert(
-          step,
-          fail(
-            step.id,
-            "EXPECTED_OUTCOME_FAILED",
-            res.reason ?? "",
-            start,
-            selection,
-            band,
-          ),
+      if (!res.ok) {
+        outcomeFailure = fail(
+          step.id,
+          "EXPECTED_OUTCOME_FAILED",
+          res.reason ?? "",
+          start,
           selection,
           band,
         );
+        break;
+      }
     }
-    for (const a of step.assertions) {
-      const res = await evaluateAssertion(a, {
-        page: ctx.page,
-        vars: ctx.vars,
-      });
-      if (!res.ok)
-        return maybeInvert(
-          step,
-          fail(
+    if (!outcomeFailure) {
+      for (const a of step.assertions) {
+        const res = await evaluateAssertion(a, {
+          page: ctx.page,
+          vars: ctx.vars,
+        });
+        if (!res.ok) {
+          outcomeFailure = fail(
             step.id,
             "ASSERTION_FAILED",
             res.reason ?? "",
             start,
             selection,
             band,
-          ),
-          selection,
-          band,
-        );
+          );
+          break;
+        }
+      }
     }
+
+    const screenshot = await captureScreenshot(ctx, step.id);
+    if (outcomeFailure)
+      return maybeInvert(
+        step,
+        { ...outcomeFailure, screenshot },
+        selection,
+        band,
+      );
 
     const passed: StepResult = {
       stepId: step.id,
       status: "passed",
       selection,
       band,
+      screenshot,
       durationMs: Date.now() - start,
     };
     return maybeInvert(step, passed, selection, band);
@@ -160,6 +193,7 @@ function maybeInvert(
       status: "passed",
       selection,
       band,
+      screenshot: result.screenshot,
       durationMs: result.durationMs,
     };
   return result;

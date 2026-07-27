@@ -1,4 +1,4 @@
-import type { Band, Candidate, GroundedTest } from "@axiom/shared";
+import type { Band, Candidate, GroundedTest } from "@gimbal/shared";
 import type { Page } from "playwright";
 import type { CacheStore } from "../cache/index.js";
 import type { GroundingService } from "../grounding/index.js";

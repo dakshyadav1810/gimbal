@@ -1,32 +1,40 @@
-import { useState } from "react";
-import { JsonEditor } from "./components/JsonEditor.js";
-import { RunView } from "./components/RunView.js";
-import { TestList } from "./components/TestList.js";
+import { Redirect, Route, Switch } from "wouter";
+import { Nav } from "./components/Nav.js";
+import { RunDetailPage } from "./pages/RunDetailPage.js";
+import { RunHistoryPage } from "./pages/RunHistoryPage.js";
+import { ReviewDetailPage } from "./pages/ReviewDetailPage.js";
+import { ReviewQueuePage } from "./pages/ReviewQueuePage.js";
+import { TestDetailPage } from "./pages/TestDetailPage.js";
+import { TestListPage } from "./pages/TestListPage.js";
 
 // Thin developer tool — never executes tests itself, only calls core (invariant #3, SPEC-005 §3).
 export function App() {
-  const [testId, setTestId] = useState<string | null>(null);
-
   return (
-    <div
-      style={{
-        display: "flex",
-        gap: 24,
-        padding: 16,
-        fontFamily: "sans-serif",
-      }}
-    >
-      <div style={{ minWidth: 200 }}>
-        <h2>Axiom</h2>
-        <TestList onSelect={setTestId} />
-      </div>
-      {testId && (
-        <div style={{ flex: 1 }}>
-          <h3>{testId}</h3>
-          <RunView testId={testId} />
-          <JsonEditor testId={testId} />
-        </div>
-      )}
+    <div className="min-h-screen bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+      <Nav />
+      <Switch>
+        <Route path="/">
+          <Redirect to="/tests" />
+        </Route>
+        <Route path="/tests" component={TestListPage} />
+        <Route path="/tests/:id">
+          {(params) => <TestDetailPage testId={params.id} />}
+        </Route>
+        <Route path="/tests/:id/runs">
+          {(params) => <RunHistoryPage testId={params.id} />}
+        </Route>
+        <Route path="/tests/:id/runs/:runId">
+          {(params) => (
+            <RunDetailPage testId={params.id} runId={params.runId} />
+          )}
+        </Route>
+        <Route path="/reviews" component={ReviewQueuePage} />
+        <Route path="/reviews/:testId/:stepId">
+          {(params) => (
+            <ReviewDetailPage testId={params.testId} stepId={params.stepId} />
+          )}
+        </Route>
+      </Switch>
     </div>
   );
 }

@@ -3,7 +3,7 @@ import { Band } from "./enums.js";
 import { SpecIR } from "./spec.js";
 import { GroundedTest } from "./groundedTest.js";
 
-// No AuthorRequest: Axiom never calls an LLM provider. The connected agent authors the SpecIR entirely
+// No AuthorRequest: Gimbal never calls an LLM provider. The connected agent authors the SpecIR entirely
 // in its own session and calls submitSpec with the finished spec.
 
 export const GroundRequest = z.object({ specId: z.string() });
@@ -54,3 +54,19 @@ export const RepairPayload = z.object({
   kdg: z.unknown(), // KDG data structure deferred (ADR-002 out-of-scope)
 });
 export type RepairPayload = z.infer<typeof RepairPayload>;
+
+// LLD-010 §2.1: thin projection of RunReport for the run-history list — no steps[] body.
+export const RunSummary = RunReport.omit({ steps: true });
+export type RunSummary = z.infer<typeof RunSummary>;
+
+// LLD-010 §2.2 / §4: the REST-facing twin of the ReviewRecord interface in
+// packages/core/src/cache/index.ts — that interface remains CacheStore's internal storage contract;
+// this is the one API-facing definition the dashboard and core routes both import.
+export const ReviewRecord = z.object({
+  testId: z.string(),
+  stepId: z.string(),
+  url: z.string(),
+  screenshotPath: z.string().optional(),
+  candidatesJson: z.string().optional(),
+});
+export type ReviewRecord = z.infer<typeof ReviewRecord>;

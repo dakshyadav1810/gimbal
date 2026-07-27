@@ -1,4 +1,4 @@
-import type { Generalization, Tier1Target } from "@axiom/shared";
+import type { Generalization, Tier1Target } from "@gimbal/shared";
 import type { DomCandidate, ResolverInput } from "../resolver/base.js";
 import { characterizePage } from "../resolver/router.js";
 

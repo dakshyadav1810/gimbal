@@ -1,4 +1,4 @@
-import type { Band } from "@axiom/shared";
+import type { Band } from "@gimbal/shared";
 import type { CacheStore } from "../cache/index.js";
 
 export function audit(

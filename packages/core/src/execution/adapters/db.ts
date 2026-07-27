@@ -1,4 +1,4 @@
-import type { DbStep, StepResult } from "@axiom/shared";
+import type { DbStep, StepResult } from "@gimbal/shared";
 import { evaluateAssertion } from "../assert.js";
 import type { RunContext, StepAdapter } from "../types.js";
 

@@ -1,19 +1,19 @@
 {
-  "name": "@axiom/cli",
+  "name": "@gimbal/cli",
   "version": "0.1.0",
   "license": "BUSL-1.1",
   "private": true,
   "type": "module",
   "bin": {
-    "axiom": "./dist/index.js"
+    "gimbal": "./dist/index.js"
   },
   "scripts": {
     "build": "tsup src/index.ts --format esm --clean --sourcemap",
     "dev": "tsx src/index.ts"
   },
   "dependencies": {
-    "@axiom/core": "workspace:*",
-    "@axiom/shared": "workspace:*",
+    "@gimbal/core": "workspace:*",
+    "@gimbal/shared": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.2.0",
     "commander": "^12.1.0",
     "execa": "^9.5.2",

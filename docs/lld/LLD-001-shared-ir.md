@@ -151,7 +151,7 @@ export type SpecIR = z.infer<typeof SpecIR>;
 
 There is no authoring-request DTO here — the connected agent composes the `SpecIR` entirely in its own
 session and calls `submitSpec` (LLD-008) with the finished spec. Nothing upstream of `submitSpec` is a
-shared type, because nothing upstream of it runs inside Axiom.
+shared type, because nothing upstream of it runs inside Gimbal.
 
 ## 5. Grounding output (`candidates.ts` + `resolution.ts`) — Tier-2
 
@@ -247,12 +247,12 @@ export type GroundedTest = z.infer<typeof GroundedTest>;
 ## 7. Config, DTOs & WS messages (`config.ts`, `dto.ts`, `ws.ts`)
 
 ```ts
-export const AxiomConfig = z.object({
+export const GimbalConfig = z.object({
   port: z.number().default(4319),
   browser: z.enum(["chromium","firefox","webkit"]).default("chromium"),
   headless: z.boolean().default(true),
-  dbPath: z.string().default(".axiom/cache.db"),
-  artifactsDir: z.string().default(".axiom/tests"),
+  dbPath: z.string().default(".gimbal/cache.db"),
+  artifactsDir: z.string().default(".gimbal/tests"),
   embeddingModel: z.string().default("Xenova/all-MiniLM-L6-v2"),
   bands: z.object({ high: Score.default(0.7), medium: Score.default(0.5) }).default({}),
   timeouts: z.object({ actionMs: z.number().default(15000), navMs: z.number().default(30000) }).default({}),

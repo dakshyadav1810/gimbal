@@ -30,40 +30,44 @@ var CoreClient = class {
   getKdg(entryUrl) {
     return this.req(
       "GET",
-      `/kdg?entry=${encodeURIComponent(entryUrl)}`
+      `/api/kdg?entry=${encodeURIComponent(entryUrl)}`
     );
   }
   submitSpec(spec) {
-    return this.req("POST", "/tests", spec);
+    return this.req(
+      "POST",
+      "/api/tests",
+      spec
+    );
   }
   groundTest(testId) {
     return this.req(
       "POST",
-      `/tests/${testId}/ground`
+      `/api/tests/${testId}/ground`
     );
   }
   listTests() {
-    return this.req("GET", "/tests");
+    return this.req("GET", "/api/tests");
   }
   getTest(testId) {
-    return this.req("GET", `/tests/${testId}`);
+    return this.req("GET", `/api/tests/${testId}`);
   }
   deleteTest(testId) {
-    return this.req("DELETE", `/tests/${testId}`);
+    return this.req("DELETE", `/api/tests/${testId}`);
   }
   runTest(req) {
-    return this.req("POST", "/runs", req);
+    return this.req("POST", "/api/runs", req);
   }
   getReport(runId) {
-    return this.req("GET", `/runs/${runId}`);
+    return this.req("GET", `/api/runs/${runId}`);
   }
   getRepairPayload(testId) {
-    return this.req("GET", `/tests/${testId}/repair`);
+    return this.req("GET", `/api/tests/${testId}/repair`);
   }
   maintain(testId, req) {
     return this.req(
       "POST",
-      `/tests/${testId}/maintain`,
+      `/api/tests/${testId}/maintain`,
       req
     );
   }
@@ -71,15 +75,15 @@ var CoreClient = class {
 
 // src/config.ts
 import fs from "fs";
-import { AxiomConfig } from "@axiom/shared";
+import { GimbalConfig } from "@gimbal/shared";
 function loadConfig(flags = {}) {
   let fileConfig = {};
   try {
-    fileConfig = JSON.parse(fs.readFileSync("axiom.config.json", "utf-8"));
+    fileConfig = JSON.parse(fs.readFileSync("gimbal.config.json", "utf-8"));
   } catch {
   }
-  const envConfig = process.env.AXIOM_PORT ? { port: Number(process.env.AXIOM_PORT) } : {};
-  return AxiomConfig.parse({ ...fileConfig, ...envConfig, ...flags });
+  const envConfig = process.env.GIMBAL_PORT ? { port: Number(process.env.GIMBAL_PORT) } : {};
+  return GimbalConfig.parse({ ...fileConfig, ...envConfig, ...flags });
 }
 function baseUrl(config) {
   return `http://127.0.0.1:${config.port}`;
@@ -89,7 +93,7 @@ function baseUrl(config) {
 import fs2 from "fs";
 import path from "path";
 import { execa } from "execa";
-var PID_FILE = path.join(".axiom", "axiom.pid");
+var PID_FILE = path.join(".gimbal", "gimbal.pid");
 async function waitForHealth(url, timeoutMs) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -104,11 +108,11 @@ async function waitForHealth(url, timeoutMs) {
 }
 async function startCore(config, coreEntry) {
   const child = execa("node", [coreEntry], {
-    env: { ...process.env, AXIOM_PORT: String(config.port) },
+    env: { ...process.env, GIMBAL_PORT: String(config.port) },
     detached: true,
     stdio: "ignore"
   });
-  fs2.mkdirSync(".axiom", { recursive: true });
+  fs2.mkdirSync(".gimbal", { recursive: true });
   fs2.writeFileSync(PID_FILE, String(child.pid));
   child.unref();
   await waitForHealth(baseUrl(config), 15e3);
@@ -126,12 +130,12 @@ function stopCore() {
 }
 
 // src/mcp/server.ts
-import { RunRequest, SpecIR } from "@axiom/shared";
+import { RunRequest, SpecIR } from "@gimbal/shared";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 function buildMcpServer(client) {
-  const server = new McpServer({ name: "axiom", version: "0.1.0" });
+  const server = new McpServer({ name: "gimbal", version: "0.1.0" });
   server.tool("getMap", { entryUrl: z.string() }, async ({ entryUrl }) => {
     const kdg = await client.getKdg(entryUrl);
     return { content: [{ type: "text", text: JSON.stringify(kdg) }] };
@@ -188,16 +192,16 @@ async function startMcp(client) {
 
 // src/commands.ts
 function registerCommands(program2) {
-  program2.command("init").description("scaffold .axiom/ + axiom.config.json in the project").action(async () => {
+  program2.command("init").description("scaffold .gimbal/ + gimbal.config.json in the project").action(async () => {
     const fs3 = await import("fs");
-    fs3.mkdirSync(".axiom/tests", { recursive: true });
-    if (!fs3.existsSync("axiom.config.json")) {
+    fs3.mkdirSync(".gimbal/tests", { recursive: true });
+    if (!fs3.existsSync("gimbal.config.json")) {
       fs3.writeFileSync(
-        "axiom.config.json",
+        "gimbal.config.json",
         JSON.stringify({ port: 4319 }, null, 2)
       );
     }
-    console.log("initialized .axiom/ and axiom.config.json");
+    console.log("initialized .gimbal/ and gimbal.config.json");
   });
   program2.command("start").description("spawn core, start MCP (stdio), open dashboard").action(async () => {
     const config = loadConfig();
@@ -210,7 +214,7 @@ function registerCommands(program2) {
   });
   program2.command("stop").description("graceful shutdown of core").action(() => {
     console.log(
-      stopCore() ? "core stopped" : "no running core found (.axiom/axiom.pid missing)"
+      stopCore() ? "core stopped" : "no running core found (.gimbal/gimbal.pid missing)"
     );
   });
   program2.command("ground").argument("<testId>").description("first-run grounding").action(async (testId) => {
@@ -236,7 +240,7 @@ function registerCommands(program2) {
     const payload = await client.getRepairPayload(testId);
     console.log(JSON.stringify(payload, null, 2));
     console.log(
-      "\nHand this to your connected coding agent, then have it call `updateTest` (or `axiom heal` again after it submits a fix) \u2014 Axiom has no LLM of its own to repair this automatically."
+      "\nHand this to your connected coding agent, then have it call `updateTest` (or `gimbal heal` again after it submits a fix) \u2014 Gimbal has no LLM of its own to repair this automatically."
     );
   });
   program2.command("report").argument("<runId>").description("print a stored run report").action(async (runId) => {
@@ -256,12 +260,12 @@ async function pollReport(client, runId) {
 }
 async function resolveCoreEntry() {
   const { createRequire } = await import("module");
-  return createRequire(import.meta.url).resolve("@axiom/core");
+  return createRequire(import.meta.url).resolve("@gimbal/core");
 }
 
 // src/index.ts
-var program = new Command("axiom").description(
-  "Axiom \u2014 deterministic-first AI-native testing platform"
+var program = new Command("gimbal").description(
+  "Gimbal \u2014 deterministic-first AI-native testing platform"
 );
 registerCommands(program);
 program.parseAsync(process.argv);

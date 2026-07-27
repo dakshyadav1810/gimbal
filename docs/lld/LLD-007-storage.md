@@ -28,13 +28,13 @@ core/src/cache/             # ephemeral cache (SQLite)
 Source of truth, committed to git, human-diffable JSON validated by `shared` schemas.
 
 ```
-<project>/.axiom/
+<project>/.gimbal/
 ├── tests/
 │   └── <testId>/
 │       ├── spec.json           # SpecIR (LLD-001 §4)        — authored, DOM-blind
 │       ├── candidates.json     # CandidatesDoc (LLD-001 §5) — grounding output
 │       └── grounded.json       # GroundedTest (LLD-001 §6)  — runnable artifact
-└── axiom.config.json           # AxiomConfig (LLD-001 §7)
+└── gimbal.config.json           # GimbalConfig (LLD-001 §7)
 ```
 
 ```ts
@@ -52,7 +52,7 @@ All writes re-validate against the Zod schema before hitting disk (fail closed o
 
 ## 3. Tier 2 — SQLite cache (`cache/`, Drizzle + better-sqlite3)
 
-Regenerable, git-ignored (`.axiom/cache.db`). Holds the runtime fast path, embeddings, and history.
+Regenerable, git-ignored (`.gimbal/cache.db`). Holds the runtime fast path, embeddings, and history.
 
 | Table | Purpose | Key columns |
 |---|---|---|
@@ -89,7 +89,7 @@ export interface CacheStore {
 ## 5. Dual backend (thin, future)
 
 For the paid/cloud tier, `CacheStore`/`ArtifactStore` are interfaces; a Supabase-backed implementation
-(`@supabase/supabase-js`) can replace SQLite/local-FS behind the same contract. Local `npx axiom` uses
+(`@supabase/supabase-js`) can replace SQLite/local-FS behind the same contract. Local `npx gimbal` uses
 SQLite + local FS by default; no cloud dependency. (Kept thin this pass.)
 
 ## 6. Boundaries & guarantees

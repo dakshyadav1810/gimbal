@@ -1,13 +1,13 @@
-import { RunRequest, SpecIR } from "@axiom/shared";
+import { RunRequest, SpecIR } from "@gimbal/shared";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import type { CoreClient } from "../client.js";
 
-// Agent-facing MCP control plane, hosted by `axiom start`. Every tool proxies to core over REST —
+// Agent-facing MCP control plane, hosted by `gimbal start`. Every tool proxies to core over REST —
 // no in-process shortcut (invariant #7, LLD-008).
 export function buildMcpServer(client: CoreClient): McpServer {
-  const server = new McpServer({ name: "axiom", version: "0.1.0" });
+  const server = new McpServer({ name: "gimbal", version: "0.1.0" });
 
   server.tool("getMap", { entryUrl: z.string() }, async ({ entryUrl }) => {
     const kdg = await client.getKdg(entryUrl);

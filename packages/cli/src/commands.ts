@@ -8,17 +8,17 @@ import { startMcp } from "./mcp/server.js";
 export function registerCommands(program: Command) {
   program
     .command("init")
-    .description("scaffold .axiom/ + axiom.config.json in the project")
+    .description("scaffold .gimbal/ + gimbal.config.json in the project")
     .action(async () => {
       const fs = await import("node:fs");
-      fs.mkdirSync(".axiom/tests", { recursive: true });
-      if (!fs.existsSync("axiom.config.json")) {
+      fs.mkdirSync(".gimbal/tests", { recursive: true });
+      if (!fs.existsSync("gimbal.config.json")) {
         fs.writeFileSync(
-          "axiom.config.json",
+          "gimbal.config.json",
           JSON.stringify({ port: 4319 }, null, 2),
         );
       }
-      console.log("initialized .axiom/ and axiom.config.json");
+      console.log("initialized .gimbal/ and gimbal.config.json");
     });
 
   program
@@ -41,11 +41,11 @@ export function registerCommands(program: Command) {
       console.log(
         stopCore()
           ? "core stopped"
-          : "no running core found (.axiom/axiom.pid missing)",
+          : "no running core found (.gimbal/gimbal.pid missing)",
       );
     });
 
-  // No `axiom author` command: Axiom has no LLM client. A spec can only be created by a connected
+  // No `gimbal author` command: Gimbal has no LLM client. A spec can only be created by a connected
   // agent calling `submitSpec` over MCP (SPEC-001 §2).
 
   program
@@ -87,8 +87,8 @@ export function registerCommands(program: Command) {
       const payload = await client.getRepairPayload(testId);
       console.log(JSON.stringify(payload, null, 2));
       console.log(
-        "\nHand this to your connected coding agent, then have it call `updateTest` (or `axiom heal` " +
-          "again after it submits a fix) — Axiom has no LLM of its own to repair this automatically.",
+        "\nHand this to your connected coding agent, then have it call `updateTest` (or `gimbal heal` " +
+          "again after it submits a fix) — Gimbal has no LLM of its own to repair this automatically.",
       );
     });
 
@@ -114,8 +114,8 @@ async function pollReport(client: CoreClient, runId: string) {
 }
 
 // Resolves core's file path only, to hand to execa as a child process — never imported/called
-// directly (invariant #7). @axiom/core is a dependency solely so this path resolves once published.
+// directly (invariant #7). @gimbal/core is a dependency solely so this path resolves once published.
 async function resolveCoreEntry(): Promise<string> {
   const { createRequire } = await import("node:module");
-  return createRequire(import.meta.url).resolve("@axiom/core");
+  return createRequire(import.meta.url).resolve("@gimbal/core");
 }

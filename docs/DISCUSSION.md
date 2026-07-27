@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-07 → 2026-07-08
 **Companion to:** [ADR-001](adr/ADR-001.md) (Restrict LLM Usage to Authoring & Maintenance)
-**Basis:** deep analysis of `old-repo/` (the previous monolith) to inform the `axiom/packages/core` rebuild.
+**Basis:** deep analysis of `old-repo/` (the previous monolith) to inform the `gimbal/packages/core` rebuild.
 
 This document compiles a working session that answered four questions:
 
@@ -18,13 +18,13 @@ All file:line references point into `old-repo/` unless noted.
 ## Part A — The resolver system (current state)
 
 ### A.1 Where it lives
-The authoritative resolver implementation is `old-repo/axiom-resolvers/`:
+The authoritative resolver implementation is `old-repo/gimbal-resolvers/`:
 - `resolver_router.py` — orchestrator (page characterization → strategy → dynamic weights → scoring → selection)
 - `resolvers/{semantic,context,selector,affordance,index}.py` — the five signals; `base.py` — the abstract contract
 - `models.py` — `DOMElement`, `ActionNode`, `ActionTarget`, `ResolverCandidate`, `ResolutionResult`, enums
 - `executor.py` — Playwright runtime: direct-locator ladder + resolver-fallback ("self-heal") + per-step pass/fail
 
-The test-suite verdict layer is separate, in `old-repo/axiom_recorder/`: `test_engine.py` and `semantic_assertions.py`.
+The test-suite verdict layer is separate, in `old-repo/gimbal_recorder/`: `test_engine.py` and `semantic_assertions.py`.
 
 ### A.2 Naming reconciliation (important)
 The product vocabulary is **affordance, semantics, index, structure, context**. The code's canonical five (`resolvers/__init__.py:19-26`) are **semantic, context, selector, affordance, index**. There is **no `structure.py`**:
@@ -82,7 +82,7 @@ The resolver matches **two independent inputs**:
 - **TARGET (query)** — authored, static, in `flow.json`. **The LLM produces only this.**
 - **CANDIDATES (haystack)** — the live browser DOM, re-extracted every run and every heal attempt by `executor._extract_dom_elements` (`:2082-2311`, interactive-element filter at `:2101`). **The LLM is never involved.**
 
-The resolver is the **matcher**; a heal is *re-extract haystack → re-match*. So candidates always come from the live DOM. `old-repo/axiom-resolvers/sample_flow.json` proves a DOM-blind semantic target (`label`+`semantic_text`+`role`) resolves for text-bearing elements, and self-documents its failure modes (`index:0` to split repeated Delete buttons; "may fail due to no text content" on the checkbox / number input).
+The resolver is the **matcher**; a heal is *re-extract haystack → re-match*. So candidates always come from the live DOM. `old-repo/gimbal-resolvers/sample_flow.json` proves a DOM-blind semantic target (`label`+`semantic_text`+`role`) resolves for text-bearing elements, and self-documents its failure modes (`index:0` to split repeated Delete buttons; "may fail due to no text content" on the checkbox / number input).
 
 ### B.2 What the LLM can vs. cannot author
 - **Tier-1 / Semantic (LLM authors blind):** `url`, `label`, `semantic_text[]`, `role` (implicit), `action_intent`, `value`, and assertions (`url_contains`, `text_contains`, `element_appears`).
@@ -100,7 +100,7 @@ The resolver is the **matcher**; a heal is *re-extract haystack → re-match*. S
 - **Runtime (deterministic, ADR-001, no LLM):** cached selector fast-path → miss/changed → extract candidates → `ResolverRouter` → confidence gate → act + assert → low confidence → **mark STALE**.
 - **Maintenance (LLM, explicit, developer-triggered):** stale step → LLM re-reads current DOM + old target → regenerate → re-ground → review.
 
-**Discovery is ~70% of the grounding engine already** (`old-repo/*/discovery/`): `browser.extract_dom()` yields resolver-grade anchors; the LLM is kept at semantic-hint level (index-based, no hallucinated selectors); a converter to the resolver's flow schema exists and is wired; auth-session capture works. Gaps: weak fuzzy matcher (replace with the resolver's own semantic matcher), no persisted per-state DOM pool, no state graph (`state_hash` computed but unused), `bounding_box` stubbed, gated behind `AXIOM_ENABLE_DISCOVERY_API`.
+**Discovery is ~70% of the grounding engine already** (`old-repo/*/discovery/`): `browser.extract_dom()` yields resolver-grade anchors; the LLM is kept at semantic-hint level (index-based, no hallucinated selectors); a converter to the resolver's flow schema exists and is wired; auth-session capture works. Gaps: weak fuzzy matcher (replace with the resolver's own semantic matcher), no persisted per-state DOM pool, no state graph (`state_hash` computed but unused), `bounding_box` stubbed, gated behind `gimbal_ENABLE_DISCOVERY_API`.
 
 ### B.4 The scope answer
 **Resolvers are a LOCATOR, not a test oracle.** A test = *locate (resolver) → act (adapter) → assert (assertion layer)*. Resolvers bound **location reliability**; the assertion layer bounds **correctness**. They heal location only — never assertions or intent.
@@ -263,7 +263,7 @@ The resolver is the **matcher**; a heal is *re-extract haystack → re-match*. S
 
 ## Final note
 
-**Where we are.** The resolver engine is complete and production-grade in `old-repo/axiom-resolvers`, but it was built for *recorded* ground-truth targets. The rebuild in `axiom/packages/core` co-locates resolvers + execution under unified models, and ADR-001 fixes the runtime as deterministic with LLM confined to authoring/maintenance. The intent→spec authoring path is partially prototyped in the (blocked, flag-gated) `discovery/` module, which already extracts resolver-grade anchors and converts to the resolver's flow schema — it is the natural home for the **grounding** step.
+**Where we are.** The resolver engine is complete and production-grade in `old-repo/gimbal-resolvers`, but it was built for *recorded* ground-truth targets. The rebuild in `gimbal/packages/core` co-locates resolvers + execution under unified models, and ADR-001 fixes the runtime as deterministic with LLM confined to authoring/maintenance. The intent→spec authoring path is partially prototyped in the (blocked, flag-gated) `discovery/` module, which already extracts resolver-grade anchors and converts to the resolver's flow schema — it is the natural home for the **grounding** step.
 
 **The core insight of this discussion.** The confusion of "resolvers need candidates — where do they come from?" dissolves once the two inputs are separated: **the LLM authors the query (Tier-1 target + assertions); the live browser DOM supplies the candidates; a one-time grounding run uses the resolver to copy the winning candidate's real anchors back into the query (Tier-2 + cached selector); runtime then matches query→candidates deterministically and heals by re-matching, escalating to STALE — never to an LLM — when confidence is too low.** Grounding is what turns a DOM-blind intent into an ADR-compliant, cache-backed, self-healing spec.
 

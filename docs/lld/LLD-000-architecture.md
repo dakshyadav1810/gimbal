@@ -15,7 +15,7 @@
 - **Monorepo:** **pnpm workspaces** + **Turborepo** (build/test caching).
 - **Build:** **tsup** (esbuild) for libraries/CLI; **Vite** for the dashboard.
 - **Test:** **Vitest** (unit + golden cases). **Lint/format:** **Biome**.
-- **Install/run:** `npx axiom` — one command, no toolchain setup.
+- **Install/run:** `npx gimbal` — one command, no toolchain setup.
 
 ## 2. Packages & dependency direction
 
@@ -66,19 +66,19 @@ time — never during a run. Everything below `authoring/` is deterministic.
 
 ## 4. Process & runtime model
 
-`npx axiom start` launches **one CLI process** that:
+`npx gimbal start` launches **one CLI process** that:
 1. spawns + health-checks the **core** Fastify server (localhost) via `execa`;
 2. starts the **MCP server** (stdio) in-process (CLI), whose tools call core over REST/WS;
 3. serves the **dashboard** (static assets bundled into `core/static`) at the core base path and opens it.
 
 ```
- developer ──▶ npx axiom ──┬─▶ CLI process ──spawn──▶ core (Fastify, :PORT)
+ developer ──▶ npx gimbal ──┬─▶ CLI process ──spawn──▶ core (Fastify, :PORT)
  coding agent ─(stdio MCP)─┘        │                      │  Playwright
                                     └── MCP tools ──REST/WS─┘  SQLite cache
                                                               serves dashboard SPA
 ```
 
-There is no separate backend to deploy and no Python venv. `npx axiom test` runs the committed grounded
+There is no separate backend to deploy and no Python venv. `npx gimbal test` runs the committed grounded
 tests deterministically from cache; it needs only Node + a browser.
 
 ## 5. End-to-end data flow (maps to the LLDs)

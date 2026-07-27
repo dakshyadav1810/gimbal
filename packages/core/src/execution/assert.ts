@@ -1,4 +1,4 @@
-import type { Assertion, ExpectedOutcome } from "@axiom/shared";
+import type { Assertion, ExpectedOutcome } from "@gimbal/shared";
 import type { Page } from "playwright";
 
 export interface AssertOutcome {

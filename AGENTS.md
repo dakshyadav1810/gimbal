@@ -1,18 +1,18 @@
 # AGENTS.md
 
-> Engineering guidelines for contributors and AI coding agents working on **Axiom**.
+> Engineering guidelines for contributors and AI coding agents working on **Gimbal**.
 >
 > This document defines the architectural boundaries, development philosophy, and engineering conventions for the project. It should be treated as the authoritative guide for implementing new features and modifying existing systems.
 >
-> **Stack:** Axiom is a single-language **TypeScript on Node.js** project — see [ADR-003](docs/adr/ADR-003.md) and [PLAN-001](docs/PLAN-001.md). Earlier references to Bun, Python, or a standalone Next.js dashboard are superseded.
+> **Stack:** Gimbal is a single-language **TypeScript on Node.js** project — see [ADR-003](docs/adr/ADR-003.md) and [PLAN-001](docs/PLAN-001.md). Earlier references to Bun, Python, or a standalone Next.js dashboard are superseded.
 
 ---
 
 # Project Vision
 
-Axiom is an open-source, AI-native software testing platform designed for modern development teams.
+Gimbal is an open-source, AI-native software testing platform designed for modern development teams.
 
-Unlike traditional testing frameworks that rely on brittle selectors or AI-first systems that invoke large language models for every failure, Axiom follows a **deterministic-first** philosophy.
+Unlike traditional testing frameworks that rely on brittle selectors or AI-first systems that invoke large language models for every failure, Gimbal follows a **deterministic-first** philosophy.
 
 The platform combines:
 
@@ -29,7 +29,7 @@ The objective is to build a platform that remains reliable as applications evolv
 # Repository Structure
 
 ```
-axiom/
+gimbal/
 │
 ├── packages/
 │   ├── shared/     (Zod IR — single source of truth)
@@ -70,7 +70,7 @@ Responsibilities:
 - Process orchestration
 - Core (backend) lifecycle management
 - Dashboard lifecycle management (opening it — it is served by core)
-- MCP server (official TypeScript SDK) — the agent-facing control plane started by `axiom start`
+- MCP server (official TypeScript SDK) — the agent-facing control plane started by `gimbal start`
 - Configuration loading
 
 The CLI must **never** contain execution logic. MCP tools translate to REST/WebSocket calls into core — never internal cross-package calls.
@@ -347,7 +347,7 @@ Every step is independent.
 
 # Multi-Signal Resolver
 
-The resolver is the core differentiator of Axiom.
+The resolver is the core differentiator of Gimbal.
 
 Its purpose is to identify elements after UI changes without relying on LLMs.
 
@@ -552,7 +552,7 @@ Never sacrifice architecture for short-term convenience.
 
 # Guiding Principle
 
-Axiom is not a collection of scripts.
+Gimbal is not a collection of scripts.
 
 It is a software platform.
 

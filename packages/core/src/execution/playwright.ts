@@ -1,4 +1,4 @@
-import type { AxiomConfig } from "@axiom/shared";
+import type { GimbalConfig } from "@gimbal/shared";
 import {
   type Browser,
   type BrowserContext,
@@ -20,7 +20,7 @@ export interface BrowserSession {
 // Shared browser/page lifecycle wrapper — used by grounding (LLD-003) and execution (LLD-005),
 // but never sharing live state across their boundary (LLD-005 §8).
 export async function openSession(
-  config: AxiomConfig,
+  config: GimbalConfig,
 ): Promise<BrowserSession> {
   const browser = await ENGINES[config.browser].launch({
     headless: config.headless,

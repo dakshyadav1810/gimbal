@@ -1,4 +1,4 @@
-import type { Tier1Target } from "@axiom/shared";
+import type { Tier1Target } from "@gimbal/shared";
 import { describe, expect, it } from "vitest";
 import type { DomCandidate, PageContext } from "./base.js";
 import { MultiSignalResolver } from "./index.js";
@@ -138,5 +138,167 @@ describe("MultiSignalResolver golden cases", () => {
       generalization: "same_element",
     });
     expect(res.status).not.toBe("grounded");
+  });
+
+  it("a testId tiebreak resolves an otherwise-ambiguous near-tie", async () => {
+    const target: Tier1Target = {
+      label: "Item",
+      semantics: ["item"],
+      role: "button",
+      actions: ["click"],
+      intent: "x",
+    };
+    const candidates = [
+      cand({ id: "a", label: "Item", tag: "button", role: "button" }),
+      cand({
+        id: "b",
+        label: "Item",
+        tag: "button",
+        role: "button",
+        testId: "item-2",
+      }),
+    ];
+    const res = await resolver.resolve({
+      target,
+      candidates,
+      page,
+      generalization: "same_element",
+    });
+    expect(res.status).toBe("grounded");
+    expect(res.selected).toBe("b");
+  });
+
+  it("no candidates survive affordance -> ungrounded with empty candidate list, not an error", async () => {
+    const target: Tier1Target = {
+      label: "Ghost",
+      semantics: ["ghost"],
+      role: "button",
+      actions: ["click"],
+      intent: "x",
+    };
+    const res = await resolver.resolve({
+      target,
+      candidates: [],
+      page,
+      generalization: "same_element",
+    });
+    expect(res.status).toBe("ungrounded");
+    expect(res.selected).toBeNull();
+    expect(res.cachedSelector).toBeNull();
+  });
+
+  it("an aggressive generalization grounds despite a near-tie that would ambiguous under same_element", async () => {
+    const target: Tier1Target = {
+      label: "Cancel",
+      semantics: ["cancel"],
+      role: "button",
+      actions: ["click"],
+      intent: "x",
+    };
+    // "cancel" is in-vocabulary for the fake embedder, so both candidates score high (not 0)
+    // semantics, landing the tie in the high band where aggressive-vs-same_element diverges.
+    const candidates = [
+      cand({ id: "a", label: "Cancel", tag: "button", role: "button" }),
+      cand({ id: "b", label: "Cancel", tag: "button", role: "button" }),
+    ];
+    const res = await resolver.resolve({
+      target,
+      candidates,
+      page,
+      generalization: "aggressive",
+    });
+    expect(res.status).toBe("grounded");
+    expect(res.selected).not.toBeNull();
+  });
+
+  it("icon-heavy pages lean on structure/affordance when semantics is unavailable for any candidate", async () => {
+    const target: Tier1Target = {
+      label: "Delete",
+      semantics: ["delete", "remove"],
+      role: "button",
+      actions: ["click"],
+      intent: "delete the item",
+    };
+    const iconPage: PageContext = {
+      textDensity: 0.1,
+      iconRatio: 0.9,
+      hasForm: false,
+      hasModal: false,
+      repeatedStructure: false,
+    };
+    const candidates = [
+      cand({
+        id: "trash-icon",
+        tag: "button",
+        role: "button",
+        testId: "delete-btn",
+      }), // no label — semantics can't score it at all
+      cand({ id: "other-icon", tag: "button", role: "button" }),
+    ];
+    const res = await resolver.resolve({
+      target,
+      candidates,
+      page: iconPage,
+      generalization: "same_element",
+    });
+    expect(res.status).toBe("grounded");
+    expect(res.selected).toBe("trash-icon");
+  });
+
+  it("candidates are returned sorted by score descending regardless of input order", async () => {
+    const target: Tier1Target = {
+      label: "Email",
+      semantics: ["email", "login"],
+      role: "textbox",
+      actions: ["type"],
+      intent: "email input",
+    };
+    const candidates = [
+      cand({ id: "weak", label: "Cancel", role: "button", tag: "button" }),
+      cand({
+        id: "strong",
+        label: "Email",
+        region: "form",
+        testId: "email-input",
+      }),
+    ];
+    const res = await resolver.resolve({
+      target,
+      candidates,
+      page,
+      generalization: "same_element",
+    });
+    expect(res.candidates[0]?.id).toBe("strong");
+    expect(res.candidates[0].score).toBeGreaterThanOrEqual(
+      res.candidates[1]?.score ?? 0,
+    );
+  });
+
+  it("a disabled candidate among enabled ones is excluded from candidatesOut entirely", async () => {
+    const target: Tier1Target = {
+      label: "Submit",
+      semantics: ["submit"],
+      role: "button",
+      actions: ["click"],
+      intent: "x",
+    };
+    const candidates = [
+      cand({ id: "enabled", label: "Submit", tag: "button", role: "button" }),
+      cand({
+        id: "disabled",
+        label: "Submit",
+        tag: "button",
+        role: "button",
+        disabled: true,
+      }),
+    ];
+    const res = await resolver.resolve({
+      target,
+      candidates,
+      page,
+      generalization: "same_element",
+    });
+    expect(res.candidates).toHaveLength(1);
+    expect(res.candidates[0].id).toBe("enabled");
   });
 });

@@ -1,12 +1,12 @@
 import type {
-  AxiomConfig,
+  GimbalConfig,
   Band,
   CandidatesDoc,
   GroundedStep,
   GroundedTest,
   Resolution,
   SpecIR,
-} from "@axiom/shared";
+} from "@gimbal/shared";
 import type { Page } from "playwright";
 import { act } from "../execution/act.js";
 import { openSession } from "../execution/playwright.js";
@@ -56,7 +56,7 @@ function isNonTargetStep(step: SpecIR["steps"][number]): boolean {
 export class PlaywrightGroundingService implements GroundingService {
   constructor(
     private resolver: Resolver,
-    private config: AxiomConfig,
+    private config: GimbalConfig,
   ) {}
 
   async ground(

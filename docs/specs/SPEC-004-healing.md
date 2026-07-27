@@ -4,7 +4,7 @@
 **Implements:** [ADR-002 §5](../adr/ADR-002.md), [ADR-001](../adr/ADR-001.md)
 **LLD:** [LLD-006](../lld/LLD-006-healing.md)
 
-> Axiom heals **location drift** deterministically at runtime and repairs **intent/structural change**
+> Gimbal heals **location drift** deterministically at runtime and repairs **intent/structural change**
 > explicitly with an LLM during maintenance. The two levels are strictly separated: runtime never calls
 > an LLM; maintenance is the only place it re-enters.
 
@@ -54,7 +54,7 @@ identity changed). It is surfaced, not hidden.
 
 ## 4. Maintenance heal (explicit, agent-assisted)
 
-The developer's connected agent repairs a stale test — there is exactly **one** path, since Axiom has no
+The developer's connected agent repairs a stale test — there is exactly **one** path, since Gimbal has no
 LLM of its own to fall back to:
 
 ```
@@ -76,7 +76,7 @@ LLM of its own to fall back to:
                 developer reviews the diff → accept → store        (versioned)
 ```
 
-`axiom heal <testId>` (CLI, no agent) only **fetches and prints** the repair payload — it does not repair
+`gimbal heal <testId>` (CLI, no agent) only **fetches and prints** the repair payload — it does not repair
 anything itself. The agent stays **DOM-blind** (it re-authors Tier-1 intent; grounding re-attaches the
 anchors), and the result is a **diff for review**, never an auto-commit. The repair is **layer-targeted**:
 a broken selector re-grounds without touching intent; a genuinely changed intent re-authors the target

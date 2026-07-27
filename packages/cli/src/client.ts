@@ -5,7 +5,7 @@ import type {
   RunReport,
   RunRequest,
   SpecIR,
-} from "@axiom/shared";
+} from "@gimbal/shared";
 
 export interface TestSummary {
   testId: string;
@@ -40,40 +40,44 @@ export class CoreClient {
   getKdg(entryUrl: string) {
     return this.req<unknown>(
       "GET",
-      `/kdg?entry=${encodeURIComponent(entryUrl)}`,
+      `/api/kdg?entry=${encodeURIComponent(entryUrl)}`,
     );
   }
   submitSpec(spec: SpecIR) {
-    return this.req<{ testId: string; spec: SpecIR }>("POST", "/tests", spec);
+    return this.req<{ testId: string; spec: SpecIR }>(
+      "POST",
+      "/api/tests",
+      spec,
+    );
   }
   groundTest(testId: string) {
     return this.req<{ grounded: GroundedTest; stoppedAt?: string }>(
       "POST",
-      `/tests/${testId}/ground`,
+      `/api/tests/${testId}/ground`,
     );
   }
   listTests() {
-    return this.req<TestSummary[]>("GET", "/tests");
+    return this.req<TestSummary[]>("GET", "/api/tests");
   }
   getTest(testId: string) {
-    return this.req<GroundedTest | SpecIR>("GET", `/tests/${testId}`);
+    return this.req<GroundedTest | SpecIR>("GET", `/api/tests/${testId}`);
   }
   deleteTest(testId: string) {
-    return this.req<{ ok: boolean }>("DELETE", `/tests/${testId}`);
+    return this.req<{ ok: boolean }>("DELETE", `/api/tests/${testId}`);
   }
   runTest(req: RunRequest) {
-    return this.req<{ runId: string }>("POST", "/runs", req);
+    return this.req<{ runId: string }>("POST", "/api/runs", req);
   }
   getReport(runId: string) {
-    return this.req<RunReport>("GET", `/runs/${runId}`);
+    return this.req<RunReport>("GET", `/api/runs/${runId}`);
   }
   getRepairPayload(testId: string) {
-    return this.req<RepairPayload>("GET", `/tests/${testId}/repair`);
+    return this.req<RepairPayload>("GET", `/api/tests/${testId}/repair`);
   }
   maintain(testId: string, req: MaintainRequest) {
     return this.req<{ testId: string }>(
       "POST",
-      `/tests/${testId}/maintain`,
+      `/api/tests/${testId}/maintain`,
       req,
     );
   }

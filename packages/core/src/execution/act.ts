@@ -1,4 +1,4 @@
-import type { UiStep } from "@axiom/shared";
+import type { UiStep } from "@gimbal/shared";
 import type { Page } from "playwright";
 
 function interpolate(

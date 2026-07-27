@@ -1,4 +1,4 @@
-import type { AxiomConfig } from "@axiom/shared";
+import type { GimbalConfig } from "@gimbal/shared";
 import { CoreAuthoringService } from "../authoring/index.js";
 import { EmptyKdgContextProvider } from "../authoring/kdg-context.js";
 import { openDb } from "../cache/db.js";
@@ -15,7 +15,7 @@ import { MultiSignalResolver } from "../resolver/index.js";
 import { FsArtifactStore } from "../storage/index.js";
 
 // Composition root — wires every subsystem behind its interface (invariant #8).
-export function buildContainer(config: AxiomConfig) {
+export function buildContainer(config: GimbalConfig) {
   const db = openDb(config.dbPath);
   migrate(db);
   const cache = new SqliteCacheStore(db);

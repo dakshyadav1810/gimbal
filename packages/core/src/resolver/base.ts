@@ -1,4 +1,4 @@
-import type { Generalization, SignalName, Tier1Target } from "@axiom/shared";
+import type { Generalization, SignalName, Tier1Target } from "@gimbal/shared";
 
 // Raw element extracted live from the page — pre-scoring (grounding's dom-extractor produces these).
 export interface DomCandidate {

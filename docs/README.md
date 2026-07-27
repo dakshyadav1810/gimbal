@@ -1,6 +1,6 @@
-# Axiom Design Docs
+# Gimbal Design Docs
 
-Implementation-facing design for Axiom, derived from the ADRs. **Specs** describe business logic and user
+Implementation-facing design for Gimbal, derived from the ADRs. **Specs** describe business logic and user
 flows; **LLDs** describe implementation and code detail. Design is clean-room from the ADRs — the retired
 Python `packages/core` is reference only.
 

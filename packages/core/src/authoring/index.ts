@@ -1,4 +1,4 @@
-import { lintSpec, SpecIR } from "@axiom/shared";
+import { lintSpec, SpecIR } from "@gimbal/shared";
 import type { KdgContext, KdgContextProvider } from "./kdg-context.js";
 import { normalizeLlmOutput } from "./emitter.js";
 
@@ -11,7 +11,7 @@ export interface AuthoringService {
 
 export class AuthoringError extends Error {}
 
-// No LLM client here, ever — Axiom never calls a model provider. The connected agent (Claude Code,
+// No LLM client here, ever — Gimbal never calls a model provider. The connected agent (Claude Code,
 // Cursor, ...) authors the spec entirely in its own session and hands core the finished SpecIR.
 export class CoreAuthoringService implements AuthoringService {
   constructor(private kdg: KdgContextProvider) {}

@@ -1,14 +1,14 @@
-# Contributing to Axiom
+# Contributing to Gimbal
 
-Axiom is a pnpm + Turborepo monorepo: `packages/shared` (Zod IR), `packages/core` (Fastify server —
+Gimbal is a pnpm + Turborepo monorepo: `packages/shared` (Zod IR), `packages/core` (Fastify server —
 resolver, grounding, execution, healing, authoring, storage), `packages/cli` (commander + MCP server),
 `packages/dashboard` (Vite + React SPA).
 
 ## Development setup
 
 ```bash
-git clone https://github.com/dakshyadav1810/axiom.git
-cd axiom
+git clone https://github.com/dakshyadav1810/gimbal.git
+cd gimbal
 pnpm install
 pnpm build
 ```
@@ -16,17 +16,17 @@ pnpm build
 Run a single package in watch mode, e.g. the core server:
 
 ```bash
-pnpm --filter @axiom/core dev
+pnpm --filter @gimbal/core dev
 ```
 
 Run tests and typecheck before opening a PR:
 
 ```bash
 pnpm test
-pnpm --filter @axiom/shared exec tsc --noEmit
-pnpm --filter @axiom/core exec tsc --noEmit
-pnpm --filter @axiom/cli exec tsc --noEmit
-pnpm --filter @axiom/dashboard exec tsc --noEmit
+pnpm --filter @gimbal/shared exec tsc --noEmit
+pnpm --filter @gimbal/core exec tsc --noEmit
+pnpm --filter @gimbal/cli exec tsc --noEmit
+pnpm --filter @gimbal/dashboard exec tsc --noEmit
 ```
 
 Lint/format with [Biome](https://biomejs.dev):
@@ -52,7 +52,7 @@ resolver is deterministic-first; no LLM runs outside authoring/maintenance). The
 
 ## Reporting issues
 
-Open a [GitHub issue](https://github.com/dakshyadav1810/axiom/issues) with repro steps. For resolver
+Open a [GitHub issue](https://github.com/dakshyadav1810/gimbal/issues) with repro steps. For resolver
 mis-locates, include the target's Tier-1 fields (`label`/`semantics`/`role`) and, if possible, the
 candidate list from `candidates.json`.
 

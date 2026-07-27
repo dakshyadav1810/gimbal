@@ -1,10 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { AxiomConfig } from "@axiom/shared";
+import type { GimbalConfig } from "@gimbal/shared";
 import { execa } from "execa";
 import { baseUrl } from "./config.js";
 
-const PID_FILE = path.join(".axiom", "axiom.pid");
+const PID_FILE = path.join(".gimbal", "gimbal.pid");
 
 async function waitForHealth(url: string, timeoutMs: number): Promise<void> {
   const deadline = Date.now() + timeoutMs;
@@ -20,17 +20,17 @@ async function waitForHealth(url: string, timeoutMs: number): Promise<void> {
   throw new Error(`core did not become healthy within ${timeoutMs}ms`);
 }
 
-// Spawns core as a child process, records its PID so `axiom stop` (any terminal) can find it (LLD-009 §3).
+// Spawns core as a child process, records its PID so `gimbal stop` (any terminal) can find it (LLD-009 §3).
 export async function startCore(
-  config: AxiomConfig,
+  config: GimbalConfig,
   coreEntry: string,
 ): Promise<number | undefined> {
   const child = execa("node", [coreEntry], {
-    env: { ...process.env, AXIOM_PORT: String(config.port) },
+    env: { ...process.env, GIMBAL_PORT: String(config.port) },
     detached: true,
     stdio: "ignore",
   });
-  fs.mkdirSync(".axiom", { recursive: true });
+  fs.mkdirSync(".gimbal", { recursive: true });
   fs.writeFileSync(PID_FILE, String(child.pid));
   child.unref();
 

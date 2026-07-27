@@ -4,26 +4,26 @@
 **Audience:** everyone (product, engineering, contributors, coding agents)
 **Sources of truth:** [ADR-001](../adr/ADR-001.md), [ADR-002](../adr/ADR-002.md), [ADR-003](../adr/ADR-003.md), [PLAN-001](../PLAN-001.md), [AGENTS.md](../../AGENTS.md)
 
-> This is the entry point to the Axiom design suite. It frames the product, defines the vocabulary
+> This is the entry point to the Gimbal design suite. It frames the product, defines the vocabulary
 > every other doc uses, and maps the docs to the decisions they implement. Read it first.
 
 ---
 
-## 1. What Axiom is
+## 1. What Gimbal is
 
-Axiom is an open-source, **deterministic-first** end-to-end testing platform for AI-native teams. A
-developer (or a coding agent) describes a test in natural language — *"test the login flow"* — and Axiom
+Gimbal is an open-source, **deterministic-first** end-to-end testing platform for AI-native teams. A
+developer (or a coding agent) describes a test in natural language — *"test the login flow"* — and Gimbal
 compiles it into a durable, version-controlled test that runs **without an LLM at runtime**.
 
 The differentiator is the **Multi-Signal Resolver**: instead of one brittle CSS selector per element,
-Axiom identifies each element by five independent signals and re-derives it deterministically when the
+Gimbal identifies each element by five independent signals and re-derives it deterministically when the
 UI changes. LLM intelligence lives only in **authoring** and explicit **maintenance** — never in the hot
 path of a test run.
 
 ### The two problems it kills
 - **Selector drift** — a class rename or DOM reshuffle breaks a hand-written selector. The resolver
   heals deterministically from the surviving signals.
-- **The coverage illusion** — green suites that assert nothing meaningful. Axiom tests carry explicit
+- **The coverage illusion** — green suites that assert nothing meaningful. Gimbal tests carry explicit
   UI/API/DB assertions and report real coverage.
 
 ---
@@ -43,9 +43,9 @@ path of a test run.
 
 ## 3. Personas
 
-| Persona | Uses Axiom to… | Primary surface |
+| Persona | Uses Gimbal to… | Primary surface |
 |---|---|---|
-| **Developer** | author, review, run, and maintain tests locally | CLI (`npx axiom`) + dashboard |
+| **Developer** | author, review, run, and maintain tests locally | CLI (`npx gimbal`) + dashboard |
 | **Coding agent** (e.g. Claude Code) | author/repair tests programmatically | MCP server (via CLI) |
 | **CI** *(future, thin)* | run the committed test suite deterministically | CLI in CI mode |
 
@@ -144,6 +144,7 @@ Intent ──authoring(LLM via MCP)──▶ spec.json ──grounding(live run)
 | LLD-007 | storage (Drizzle/SQLite + artifacts) | ADR-002 §3, ADR-003 §3 |
 | LLD-008 | MCP server + REST/WS | ADR-002 §6, ADR-003 §6 |
 | LLD-009 | CLI orchestration | ADR-003 §6, PLAN-001 |
+| LLD-010 | dashboard views, data flow, screenshot capture | ADR-002 §6, SPEC-005 §3 |
 
 **Conventions used everywhere:** bands `high ≥0.7 / medium ≥0.5 / low <0.5`; signals
 `semantics · affordance · context · structure · index`; artifacts `spec.json → candidates.json →

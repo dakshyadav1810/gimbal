@@ -6,7 +6,7 @@
 
 > The agent-facing **MCP server** lives in the **CLI** and is a thin proxy: every tool translates to a
 > REST/WebSocket call into **core**. Core's Fastify surface is the single ingress for all business logic.
-> This preserves invariant #7 (no internal cross-package calls) while giving `axiom start` an MCP control
+> This preserves invariant #7 (no internal cross-package calls) while giving `gimbal start` an MCP control
 > plane.
 
 ---
@@ -18,7 +18,7 @@
                               (@modelcontextprotocol/sdk)        (fastify-type-provider-zod)
 ```
 
-- MCP transport: **stdio** (`@modelcontextprotocol/sdk`, official TS). Started by `axiom start`.
+- MCP transport: **stdio** (`@modelcontextprotocol/sdk`, official TS). Started by `gimbal start`.
 - Each MCP tool handler builds a typed request from `shared` DTOs and calls core over `http://127.0.0.1:PORT`.
 - Tools never touch Playwright, the DB, or the resolver directly — only core's REST/WS.
 
