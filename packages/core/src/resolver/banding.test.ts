@@ -82,19 +82,65 @@ describe("selectBest — same_element (full margin 0.15)", () => {
     expect(res.band).toBe("high");
   });
 
-  it("falls through to sibling-index tiebreak when neither near-tied candidate has a testId", () => {
-    const a = scored({ id: "a", siblingIndex: 3 }, 0.85);
-    const b = scored({ id: "b", siblingIndex: 1 }, 0.8);
+  it("falls through to sibling-index tiebreak when tied candidates share a parent and neither has a testId", () => {
+    const a = scored({ id: "a", siblingIndex: 3, parentXpath: "//*[@id='nav']" }, 0.85);
+    const b = scored({ id: "b", siblingIndex: 1, parentXpath: "//*[@id='nav']" }, 0.8);
     const res = selectBest([a, b], "same_element", bands);
     expect(res.ambiguous).toBe(false);
     expect(res.winner?.candidate.id).toBe("b"); // lower siblingIndex wins
   });
 
   it("prefers testId tiebreak over siblingIndex when both are present among tied candidates", () => {
-    const a = scored({ id: "a", siblingIndex: 0 }, 0.85);
-    const b = scored({ id: "b", testId: "x", siblingIndex: 5 }, 0.8);
+    const a = scored({ id: "a", siblingIndex: 0, parentXpath: "//*[@id='nav']" }, 0.85);
+    const b = scored(
+      { id: "b", testId: "x", siblingIndex: 5, parentXpath: "//*[@id='nav']" },
+      0.8,
+    );
     const res = selectBest([a, b], "same_element", bands);
     expect(res.winner?.candidate.id).toBe("b");
+  });
+
+  it("does NOT use siblingIndex as a tiebreak across candidates with different parents, even if the values happen to match", () => {
+    // Regression: siblingIndex is computed per-parent (dom-extractor.ts), so two unrelated
+    // buttons in separate containers (e.g. a header's theme toggle and profile-menu trigger)
+    // both come back as siblingIndex 0 — comparing them is a coincidence, not a real tiebreak.
+    // This exact shape shipped a theme-toggle button as a profile-menu trigger with no
+    // ambiguity flag raised, because the old code picked whichever sorted first.
+    const themeToggle = scored(
+      { id: "theme-toggle", label: "Toggle theme", siblingIndex: 0, parentXpath: "//*[@id='header-right']" },
+      0.676,
+    );
+    const profileMenu = scored(
+      { id: "profile-menu", label: "WH", siblingIndex: 0, parentXpath: "//*[@id='header-left']" },
+      0.638,
+    );
+    const res = selectBest([themeToggle, profileMenu], "same_element", bands);
+    expect(res.ambiguous).toBe(true);
+    expect(res.band).toBe("low"); // both scores are in the medium band, downgraded one tier
+  });
+
+  it("does NOT treat two unrelated elements as same-parent merely because both parents are unid'd divs with the same tag", () => {
+    // Regression: contextPath[0] used to be "tagName + optional id", so any two elements whose
+    // immediate parent is a plain <div> with no id both produced contextPath[0] === "div" and
+    // were wrongly treated as siblings. parentXpath (the parent's own unique xpath) fixes this.
+    const inWrapperA = scored(
+      { id: "a", siblingIndex: 0, parentXpath: "/html[1]/body[1]/div[1]" },
+      0.676,
+    );
+    const inWrapperB = scored(
+      { id: "b", siblingIndex: 0, parentXpath: "/html[1]/body[1]/div[2]" },
+      0.638,
+    );
+    const res = selectBest([inWrapperA, inWrapperB], "same_element", bands);
+    expect(res.ambiguous).toBe(true);
+    expect(res.band).toBe("low");
+  });
+
+  it("still uses siblingIndex when only one tied candidate has a parentXpath (not comparable, falls through to ambiguous)", () => {
+    const a = scored({ id: "a", siblingIndex: 0, parentXpath: "//*[@id='nav']" }, 0.85);
+    const b = scored({ id: "b", siblingIndex: 1 }, 0.8); // no parentXpath at all
+    const res = selectBest([a, b], "same_element", bands);
+    expect(res.ambiguous).toBe(true);
   });
 
   it("only includes candidates within the margin of the top score in the tiebreak pool", () => {

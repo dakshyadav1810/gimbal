@@ -26,6 +26,16 @@ export class ContextSignal implements SignalStrategy {
       );
       score += textMatch * 0.3;
     }
+    // Content this candidate reveals when activated (aria-controls/aria-owns target), if already
+    // mounted in the DOM — e.g. a dropdown's menu items. Only meaningful when it's present, so it's
+    // a smaller bonus term rather than folded into the nearbyText weight above.
+    if (cand.controlledContent) {
+      const revealMatch = Math.max(
+        jaccard(cand.controlledContent, target.label),
+        jaccard(cand.controlledContent, target.intent),
+      );
+      score += revealMatch * 0.2;
+    }
     return Math.min(1, score);
   }
 }

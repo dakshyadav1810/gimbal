@@ -66,16 +66,26 @@ time — never during a run. Everything below `authoring/` is deterministic.
 
 ## 4. Process & runtime model
 
-`npx gimbal start` launches **one CLI process** that:
-1. spawns + health-checks the **core** Fastify server (localhost) via `execa`;
-2. starts the **MCP server** (stdio) in-process (CLI), whose tools call core over REST/WS;
-3. serves the **dashboard** (static assets bundled into `core/static`) at the core base path and opens it.
+The CLI splits its two entrypoints by audience, so a developer running it directly and an MCP client
+respawning it every session don't share side effects:
+
+- `npx gimbal start` (developer-facing): spawns + health-checks the **core** Fastify server (localhost)
+  via `execa`, but only if `isCoreAlive` says none is running yet; then serves the **dashboard** (static
+  assets bundled into `core/static`) at the core base path and opens it. It never hosts MCP.
+- `npx gimbal mcp` (agent-facing): starts the **MCP server** (stdio) in-process (CLI), whose tools call
+  core over REST/WS. It connects to an already-running core, silently spawning one in the background
+  (same `isCoreAlive` check) only if needed, and never opens the dashboard. This is the command an MCP
+  client (e.g. `claude mcp add`) should be registered against, since it can be spawned fresh on every
+  session/reconnect with no duplicate core and no repeated browser tab.
 
 ```
- developer ──▶ npx gimbal ──┬─▶ CLI process ──spawn──▶ core (Fastify, :PORT)
- coding agent ─(stdio MCP)─┘        │                      │  Playwright
-                                    └── MCP tools ──REST/WS─┘  SQLite cache
-                                                              serves dashboard SPA
+ developer ──▶ npx gimbal start ──spawn (if not alive)──▶ core (Fastify, :PORT)
+                    │                                        │  Playwright
+                    └── opens dashboard ─────────────────────┘  SQLite cache
+
+ coding agent ─(stdio MCP)─▶ npx gimbal mcp ──spawn (if not alive)──▶ core (Fastify, :PORT)
+                                    │                                    │  Playwright
+                                    └── MCP tools ──REST/WS─────────────┘  SQLite cache
 ```
 
 There is no separate backend to deploy and no Python venv. `npx gimbal test` runs the committed grounded

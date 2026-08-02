@@ -23,6 +23,10 @@ export function useRun(runId: string) {
   return useQuery({
     queryKey: ["runs", runId],
     queryFn: () => api.getReport(runId),
+    // Poll while the run is in flight so a fresh Run click shows live progress even without the
+    // WebSocket connection; stop once it reaches a final status.
+    refetchInterval: (query) =>
+      query.state.data?.status === "running" ? 1000 : false,
   });
 }
 

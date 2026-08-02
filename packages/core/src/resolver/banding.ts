@@ -55,15 +55,31 @@ export function selectBest(
   return { winner: top, band, ambiguous };
 }
 
-// Deterministic cascade: durable anchor -> bbox proximity -> sibling index -> nearby-text -> DOM order.
+// Deterministic cascade: durable anchor -> sibling index (same parent only) -> DOM order.
 function tiebreak(tied: Scored[]): Scored | null {
   const withTestId = tied.find((s) => s.candidate.testId);
   if (withTestId) return withTestId;
-  const withSiblingIndex = [...tied].sort(
-    (a, b) =>
-      (a.candidate.siblingIndex ?? 99) - (b.candidate.siblingIndex ?? 99),
+
+  // siblingIndex is only meaningful when the tied candidates share an immediate parent — it's
+  // computed per-parent (dom-extractor.ts), so e.g. two unrelated header buttons in different
+  // containers both come back as siblingIndex 0. Comparing across parents isn't a tiebreak, it's
+  // a coincidence: it silently picked whichever candidate the extractor happened to visit first,
+  // with no ambiguity flag raised (this shipped a theme-toggle button as a profile-menu trigger).
+  // parentXpath (the parent's own xpath) is used rather than contextPath[0] (tag + optional id)
+  // because two unrelated, unid'd wrapper <div>s both collapse to the string "div" — a false match.
+  const sameParent = tied.every(
+    (s) =>
+      s.candidate.parentXpath != null &&
+      s.candidate.parentXpath === tied[0].candidate.parentXpath,
   );
-  if (withSiblingIndex[0]?.candidate.siblingIndex !== undefined)
-    return withSiblingIndex[0];
+  if (sameParent) {
+    const withSiblingIndex = [...tied].sort(
+      (a, b) =>
+        (a.candidate.siblingIndex ?? 99) - (b.candidate.siblingIndex ?? 99),
+    );
+    if (withSiblingIndex[0]?.candidate.siblingIndex !== undefined)
+      return withSiblingIndex[0];
+  }
+
   return null; // genuinely ambiguous — caller downgrades the band
 }

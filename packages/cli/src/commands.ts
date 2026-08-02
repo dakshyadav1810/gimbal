@@ -2,7 +2,7 @@ import type { Command } from "commander";
 import open from "open";
 import { CoreClient } from "./client.js";
 import { baseUrl, loadConfig } from "./config.js";
-import { startCore, stopCore } from "./core-process.js";
+import { isCoreAlive, startCore, stopCore } from "./core-process.js";
 import { startMcp } from "./mcp/server.js";
 
 export function registerCommands(program: Command) {
@@ -23,13 +23,35 @@ export function registerCommands(program: Command) {
 
   program
     .command("start")
-    .description("spawn core, start MCP (stdio), open dashboard")
+    .description(
+      "start core in the background (no-op if already running) and open the dashboard",
+    )
     .action(async () => {
       const config = loadConfig();
-      const coreEntry = await resolveCoreEntry();
-      await startCore(config, coreEntry);
-      console.log(`core listening on ${baseUrl(config)}`);
+      if (await isCoreAlive(config)) {
+        console.log(`core already running on ${baseUrl(config)}`);
+      } else {
+        const coreEntry = await resolveCoreEntry();
+        await startCore(config, coreEntry);
+        console.log(`core listening on ${baseUrl(config)}`);
+      }
       await open(baseUrl(config));
+    });
+
+  program
+    .command("mcp")
+    .description(
+      "start the MCP stdio server for a coding agent; connects to an already-running core " +
+        "(spawning one in the background on first use) and never opens the dashboard. This is " +
+        "the command to register with `claude mcp add`, since it's meant to be started and stopped " +
+        "per agent session without side effects on a shared core.",
+    )
+    .action(async () => {
+      const config = loadConfig();
+      if (!(await isCoreAlive(config))) {
+        const coreEntry = await resolveCoreEntry();
+        await startCore(config, coreEntry);
+      }
       const client = new CoreClient(baseUrl(config));
       await startMcp(client); // blocks on stdio
     });

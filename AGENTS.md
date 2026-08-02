@@ -70,7 +70,9 @@ Responsibilities:
 - Process orchestration
 - Core (backend) lifecycle management
 - Dashboard lifecycle management (opening it — it is served by core)
-- MCP server (official TypeScript SDK) — the agent-facing control plane started by `gimbal start`
+- MCP server (official TypeScript SDK), the agent-facing control plane started by `gimbal mcp` (a
+  separate command from `gimbal start`, so an MCP client respawning it per session doesn't reopen the
+  dashboard or duplicate core)
 - Configuration loading
 
 The CLI must **never** contain execution logic. MCP tools translate to REST/WebSocket calls into core — never internal cross-package calls.

@@ -98,8 +98,8 @@ describe("StructureSignal", () => {
     expect(score).toBe(0);
   });
 
-  it("is case-insensitive when comparing roles", () => {
-    const score = signal.score(target({ role: "BUTTON" }), cand({ role: "Button", tag: "button" }), page);
+  it("is case-insensitive when comparing roles (cand.role is live, uncontrolled DOM data)", () => {
+    const score = signal.score(target({ role: "button" }), cand({ role: "Button", tag: "button" }), page);
     expect(score).toBeCloseTo(0.4, 10);
   });
 });

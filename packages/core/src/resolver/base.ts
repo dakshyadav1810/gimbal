@@ -15,11 +15,13 @@ export interface DomCandidate {
   ancestorChain?: string[]; // up to 5, nearest first
   region?: "form" | "modal" | "section" | null;
   nearbyText?: string;
+  controlledContent?: string;
   testId?: string;
   attributes?: Record<string, string>;
   xpath?: string;
   contextPath?: string[];
   siblingIndex?: number;
+  parentXpath?: string | null;
 }
 
 export interface PageContext {

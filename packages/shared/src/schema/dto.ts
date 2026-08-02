@@ -30,10 +30,12 @@ export type StepResult = z.infer<typeof StepResult>;
 export const RunReport = z.object({
   runId: z.string(),
   testId: z.string(),
-  status: z.enum(["passed", "failed"]),
+  status: z.enum(["running", "passed", "failed"]),
   needsReview: z.boolean().default(false),
   steps: z.array(StepResult),
   startedAt: z.string(),
+  // Unset (equal to startedAt) while status is "running" — a run isn't finished until this
+  // is a real completion timestamp distinct from startedAt.
   finishedAt: z.string(),
 });
 export type RunReport = z.infer<typeof RunReport>;
@@ -41,7 +43,14 @@ export type RunReport = z.infer<typeof RunReport>;
 // No "provider_error" — core never calls a provider, so nothing there can fail.
 export const ApiError = z.object({
   error: z.object({
-    code: z.enum(["validation", "not_found", "ungrounded", "stale", "browser_error"]),
+    code: z.enum([
+      "validation",
+      "not_found",
+      "ungrounded",
+      "stale",
+      "browser_error",
+      "internal",
+    ]),
     message: z.string(),
     details: z.unknown().optional(),
   }),

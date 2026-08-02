@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { api } from "../api.js";
 import { JsonEditor } from "../components/JsonEditor.js";
 import { useRuns } from "../queries.js";
@@ -8,10 +8,14 @@ export function TestDetailPage({ testId }: { testId: string }) {
   const { data: runs } = useRuns(testId);
   const latest = runs?.[0];
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
 
+  // Navigate to the run-detail view immediately: without this, a click on Run had no visible
+  // effect even though the run genuinely executed server-side (LLD-010 §3.3 tracks it live).
   const run = async () => {
-    await api.runTest(testId);
+    const { runId } = await api.runTest(testId);
     queryClient.invalidateQueries({ queryKey: ["tests", testId, "runs"] });
+    setLocation(`/tests/${testId}/runs/${runId}`);
   };
 
   return (

@@ -37,9 +37,12 @@ export interface CacheStore {
     domHash: string,
   ): CachedSelector | null;
   putSelector(e: CachedSelector): void;
+  clearSelectorsForTest(testId: string): void;
   getEmbedding(hash: string): Float32Array | null;
   putEmbedding(hash: string, model: string, v: Float32Array): void;
+  startRun(runId: string, testId: string, startedAt: string): void;
   saveRun(report: RunReport): void;
+  failRun(runId: string, finishedAt: string): void;
   getRun(runId: string): RunReport | null;
   listRuns(testId: string): RunSummary[];
   appendHeal(entry: HealAuditEntry): void;
@@ -96,6 +99,17 @@ export class SqliteCacheStore implements CacheStore {
       .run();
   }
 
+  // A fresh groundTest must never be shadowed by a stale runtime-heal cache entry: the cache key
+  // (testId, stepId, domHash) can coincidentally collide across groundings when the page's
+  // interactive-DOM signature happens to match, letting a superseded selector outlive the
+  // re-ground that fixed it (LLD-005 §8 gap).
+  clearSelectorsForTest(testId: string): void {
+    this.db
+      .delete(schema.resolutionCache)
+      .where(eq(schema.resolutionCache.testId, testId))
+      .run();
+  }
+
   getEmbedding(hash: string): Float32Array | null {
     const row = this.db
       .select()
@@ -122,6 +136,22 @@ export class SqliteCacheStore implements CacheStore {
       .run();
   }
 
+  // Placeholder row so GET /runs/:id can distinguish "still running" from "never existed" while
+  // the run executes — saveRun()/failRun() below overwrite it once the run reaches a final state.
+  startRun(runId: string, testId: string, startedAt: string): void {
+    this.db
+      .insert(schema.runs)
+      .values({
+        runId,
+        testId,
+        status: "running",
+        needsReview: false,
+        startedAt,
+        finishedAt: startedAt,
+      })
+      .run();
+  }
+
   saveRun(report: RunReport): void {
     this.db
       .insert(schema.runs)
@@ -132,6 +162,14 @@ export class SqliteCacheStore implements CacheStore {
         needsReview: report.needsReview,
         startedAt: report.startedAt,
         finishedAt: report.finishedAt,
+      })
+      .onConflictDoUpdate({
+        target: schema.runs.runId,
+        set: {
+          status: report.status,
+          needsReview: report.needsReview,
+          finishedAt: report.finishedAt,
+        },
       })
       .run();
     for (const s of report.steps) {
@@ -145,9 +183,21 @@ export class SqliteCacheStore implements CacheStore {
           band: s.band ?? null,
           durationMs: s.durationMs,
           screenshotPath: s.screenshot ?? null,
+          failureReason: s.failure?.reason ?? null,
+          failureMessage: s.failure?.message ?? null,
         })
         .run();
     }
+  }
+
+  // A run that throws before aggregate()/saveRun() run leaves the placeholder row stuck at
+  // "running" forever; this marks it "failed" so polling stops treating a crashed run as in-progress.
+  failRun(runId: string, finishedAt: string): void {
+    this.db
+      .update(schema.runs)
+      .set({ status: "failed", finishedAt })
+      .where(eq(schema.runs.runId, runId))
+      .run();
   }
 
   getRun(runId: string): RunReport | null {
@@ -165,7 +215,7 @@ export class SqliteCacheStore implements CacheStore {
     return {
       runId: run.runId,
       testId: run.testId,
-      status: run.status as "passed" | "failed",
+      status: run.status as "running" | "passed" | "failed",
       needsReview: run.needsReview,
       startedAt: run.startedAt,
       finishedAt: run.finishedAt,
@@ -176,6 +226,13 @@ export class SqliteCacheStore implements CacheStore {
         band: (s.band ?? undefined) as StepResult["band"],
         durationMs: s.durationMs,
         screenshot: s.screenshotPath ?? undefined,
+        failure:
+          s.failureReason || s.failureMessage
+            ? {
+                reason: s.failureReason ?? "",
+                message: s.failureMessage ?? "",
+              }
+            : undefined,
       })),
     };
   }
@@ -190,7 +247,7 @@ export class SqliteCacheStore implements CacheStore {
     return rows.map((run) => ({
       runId: run.runId,
       testId: run.testId,
-      status: run.status as "passed" | "failed",
+      status: run.status as "running" | "passed" | "failed",
       needsReview: run.needsReview,
       startedAt: run.startedAt,
       finishedAt: run.finishedAt,

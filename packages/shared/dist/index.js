@@ -32,13 +32,97 @@ var SignalName = z.enum([
 var Band = z.enum(["high", "medium", "low"]);
 var ResolutionStatus = z.enum(["grounded", "ungrounded", "stale"]);
 var Score = z.number().min(0).max(1);
+var AriaRole = z.enum([
+  "alert",
+  "alertdialog",
+  "application",
+  "article",
+  "banner",
+  "blockquote",
+  "button",
+  "caption",
+  "cell",
+  "checkbox",
+  "code",
+  "columnheader",
+  "combobox",
+  "complementary",
+  "contentinfo",
+  "definition",
+  "deletion",
+  "dialog",
+  "directory",
+  "document",
+  "emphasis",
+  "feed",
+  "figure",
+  "form",
+  "generic",
+  "grid",
+  "gridcell",
+  "group",
+  "heading",
+  "img",
+  "insertion",
+  "link",
+  "list",
+  "listbox",
+  "listitem",
+  "log",
+  "main",
+  "marquee",
+  "math",
+  "meter",
+  "menu",
+  "menubar",
+  "menuitem",
+  "menuitemcheckbox",
+  "menuitemradio",
+  "navigation",
+  "none",
+  "note",
+  "option",
+  "paragraph",
+  "presentation",
+  "progressbar",
+  "radio",
+  "radiogroup",
+  "region",
+  "row",
+  "rowgroup",
+  "rowheader",
+  "scrollbar",
+  "search",
+  "searchbox",
+  "separator",
+  "slider",
+  "spinbutton",
+  "status",
+  "strong",
+  "subscript",
+  "superscript",
+  "switch",
+  "tab",
+  "table",
+  "tablist",
+  "tabpanel",
+  "term",
+  "textbox",
+  "time",
+  "timer",
+  "toolbar",
+  "tooltip",
+  "tree",
+  "treegrid",
+  "treeitem"
+]);
 
 // src/schema/target.ts
 import { z as z2 } from "zod";
 var Tier1Target = z2.object({
   label: z2.string(),
   semantics: z2.array(z2.string()).min(1),
-  role: z2.string(),
+  role: AriaRole,
   actions: z2.array(z2.string()).default([]),
   intent: z2.string()
 });
@@ -54,14 +138,28 @@ var Precondition = z3.discriminatedUnion("kind", [
 var ExpectedOutcome = z3.discriminatedUnion("type", [
   z3.object({ type: z3.literal("navigation") }),
   z3.object({ type: z3.literal("url_change"), value: z3.string() }),
-  z3.object({ type: z3.literal("element_appears"), value: z3.string() }),
+  // target (not a raw CSS selector) so a DOM-blind authoring agent can author this like every
+  // other variant — it never sees the DOM, so it cannot produce a valid selector by construction.
+  z3.object({ type: z3.literal("element_appears"), target: Tier1Target }),
   z3.object({ type: z3.literal("text_contains"), value: z3.string() }),
-  z3.object({ type: z3.literal("field_contains"), value: z3.string() })
+  // target omitted: falls back to whatever is currently focused (legacy behavior). Set it to
+  // check a specific field's value regardless of focus — e.g. after a submit moves focus away.
+  z3.object({
+    type: z3.literal("field_contains"),
+    value: z3.string(),
+    target: Tier1Target.optional()
+  })
 ]);
 var Assertion = z3.discriminatedUnion("type", [
   z3.object({ type: z3.literal("urlContains"), expected: z3.string() }),
   z3.object({ type: z3.literal("textContains"), expected: z3.string() }),
-  z3.object({ type: z3.literal("value"), expected: z3.string() }),
+  // target omitted: falls back to whatever is currently focused (legacy behavior). Set it to
+  // check a specific field's value regardless of focus — e.g. after a submit moves focus away.
+  z3.object({
+    type: z3.literal("value"),
+    expected: z3.string(),
+    target: Tier1Target.optional()
+  }),
   z3.object({ type: z3.literal("elementVisible"), target: Tier1Target }),
   z3.object({ type: z3.literal("elementAbsent"), target: Tier1Target }),
   z3.object({ type: z3.literal("apiStatus"), expected: z3.number() }),
@@ -183,7 +281,8 @@ var Candidate = z5.object({
     xpath: z5.string().optional(),
     contextPath: z5.array(z5.string()).default([]),
     siblingIndex: z5.number().optional(),
-    nearbyText: z5.string().optional()
+    nearbyText: z5.string().optional(),
+    controlledContent: z5.string().optional()
   }).partial().default({}),
   signals: SignalScores,
   score: Score,
@@ -249,7 +348,10 @@ var GimbalConfig = z8.object({
   artifactsDir: z8.string().default(".gimbal/tests"),
   screenshotsDir: z8.string().default(".gimbal/screenshots"),
   embeddingModel: z8.string().default("Xenova/all-MiniLM-L6-v2"),
-  bands: z8.object({ high: Score.default(0.7), medium: Score.default(0.5) }).default({}),
+  bands: z8.object({ high: Score.default(0.7), medium: Score.default(0.5) }).refine((b) => b.high > b.medium, {
+    message: "bands.high must be greater than bands.medium \u2014 a misconfigured ordering would silently invert confidence semantics",
+    path: ["high"]
+  }).default({}),
   timeouts: z8.object({
     actionMs: z8.number().default(15e3),
     navMs: z8.number().default(3e4)
@@ -276,15 +378,24 @@ var StepResult = z9.object({
 var RunReport = z9.object({
   runId: z9.string(),
   testId: z9.string(),
-  status: z9.enum(["passed", "failed"]),
+  status: z9.enum(["running", "passed", "failed"]),
   needsReview: z9.boolean().default(false),
   steps: z9.array(StepResult),
   startedAt: z9.string(),
+  // Unset (equal to startedAt) while status is "running" — a run isn't finished until this
+  // is a real completion timestamp distinct from startedAt.
   finishedAt: z9.string()
 });
 var ApiError = z9.object({
   error: z9.object({
-    code: z9.enum(["validation", "not_found", "ungrounded", "stale", "browser_error"]),
+    code: z9.enum([
+      "validation",
+      "not_found",
+      "ungrounded",
+      "stale",
+      "browser_error",
+      "internal"
+    ]),
     message: z9.string(),
     details: z9.unknown().optional()
   })
@@ -331,6 +442,7 @@ export {
   ActionType,
   ApiError,
   ApiStep,
+  AriaRole,
   Assertion,
   Band,
   BoundingBox,

@@ -20,6 +20,17 @@ async function waitForHealth(url: string, timeoutMs: number): Promise<void> {
   throw new Error(`core did not become healthy within ${timeoutMs}ms`);
 }
 
+// Used to make `start`/`mcp` idempotent: skip spawning a second core (and, for `start`, skip opening a
+// second dashboard tab) if one is already answering on the configured port.
+export async function isCoreAlive(config: GimbalConfig): Promise<boolean> {
+  try {
+    const res = await fetch(`${baseUrl(config)}/health`);
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 // Spawns core as a child process, records its PID so `gimbal stop` (any terminal) can find it (LLD-009 §3).
 export async function startCore(
   config: GimbalConfig,

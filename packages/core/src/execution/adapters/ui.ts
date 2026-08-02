@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type { StepResult, UiStep } from "@gimbal/shared";
 import pino from "pino";
+import type { Page } from "playwright";
 import { act } from "../act.js";
 import { evaluateAssertion, evaluateExpectedOutcome } from "../assert.js";
 import { locate } from "../locate.js";
@@ -12,6 +13,46 @@ import {
 } from "../types.js";
 
 const logger = pino({ name: "ui-adapter" });
+
+// A submit/click can trigger a server-action redirect that hasn't landed by the time the
+// Playwright action call resolves (click() only waits for the event to dispatch, not for any
+// resulting navigation). Only steps that actually expect a URL change should pay this wait —
+// waiting unconditionally would stall every non-navigating click for the full nav timeout.
+export function expectsNavigation(step: UiStep): boolean {
+  return (
+    step.expectedOutcome.some(
+      (o) => o.type === "navigation" || o.type === "url_change",
+    ) || step.assertions.some((a) => a.type === "urlContains")
+  );
+}
+
+export async function awaitNavigationIfExpected(
+  step: UiStep,
+  page: Page,
+  urlBefore: string,
+): Promise<void> {
+  if (!expectsNavigation(step)) return;
+  await page
+    .waitForURL((url) => url.toString() !== urlBefore, {
+      waitUntil: "load",
+    })
+    .catch(() => {});
+}
+
+// A submit/click that triggers a server action (no navigation) can still be mid-flight when
+// act() resolves — the button may show a loading spinner via aria-busy or a disabled state
+// while the async work (and the success UI an assertion is checking for) hasn't landed yet.
+// Bounded short wait: this must never stall a step that has no such indicator at all.
+const PENDING_UI_SELECTOR = '[aria-busy="true"], button[disabled], [data-loading="true"]';
+const PENDING_UI_TIMEOUT_MS = 3000;
+
+export async function waitForPendingUiToClear(page: Page): Promise<void> {
+  await page
+    .locator(PENDING_UI_SELECTOR)
+    .first()
+    .waitFor({ state: "detached", timeout: PENDING_UI_TIMEOUT_MS })
+    .catch(() => {});
+}
 
 // Capture failure must never fail the step — observability, not correctness (LLD-010 §2.4).
 async function captureScreenshot(
@@ -46,6 +87,7 @@ export class UiAdapter implements StepAdapter {
     const isTarget = step.action !== "navigate" && step.action !== "wait";
     let selection: StepResult["selection"] = undefined;
     let band: StepResult["band"] = undefined;
+    let resolvedSelector: string | null = null;
 
     if (isTarget) {
       const groundedStep = ctx.test.steps.find((s) => s.id === step.id);
@@ -62,6 +104,7 @@ export class UiAdapter implements StepAdapter {
         ctx.page,
         ctx.cache,
         ctx.healing,
+        ctx.testId,
       );
       selection = result.source;
       if (!result.locator) {
@@ -69,28 +112,30 @@ export class UiAdapter implements StepAdapter {
           stepId: step.id,
           status: "stale",
           selection: "none",
+          screenshot: await captureScreenshot(ctx, step.id),
           durationMs: Date.now() - start,
         };
       }
       band = groundedStep.target?.resolution?.band;
+      resolvedSelector = result.selector;
     }
 
     const urlBefore = ctx.page.url();
     try {
-      const groundedStep = ctx.test.steps.find((s) => s.id === step.id);
-      const cachedSelector =
-        groundedStep?.kind === "ui"
-          ? (groundedStep.target?.resolution?.cachedSelector ?? null)
-          : null;
-      await act(ctx.page, step, isTarget ? cachedSelector : null, ctx.vars);
+      await act(ctx.page, step, resolvedSelector, ctx.vars);
     } catch (e) {
       return maybeInvert(
         step,
-        fail(step.id, "ACTION_FAILED", String(e), start),
+        {
+          ...fail(step.id, "ACTION_FAILED", String(e), start),
+          screenshot: await captureScreenshot(ctx, step.id),
+        },
         selection,
         band,
       );
     }
+    await awaitNavigationIfExpected(step, ctx.page, urlBefore);
+    await waitForPendingUiToClear(ctx.page);
 
     let outcomeFailure: StepResult | undefined;
     for (const outcome of step.expectedOutcome) {

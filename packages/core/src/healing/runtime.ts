@@ -23,10 +23,13 @@ export async function runtimeHeal(
   stepId: string,
   page: Page,
   previousSelector: string | null,
+  storeTestId: string,
 ): Promise<HealOutcome> {
   const result = await grounding.reground(test, stepId, page);
 
   if (result.band !== "low" && result.cachedSelector) {
+    // resolution_cache stays keyed by flow.id (see locate.ts) — only the review queue and audit
+    // log, which are looked up by the storage-layer id elsewhere (verdict.ts), use storeTestId.
     cache.putSelector({
       testId: test.flow.id,
       stepId,
@@ -34,7 +37,7 @@ export async function runtimeHeal(
       cachedSelector: result.cachedSelector,
       band: result.band,
     });
-    audit(cache, test.flow.id, stepId, "healed", {
+    audit(cache, storeTestId, stepId, "healed", {
       from: previousSelector,
       to: result.cachedSelector,
       band: result.band,
@@ -48,8 +51,8 @@ export async function runtimeHeal(
   }
 
   const topCandidates = result.resolution.candidates.slice(0, 5);
-  enqueue(cache, test.flow.id, stepId, page.url(), topCandidates);
-  audit(cache, test.flow.id, stepId, "stale", {
+  enqueue(cache, storeTestId, stepId, page.url(), topCandidates);
+  audit(cache, storeTestId, stepId, "stale", {
     from: previousSelector,
     reason: "no candidate reached medium confidence",
   });

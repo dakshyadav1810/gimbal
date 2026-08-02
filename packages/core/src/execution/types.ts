@@ -5,6 +5,7 @@ import type { HealingService } from "../healing/index.js";
 
 export interface RunContext {
   test: GroundedTest;
+  testId: string; // storage-layer id (RunRequest.testId) — NOT test.flow.id, see verdict.ts
   page: Page;
   vars: Record<string, string>;
   cache: CacheStore;

@@ -67,6 +67,11 @@ function registerApiRoutes(app: FastifyInstance, c: Container, hub: WsHub) {
   app.post("/tests/:id/ground", async (req, reply) => {
     const { id } = req.params as { id: string };
     const spec = await c.store.loadSpec(id);
+    // A re-ground must not be shadowed by a stale runtime-heal cache entry from a prior grounding:
+    // the cache key (testId, stepId, domHash) can coincidentally collide across groundings.
+    // resolution_cache is keyed by spec.flow.id (the author-chosen flow id), not this route's
+    // storage-layer :id (a separately generated UUID) — see locate.ts's testId derivation.
+    c.cache.clearSelectorsForTest(spec.flow.id);
     const outcome = await c.grounding.ground(spec, {});
     await c.store.saveCandidates(id, outcome.candidates);
     await c.store.saveGrounded(id, outcome.grounded);
@@ -101,9 +106,15 @@ function registerApiRoutes(app: FastifyInstance, c: Container, hub: WsHub) {
   app.get("/reviews", async () => c.cache.openReviews());
 
   // --- runs ---
-  app.post("/runs", async (req) => {
+  app.post("/runs", async (req, reply) => {
     const { testId, vars } = RunRequest.parse(req.body);
-    const test = await c.store.loadGrounded(testId);
+    let test: Awaited<ReturnType<typeof c.store.loadGrounded>>;
+    try {
+      test = await c.store.loadGrounded(testId);
+    } catch {
+      reply.code(409);
+      return apiError("ungrounded", `test ${testId} is not grounded yet`);
+    }
     const runId = randomUUID();
     // fire-and-forget: client polls GET /runs/:id or streams GET /ws/runs/:id (LLD-008 §3-4)
     c.runner

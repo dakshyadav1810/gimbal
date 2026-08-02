@@ -19,10 +19,12 @@ export async function extractCandidates(page: Page): Promise<DomCandidate[]> {
     ancestorChain: r.ancestorChain,
     region: r.region,
     nearbyText: r.nearbyText,
+    controlledContent: r.controlledContent,
     testId: r.testId,
     attributes: r.attributes,
     xpath: r.xpath,
     contextPath: r.contextPath,
     siblingIndex: r.siblingIndex,
+    parentXpath: r.parentXpath,
   }));
 }

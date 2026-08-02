@@ -90,6 +90,16 @@ describe("computeWeights", () => {
     expect(both.context).toBeCloseTo(formOnly.context, 10);
   });
 
+  it("boosts structure weight on a repeated-structure page (e.g. a list of near-identical rows)", () => {
+    const w = computeWeights(page({ repeatedStructure: true }), [
+      { semantics: 0.5, context: 0.5, structure: 0.5 },
+    ]);
+    const baseline = computeWeights(page({}), [
+      { semantics: 0.5, context: 0.5, structure: 0.5 },
+    ]);
+    expect(w.structure).toBeGreaterThan(baseline.structure);
+  });
+
   it("an icon-heavy page still lets semantics dominate context+structure combined when text is also dense", () => {
     const w = computeWeights(
       page({ iconRatio: 0.9, hasForm: true, hasModal: true, textDensity: 0.9 }),

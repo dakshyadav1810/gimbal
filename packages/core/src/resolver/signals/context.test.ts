@@ -98,4 +98,37 @@ describe("ContextSignal", () => {
     const score = signal.score(target({}), cand({ region: "form" }), page({ hasForm: true }));
     expect(score).toBeCloseTo(0.7, 10);
   });
+
+  it("adds controlledContent Jaccard overlap against the target intent", () => {
+    const score = signal.score(
+      target({ label: "zzz-no-overlap", intent: "open the account menu" }),
+      cand({ controlledContent: "Sign Out Account Settings" }),
+      page({}),
+    );
+    // jaccard({sign,out,account,settings}, {open,the,account,menu}): inter=1, union=4+4-1=7 -> 1/7
+    expect(score).toBeCloseTo(0.5 + (1 / 7) * 0.2, 5);
+  });
+
+  it("ignores controlledContent when absent, leaving the score unaffected", () => {
+    const score = signal.score(
+      target({ intent: "open the account menu" }),
+      cand({ region: "form" }),
+      page({ hasForm: true }),
+    );
+    expect(score).toBeCloseTo(0.7, 10);
+  });
+
+  it("stacks nearbyText and controlledContent bonuses independently, capped at 1", () => {
+    const score = signal.score(
+      target({ label: "account", intent: "open the account menu" }),
+      cand({
+        region: "modal",
+        nearbyText: "account settings",
+        controlledContent: "sign out account",
+      }),
+      page({ hasModal: true }),
+    );
+    expect(score).toBeLessThanOrEqual(1);
+    expect(score).toBeGreaterThan(0.7); // region bonus alone would only reach 0.7
+  });
 });

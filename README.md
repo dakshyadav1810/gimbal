@@ -44,15 +44,20 @@ behavior instead of hand-writing selectors.
 
 ```bash
 npx gimbal init      # scaffold .gimbal/ + gimbal.config.json in your project
-npx gimbal start      # spawn the local server, mount the MCP server, open the dashboard
+npx gimbal start     # spawn the local server (no-op if already running), open the dashboard
 ```
 
-`gimbal start` launches one local process: a Fastify server (default `http://127.0.0.1:4319`), an MCP
-server over stdio for your coding agent, and the dashboard, served from that same server. Gimbal itself
-never calls an LLM provider and holds no API key — whatever your coding agent already talks to (Claude,
-GPT, ...) is the only model in the loop, and that's a connection you already have, not one Gimbal adds.
+`gimbal start` is for you, the human: it spawns the Fastify core server (default
+`http://127.0.0.1:4319`) if one isn't already running, and opens the dashboard, served from that same
+server. Your coding agent doesn't use this command: its MCP client registers `gimbal mcp` instead, which
+starts the MCP stdio server, connects to core (spawning one in the background if needed), and never opens
+a browser tab, so reconnecting or starting a new agent session doesn't spam your desktop with tabs.
+Gimbal itself never calls an LLM provider and holds no API key — whatever your coding agent already talks
+to (Claude, GPT, ...) is the only model in the loop, and that's a connection you already have, not one
+Gimbal adds.
 
-Then, from your coding agent (Claude Code, Cursor, or anything that speaks MCP):
+Then, from your coding agent (Claude Code, Cursor, or anything that speaks MCP), once it's registered with
+`gimbal mcp` (see [How it works](#1-connect)):
 
 ```
 "Test the login flow" → agent calls the gimbal MCP tools → spec.json is authored, grounded, and run
@@ -64,9 +69,14 @@ See [Development](#development) if you want to run this from source before it's 
 
 ### 1. Connect
 
-`gimbal start` mounts a local [Model Context Protocol](https://modelcontextprotocol.io) server that
-exposes your app's structure and test lifecycle as tools your agent can call directly — `getMap`,
-`submitSpec`, `groundTest`, `runTest`, `getReport`, `healing`, `updateTest`, and more.
+Register `gimbal mcp` (not `start`) with your agent's MCP client, for example for Claude Code:
+`claude mcp add gimbal -- npx gimbal mcp`. It mounts a local
+[Model Context Protocol](https://modelcontextprotocol.io) server that exposes your app's structure and
+test lifecycle as tools your agent can call directly (`getMap`, `submitSpec`, `groundTest`, `runTest`,
+`getReport`, `healing`, `updateTest`, and more). It connects to an already-running core, silently spawning
+one in the background on first use, and never opens the dashboard itself: that split matters because
+your MCP client respawns this command on every session, and a command that opened a browser tab or
+duplicated core on every reconnect would get old fast.
 
 ```
 $ npx gimbal start

@@ -33,6 +33,7 @@ export const Candidate = z.object({
       contextPath: z.array(z.string()).default([]),
       siblingIndex: z.number().optional(),
       nearbyText: z.string().optional(),
+      controlledContent: z.string().optional(),
     })
     .partial()
     .default({}),

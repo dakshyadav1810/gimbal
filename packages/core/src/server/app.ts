@@ -33,6 +33,25 @@ export async function buildApp(config: GimbalConfig, container: Container) {
     decorateReply: false,
   });
 
+  // Must be set before registerRoutes(): the /api routes are registered inside their own
+  // encapsulated child plugin (see routes.ts), and setErrorHandler only applies to contexts
+  // created after the call — set after registration, it silently never applied to any /api
+  // route, which fell back to Fastify's default handler (a different, undocumented error shape)
+  // instead of this one.
+  app.setErrorHandler((err: Error & { statusCode?: number; validation?: unknown[] }, _req, reply) => {
+    const isValidationError =
+      err.name === "ZodError" ||
+      (Array.isArray(err.validation) && err.validation.length > 0);
+    reply
+      .code(err.statusCode ?? (isValidationError ? 400 : 500))
+      .send({
+        error: {
+          code: isValidationError ? "validation" : "internal",
+          message: err.message,
+        },
+      });
+  });
+
   const hub = new WsHub();
   await registerRoutes(app, container, hub);
   await registerWsRoutes(app, hub);
@@ -50,12 +69,6 @@ export async function buildApp(config: GimbalConfig, container: Container) {
       return reply.sendFile("index.html");
     }
     reply.code(404).send({ error: { code: "not_found", message: "not found" } });
-  });
-
-  app.setErrorHandler((err: Error & { statusCode?: number }, _req, reply) => {
-    reply
-      .code(err.statusCode ?? 500)
-      .send({ error: { code: "validation", message: err.message } });
   });
 
   return app;

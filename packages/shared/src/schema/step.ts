@@ -13,16 +13,30 @@ export type Precondition = z.infer<typeof Precondition>;
 export const ExpectedOutcome = z.discriminatedUnion("type", [
   z.object({ type: z.literal("navigation") }),
   z.object({ type: z.literal("url_change"), value: z.string() }),
-  z.object({ type: z.literal("element_appears"), value: z.string() }),
+  // target (not a raw CSS selector) so a DOM-blind authoring agent can author this like every
+  // other variant — it never sees the DOM, so it cannot produce a valid selector by construction.
+  z.object({ type: z.literal("element_appears"), target: Tier1Target }),
   z.object({ type: z.literal("text_contains"), value: z.string() }),
-  z.object({ type: z.literal("field_contains"), value: z.string() }),
+  // target omitted: falls back to whatever is currently focused (legacy behavior). Set it to
+  // check a specific field's value regardless of focus — e.g. after a submit moves focus away.
+  z.object({
+    type: z.literal("field_contains"),
+    value: z.string(),
+    target: Tier1Target.optional(),
+  }),
 ]);
 export type ExpectedOutcome = z.infer<typeof ExpectedOutcome>;
 
 export const Assertion = z.discriminatedUnion("type", [
   z.object({ type: z.literal("urlContains"), expected: z.string() }),
   z.object({ type: z.literal("textContains"), expected: z.string() }),
-  z.object({ type: z.literal("value"), expected: z.string() }),
+  // target omitted: falls back to whatever is currently focused (legacy behavior). Set it to
+  // check a specific field's value regardless of focus — e.g. after a submit moves focus away.
+  z.object({
+    type: z.literal("value"),
+    expected: z.string(),
+    target: Tier1Target.optional(),
+  }),
   z.object({ type: z.literal("elementVisible"), target: Tier1Target }),
   z.object({ type: z.literal("elementAbsent"), target: Tier1Target }),
   z.object({ type: z.literal("apiStatus"), expected: z.number() }),

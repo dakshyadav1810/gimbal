@@ -7,6 +7,7 @@ import type { HealingService } from "../healing/index.js";
 
 export interface LocateResult {
   locator: Locator | null;
+  selector: string | null;
   source: "cached" | "resolver" | "none";
 }
 
@@ -23,14 +24,21 @@ export async function locate(
   page: Page,
   cache: CacheStore,
   healing: HealingService,
+  storeTestId: string,
 ): Promise<LocateResult> {
   const domCandidates = await extractCandidates(page);
   const domHash = computeDomHash(domCandidates);
+  // resolution_cache is deliberately keyed by flow.id, not storeTestId — see routes.ts's
+  // clearSelectorsForTest(spec.flow.id) comment; that cache key must stay as-is.
   const testId = test.flow.id;
 
   const hit = cache.getSelector(testId, step.id, domHash);
   if (hit && (await isUniqueVisible(page.locator(hit.cachedSelector)))) {
-    return { locator: page.locator(hit.cachedSelector), source: "cached" };
+    return {
+      locator: page.locator(hit.cachedSelector),
+      selector: hit.cachedSelector,
+      source: "cached",
+    };
   }
 
   const seed = step.target?.resolution?.cachedSelector;
@@ -42,15 +50,22 @@ export async function locate(
       cachedSelector: seed,
       band: step.target!.resolution!.band,
     });
-    return { locator: page.locator(seed), source: "cached" };
+    return { locator: page.locator(seed), selector: seed, source: "cached" };
   }
 
-  const outcome = await healing.runtimeHeal(test, step.id, page, seed ?? null);
+  const outcome = await healing.runtimeHeal(
+    test,
+    step.id,
+    page,
+    seed ?? null,
+    storeTestId,
+  );
   if (outcome.status === "healed") {
     return {
       locator: page.locator(outcome.cachedSelector),
+      selector: outcome.cachedSelector,
       source: "resolver",
     };
   }
-  return { locator: null, source: "none" }; // -> STALE (SPEC-003 §7)
+  return { locator: null, selector: null, source: "none" }; // -> STALE (SPEC-003 §7)
 }

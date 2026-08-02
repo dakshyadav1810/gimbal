@@ -169,15 +169,17 @@ node packages/core/dist/main.js
 Gives you the Fastify server, REST API, WebSocket stream, and dashboard on
 `http://127.0.0.1:4319`. No MCP. Stop it with Ctrl-C.
 
-### Option B — run the full CLI (adds the MCP server)
+### Option B — run `gimbal start` (adds the dashboard, idempotent core spawn)
 
 ```bash
 node packages/cli/dist/index.js start
 ```
 
-This spawns core as a **detached child**, opens the dashboard, and serves MCP over stdio.
-It holds the terminal by design — stdio *is* the MCP transport, so an agent is meant to spawn
-it. Because core is detached, it outlives the CLI; stop it from another shell:
+This spawns core as a **detached child** (skipped if core is already alive: `start` checks
+`/health` first via `isCoreAlive`) and opens the dashboard. It does **not** serve MCP. That's a
+separate command, `gimbal mcp` (see [§7](#7-connecting-a-coding-agent-mcp)), so an MCP client
+doesn't get a fresh browser tab and a possible duplicate core every time it respawns the command.
+Because core is detached, it outlives the CLI; stop it from another shell:
 
 ```bash
 node packages/cli/dist/index.js stop
@@ -319,15 +321,20 @@ corepack pnpm --filter @gimbal/dashboard dev
 
 ## 7. Connecting a coding agent (MCP)
 
-`gimbal start` mounts an MCP server over stdio exposing 10 tools:
+`gimbal mcp` (not `gimbal start`) mounts an MCP server over stdio exposing 10 tools:
 
 `getMap`, `getDelta`, `submitSpec`, `groundTest`, `runTest`, `getReport`, `pollRun`,
 `healing`, `updateTest`, `deleteTest`
 
+It's a separate command from `start` on purpose: an MCP client spawns the registered command
+fresh on every new session/reconnect, and `gimbal mcp` connects to an already-running core
+(spawning one silently in the background only if `isCoreAlive` says none is up) without ever
+opening a browser tab, so reconnecting doesn't duplicate core or spam new dashboard tabs.
+
 Register it with any MCP client. For Claude Code:
 
 ```bash
-claude mcp add gimbal -- node /absolute/path/to/gimbal/packages/cli/dist/index.js start
+claude mcp add gimbal -- node /absolute/path/to/gimbal/packages/cli/dist/index.js mcp
 ```
 
 Then drive it in plain language — *"test the login flow"* — and the agent authors the spec,
@@ -399,9 +406,9 @@ Don't design an experiment around these — they aren't built:
 - **Test coverage is thin** — 7 unit tests, no integration tests. Both bugs in [§3](#3-apply-the-two-required-fixes)
   survived precisely because nothing exercises the end-to-end path.
 
-Also note: `gimbal start` writes `core listening on ...` to stdout, which is the same channel as
-the MCP JSON-RPC transport. Lenient clients ignore the non-JSON line; a strict one may complain.
-Moving that log to stderr would be the correct fix.
+Also note: `gimbal start` writes `core listening on ...` to stdout, but that's no longer a risk to
+the MCP transport now that `start` and `mcp` are separate commands. `gimbal mcp`'s action doesn't
+log anything before handing stdio to the MCP server, whether or not it had to spawn core itself.
 
 Leftovers from an earlier stack (`packages/core/.venv`, `packages/dashboard/.next`,
 `next-env.d.ts`, `bun.lock`) are dead weight — the pnpm + Vite path is the real one. See

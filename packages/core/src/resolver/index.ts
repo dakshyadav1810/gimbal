@@ -89,6 +89,7 @@ export class MultiSignalResolver implements Resolver {
         contextPath: c.contextPath ?? [],
         siblingIndex: c.siblingIndex,
         nearbyText: c.nearbyText,
+        controlledContent: c.controlledContent,
       },
       signals: {
         semantics: semanticsScores[i],

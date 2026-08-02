@@ -6,8 +6,12 @@
 
 > The agent-facing **MCP server** lives in the **CLI** and is a thin proxy: every tool translates to a
 > REST/WebSocket call into **core**. Core's Fastify surface is the single ingress for all business logic.
-> This preserves invariant #7 (no internal cross-package calls) while giving `gimbal start` an MCP control
-> plane.
+> This preserves invariant #7 (no internal cross-package calls) while giving `gimbal mcp` an MCP control
+> plane. `gimbal mcp` is a separate command from `gimbal start`: an MCP client (e.g. `claude mcp add`)
+> respawns the registered command on every session/reconnect, so the agent-facing command must not also
+> spawn a duplicate core or reopen the dashboard each time. `gimbal start` (human-facing, idempotent core
+> spawn + dashboard open) and `gimbal mcp` (agent-facing, stdio only, no dashboard) are kept separate for
+> exactly that reason.
 
 ---
 
@@ -18,7 +22,9 @@
                               (@modelcontextprotocol/sdk)        (fastify-type-provider-zod)
 ```
 
-- MCP transport: **stdio** (`@modelcontextprotocol/sdk`, official TS). Started by `gimbal start`.
+- MCP transport: **stdio** (`@modelcontextprotocol/sdk`, official TS). Started by `gimbal mcp`, which
+  connects to an already-running core (spawning one in the background via `isCoreAlive`/`startCore` only
+  if none is alive) and never opens the dashboard.
 - Each MCP tool handler builds a typed request from `shared` DTOs and calls core over `http://127.0.0.1:PORT`.
 - Tools never touch Playwright, the DB, or the resolver directly — only core's REST/WS.
 

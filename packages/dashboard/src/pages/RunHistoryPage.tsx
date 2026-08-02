@@ -4,6 +4,7 @@ import { useRuns } from "../queries.js";
 const STATUS_STYLE: Record<string, string> = {
   passed: "text-green-700 dark:text-green-400",
   failed: "text-red-700 dark:text-red-400",
+  running: "text-amber-700 dark:text-amber-400",
 };
 
 export function RunHistoryPage({ testId }: { testId: string }) {
@@ -46,7 +47,9 @@ export function RunHistoryPage({ testId }: { testId: string }) {
                 {new Date(r.startedAt).toLocaleString()}
               </td>
               <td className="py-1.5 pr-4">
-                {new Date(r.finishedAt).toLocaleString()}
+                {r.status === "running"
+                  ? "—"
+                  : new Date(r.finishedAt).toLocaleString()}
               </td>
             </tr>
           ))}

@@ -34,6 +34,8 @@ export const stepResults = sqliteTable("step_results", {
   band: text("band"),
   durationMs: integer("duration_ms").notNull(),
   screenshotPath: text("screenshot_path"),
+  failureReason: text("failure_reason"),
+  failureMessage: text("failure_message"),
 });
 
 export const healAudit = sqliteTable("heal_audit", {

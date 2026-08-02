@@ -15,13 +15,17 @@ export function RunDetailPage({
   runId: string;
 }) {
   const { data: storedReport } = useRun(runId);
+  // A "running" placeholder row is a real fetch result, not a finished report — treat it the
+  // same as no report yet so the WS log below still drives the view until it's actually done.
+  const finishedReport =
+    storedReport && storedReport.status !== "running" ? storedReport : undefined;
   const [liveReport, setLiveReport] = useState<RunReport | null>(null);
   const [log, setLog] = useState<string[]>([]);
   const logRef = useRef<HTMLDivElement>(null);
-  const isLive = !storedReport && !liveReport;
+  const isLive = !finishedReport && !liveReport;
 
   useEffect(() => {
-    if (storedReport) return;
+    if (finishedReport) return;
     const ws = new WebSocket(wsUrl(`/ws/runs/${runId}`));
     ws.onmessage = (evt) => {
       const msg: WsMessage = JSON.parse(evt.data);
@@ -29,13 +33,13 @@ export function RunDetailPage({
       if (msg.type === "run.complete") setLiveReport(msg.report);
     };
     return () => ws.close();
-  }, [runId, storedReport]);
+  }, [runId, finishedReport]);
 
   useEffect(() => {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight });
   }, [log]);
 
-  const report = storedReport ?? liveReport;
+  const report = finishedReport ?? liveReport;
 
   return (
     <div className="p-6">

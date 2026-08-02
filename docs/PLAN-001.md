@@ -64,8 +64,10 @@ single shared IR contract end-to-end.
 ### `packages/cli` (Node orchestration + MCP)
 
 - CLI framework: **commander**. Commands: `init`, `start`, `stop`, `author`, `ground`, `test`, `heal`, `report` (LLD-009 §2). `start` writes `.gimbal/gimbal.pid`; `stop` reads it to SIGTERM core.
-- **@modelcontextprotocol/sdk** (official TS, stdio transport) — the agent-facing MCP server started by
-  `gimbal start`, exposing `getMap`, `getDelta`, `healing`, and test CRUD (run/report/poll/update/delete).
+- **@modelcontextprotocol/sdk** (official TS, stdio transport) — the agent-facing MCP server, exposing
+  `getMap`, `getDelta`, `healing`, and test CRUD (run/report/poll/update/delete). Hosted by its own `gimbal
+  mcp` command (not `start`), since an MCP client respawns the registered command every session and must
+  not re-trigger a dashboard open or a duplicate core spawn each time.
 - Orchestration via `node:child_process`/**execa**: spawn + health-check the core server, open the dashboard (`open`).
 - **MCP tools translate to REST/WS calls into core** — never internal cross-package calls (invariant #7). The CLI contains no execution logic (invariant #4).
 
@@ -116,7 +118,7 @@ single shared IR contract end-to-end.
 ## Verification
 
 - `pnpm -w build && pnpm -w test` (Turborepo) — Vitest resolver golden cases confirm signal parity with the Python behavior.
-- `npx gimbal start`: one Node process spawns the Fastify core (localhost), brings up the MCP server (stdio), and serves the dashboard at the core base path.
+- `npx gimbal start`: spawns the Fastify core (localhost, no-op if already running) and serves+opens the dashboard at the core base path. `npx gimbal mcp`: brings up the MCP server (stdio) against an already-running core (spawning one in the background if needed), without opening the dashboard.
 - Author a spec via an MCP `healing`/CRUD tool → run Grounding against a live page → assert `candidates.json` + `cachedSelector` written and `band ≥ medium` (else `ungrounded`).
 - `npx gimbal test` runs deterministically from cache; break a selector to trigger the runtime heal → `stale` path.
 - Open the dashboard: edit a JSON test in CodeMirror and watch a live run stream over WebSocket in the plain log view.

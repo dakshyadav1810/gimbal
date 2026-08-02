@@ -63,6 +63,7 @@ function registerApiRoutes(app2, c, hub) {
   app2.post("/tests/:id/ground", async (req, reply) => {
     const { id } = req.params;
     const spec = await c.store.loadSpec(id);
+    c.cache.clearSelectorsForTest(spec.flow.id);
     const outcome = await c.grounding.ground(spec, {});
     await c.store.saveCandidates(id, outcome.candidates);
     await c.store.saveGrounded(id, outcome.grounded);
@@ -89,9 +90,15 @@ function registerApiRoutes(app2, c, hub) {
     return result;
   });
   app2.get("/reviews", async () => c.cache.openReviews());
-  app2.post("/runs", async (req) => {
+  app2.post("/runs", async (req, reply) => {
     const { testId, vars } = RunRequest.parse(req.body);
-    const test = await c.store.loadGrounded(testId);
+    let test;
+    try {
+      test = await c.store.loadGrounded(testId);
+    } catch {
+      reply.code(409);
+      return apiError("ungrounded", `test ${testId} is not grounded yet`);
+    }
     const runId = randomUUID();
     c.runner.run(test, {
       testId,
@@ -166,6 +173,15 @@ async function buildApp(config2, container2) {
     prefix: "/screenshots/",
     decorateReply: false
   });
+  app2.setErrorHandler((err, _req, reply) => {
+    const isValidationError = err.name === "ZodError" || Array.isArray(err.validation) && err.validation.length > 0;
+    reply.code(err.statusCode ?? (isValidationError ? 400 : 500)).send({
+      error: {
+        code: isValidationError ? "validation" : "internal",
+        message: err.message
+      }
+    });
+  });
   const hub = new WsHub();
   await registerRoutes(app2, container2, hub);
   await registerWsRoutes(app2, hub);
@@ -175,9 +191,6 @@ async function buildApp(config2, container2) {
       return reply.sendFile("index.html");
     }
     reply.code(404).send({ error: { code: "not_found", message: "not found" } });
-  });
-  app2.setErrorHandler((err, _req, reply) => {
-    reply.code(err.statusCode ?? 500).send({ error: { code: "validation", message: err.message } });
   });
   return app2;
 }
@@ -289,7 +302,9 @@ var stepResults = sqliteTable("step_results", {
   selectionSource: text("selection_source"),
   band: text("band"),
   durationMs: integer("duration_ms").notNull(),
-  screenshotPath: text("screenshot_path")
+  screenshotPath: text("screenshot_path"),
+  failureReason: text("failure_reason"),
+  failureMessage: text("failure_message")
 });
 var healAudit = sqliteTable("heal_audit", {
   testId: text("test_id").notNull(),
@@ -357,6 +372,13 @@ var SqliteCacheStore = class {
       }
     }).run();
   }
+  // A fresh groundTest must never be shadowed by a stale runtime-heal cache entry: the cache key
+  // (testId, stepId, domHash) can coincidentally collide across groundings when the page's
+  // interactive-DOM signature happens to match, letting a superseded selector outlive the
+  // re-ground that fixed it (LLD-005 §8 gap).
+  clearSelectorsForTest(testId) {
+    this.db.delete(resolutionCache).where(eq(resolutionCache.testId, testId)).run();
+  }
   getEmbedding(hash) {
     const row = this.db.select().from(embeddings).where(eq(embeddings.hash, hash)).get();
     if (!row) return null;
@@ -373,6 +395,18 @@ var SqliteCacheStore = class {
       vector: Buffer.from(v.buffer, v.byteOffset, v.byteLength)
     }).onConflictDoNothing().run();
   }
+  // Placeholder row so GET /runs/:id can distinguish "still running" from "never existed" while
+  // the run executes — saveRun()/failRun() below overwrite it once the run reaches a final state.
+  startRun(runId, testId, startedAt) {
+    this.db.insert(runs).values({
+      runId,
+      testId,
+      status: "running",
+      needsReview: false,
+      startedAt,
+      finishedAt: startedAt
+    }).run();
+  }
   saveRun(report) {
     this.db.insert(runs).values({
       runId: report.runId,
@@ -381,6 +415,13 @@ var SqliteCacheStore = class {
       needsReview: report.needsReview,
       startedAt: report.startedAt,
       finishedAt: report.finishedAt
+    }).onConflictDoUpdate({
+      target: runs.runId,
+      set: {
+        status: report.status,
+        needsReview: report.needsReview,
+        finishedAt: report.finishedAt
+      }
     }).run();
     for (const s of report.steps) {
       this.db.insert(stepResults).values({
@@ -390,9 +431,16 @@ var SqliteCacheStore = class {
         selectionSource: s.selection ?? null,
         band: s.band ?? null,
         durationMs: s.durationMs,
-        screenshotPath: s.screenshot ?? null
+        screenshotPath: s.screenshot ?? null,
+        failureReason: s.failure?.reason ?? null,
+        failureMessage: s.failure?.message ?? null
       }).run();
     }
+  }
+  // A run that throws before aggregate()/saveRun() run leaves the placeholder row stuck at
+  // "running" forever; this marks it "failed" so polling stops treating a crashed run as in-progress.
+  failRun(runId, finishedAt) {
+    this.db.update(runs).set({ status: "failed", finishedAt }).where(eq(runs.runId, runId)).run();
   }
   getRun(runId) {
     const run = this.db.select().from(runs).where(eq(runs.runId, runId)).get();
@@ -411,7 +459,11 @@ var SqliteCacheStore = class {
         selection: s.selectionSource ?? void 0,
         band: s.band ?? void 0,
         durationMs: s.durationMs,
-        screenshot: s.screenshotPath ?? void 0
+        screenshot: s.screenshotPath ?? void 0,
+        failure: s.failureReason || s.failureMessage ? {
+          reason: s.failureReason ?? "",
+          message: s.failureMessage ?? ""
+        } : void 0
       }))
     };
   }
@@ -486,7 +538,8 @@ function migrate(db) {
     );
     CREATE TABLE IF NOT EXISTS step_results (
       run_id TEXT NOT NULL, step_id TEXT NOT NULL, status TEXT NOT NULL,
-      selection_source TEXT, band TEXT, duration_ms INTEGER NOT NULL, screenshot_path TEXT
+      selection_source TEXT, band TEXT, duration_ms INTEGER NOT NULL, screenshot_path TEXT,
+      failure_reason TEXT, failure_message TEXT
     );
     CREATE TABLE IF NOT EXISTS heal_audit (
       test_id TEXT NOT NULL, step_id TEXT NOT NULL, event TEXT NOT NULL,
@@ -497,12 +550,34 @@ function migrate(db) {
       screenshot_path TEXT, candidates_json TEXT, open INTEGER NOT NULL DEFAULT 1
     );
   `);
+  const stepResultsColumns = sqlite.prepare("PRAGMA table_info(step_results)").all();
+  const hasColumn = (name) => stepResultsColumns.some((c) => c.name === name);
+  if (!hasColumn("failure_reason")) {
+    sqlite.exec("ALTER TABLE step_results ADD COLUMN failure_reason TEXT;");
+  }
+  if (!hasColumn("failure_message")) {
+    sqlite.exec("ALTER TABLE step_results ADD COLUMN failure_message TEXT;");
+  }
 }
 
 // src/execution/dispatcher.ts
 import { randomUUID as randomUUID2 } from "crypto";
 
 // src/execution/assert.ts
+async function evaluateElementPresence(page, target, expectVisible) {
+  if (!page) return ok(false);
+  const locator = page.getByRole(target.role, { name: target.label });
+  const count = await locator.count().catch(() => 0);
+  if (count > 1) {
+    return {
+      ok: false,
+      reason: `ambiguous target: role "${target.role}" name "${target.label}" matched ${count} elements`
+    };
+  }
+  if (count === 0) return ok(!expectVisible);
+  const visible = await locator.isVisible().catch(() => false);
+  return ok(visible === expectVisible);
+}
 function interpolate(s, vars) {
   return s.replace(/\$\{(\w+)\}/g, (_, k) => vars[k] ?? "");
 }
@@ -517,25 +592,20 @@ async function evaluateAssertion(a, ctx) {
       return ok(!!text2?.includes(interpolate(a.expected, ctx.vars)));
     }
     case "value": {
-      const val = await ctx.page?.locator(":focus").inputValue().catch(() => "");
+      const locator = a.target ? ctx.page?.getByRole(a.target.role, { name: a.target.label }) : ctx.page?.locator(":focus");
+      const val = await locator?.inputValue().catch(() => "");
       return ok(val === interpolate(a.expected, ctx.vars));
     }
     case "elementVisible":
-      return ok(
-        !!await ctx.page?.getByRole(a.target.role, { name: a.target.label }).isVisible().catch(() => false)
-      );
+      return evaluateElementPresence(ctx.page, a.target, true);
     case "elementAbsent":
-      return ok(
-        !await ctx.page?.getByRole(a.target.role, { name: a.target.label }).isVisible().catch(() => false)
-      );
+      return evaluateElementPresence(ctx.page, a.target, false);
     case "apiStatus":
       return ok(ctx.apiResponse?.status === a.expected);
     case "apiBody":
-      return ok(
-        JSON.stringify(getPath(ctx.apiResponse?.body, a.path)) === JSON.stringify(a.expected)
-      );
+      return ok(deepEqual(getPath(ctx.apiResponse?.body, a.path), a.expected));
     case "dbRow":
-      return ok(JSON.stringify(ctx.dbRow) === JSON.stringify(a.expected));
+      return ok(deepEqual(ctx.dbRow, a.expected));
   }
 }
 async function evaluateExpectedOutcome(o, ctx) {
@@ -546,15 +616,14 @@ async function evaluateExpectedOutcome(o, ctx) {
         ctx.page.url() !== ctx.urlBefore && (o.type === "navigation" || ctx.page.url().includes(o.value))
       );
     case "element_appears":
-      return ok(
-        await ctx.page.locator(o.value).isVisible().catch(() => false)
-      );
+      return evaluateElementPresence(ctx.page, o.target, true);
     case "text_contains": {
       const text2 = await ctx.page.textContent("body");
       return ok(!!text2?.includes(interpolate(o.value, ctx.vars)));
     }
     case "field_contains": {
-      const val = await ctx.page.locator(":focus").inputValue().catch(() => "");
+      const locator = o.target ? ctx.page.getByRole(o.target.role, { name: o.target.label }) : ctx.page.locator(":focus");
+      const val = await locator.inputValue().catch(() => "");
       return ok(val.includes(interpolate(o.value, ctx.vars)));
     }
   }
@@ -564,6 +633,22 @@ function ok(b) {
 }
 function getPath(obj, path5) {
   return path5.split(".").reduce((o, k) => o?.[k], obj);
+}
+function deepEqual(a, b) {
+  if (Object.is(a, b)) return true;
+  if (typeof a !== "object" || typeof b !== "object" || a === null || b === null)
+    return false;
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length)
+      return false;
+    return a.every((v, i) => deepEqual(v, b[i]));
+  }
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+  if (aKeys.length !== bKeys.length) return false;
+  return aKeys.every(
+    (k) => deepEqual(a[k], b[k])
+  );
 }
 
 // src/execution/adapters/api.ts
@@ -658,12 +743,35 @@ function interpolate3(value, vars) {
   if (!value) return "";
   return value.replace(/\$\{(\w+)\}/g, (_, k) => vars[k] ?? "");
 }
+async function isAlreadyOpen(locator) {
+  const [ariaExpanded, dataState] = await Promise.all([
+    locator.getAttribute("aria-expanded").catch(() => null),
+    locator.getAttribute("data-state").catch(() => null)
+  ]);
+  return ariaExpanded === "true" || dataState === "open";
+}
+function landedOnIntendedUrl(targetUrl, actualUrl) {
+  try {
+    const target = new URL(targetUrl);
+    const actual = new URL(actualUrl);
+    return target.origin === actual.origin && target.pathname === actual.pathname;
+  } catch {
+    return true;
+  }
+}
 async function act(page, step, selector, vars) {
   const value = interpolate3(step.value, vars);
   switch (step.action) {
-    case "navigate":
-      await page.goto(interpolate3(step.value, vars) || page.url());
+    case "navigate": {
+      const target = interpolate3(step.value, vars) || page.url();
+      await page.goto(target);
+      if (!landedOnIntendedUrl(target, page.url())) {
+        throw new Error(
+          `navigate landed on ${page.url()} instead of intended ${target} (likely a server-side redirect)`
+        );
+      }
       return;
+    }
     case "wait":
       await page.waitForTimeout(Number(value) || 500);
       return;
@@ -673,6 +781,7 @@ async function act(page, step, selector, vars) {
   const locator = page.locator(selector).first();
   switch (step.action) {
     case "click":
+      if (await isAlreadyOpen(locator)) return;
       await locator.click();
       return;
     case "type":
@@ -705,7 +814,9 @@ function extractInteractiveElementsInPage() {
       if (target?.textContent) return target.textContent.trim();
     }
     if (el.id) {
-      const forLabel = document.querySelector(`label[for="${el.id}"]`);
+      const forLabel = document.querySelector(
+        `label[for="${CSS.escape(el.id)}"]`
+      );
       if (forLabel?.textContent) return forLabel.textContent.trim();
     }
     const placeholder = el.getAttribute("placeholder");
@@ -715,8 +826,13 @@ function extractInteractiveElementsInPage() {
     const text2 = el.textContent?.trim();
     return text2 || void 0;
   };
+  const xpathLiteral = (value) => {
+    if (!value.includes('"')) return `"${value}"`;
+    if (!value.includes("'")) return `'${value}'`;
+    return `concat(${value.split('"').map((part) => `"${part}"`).join(`, '"', `)})`;
+  };
   const xpathFor = (el) => {
-    if (el.id) return `//*[@id="${el.id}"]`;
+    if (el.id) return `//*[@id=${xpathLiteral(el.id)}]`;
     const parts = [];
     let node = el;
     while (node && node.nodeType === Node.ELEMENT_NODE) {
@@ -736,11 +852,19 @@ function extractInteractiveElementsInPage() {
     let node = el.parentElement;
     let depth = 0;
     while (node && depth < 5) {
-      path5.push(node.tagName.toLowerCase() + (node.id ? `#${node.id}` : ""));
+      path5.push(
+        node.tagName.toLowerCase() + (node.id ? `#${CSS.escape(node.id)}` : "")
+      );
       node = node.parentElement;
       depth++;
     }
     return path5;
+  };
+  const controlledContentFor = (el) => {
+    const ref = el.getAttribute("aria-controls") ?? el.getAttribute("aria-owns");
+    if (!ref) return void 0;
+    const text2 = ref.split(/\s+/).filter(Boolean).map((id) => document.getElementById(id)?.textContent?.trim()).filter((t) => Boolean(t)).join(" ").slice(0, 200);
+    return text2 || void 0;
   };
   const regionFor = (el) => {
     if (el.closest('[role="dialog"], .modal, dialog')) return "modal";
@@ -749,12 +873,12 @@ function extractInteractiveElementsInPage() {
     return null;
   };
   const cssSelectorFor = (el) => {
-    if (el.id) return `#${el.id}`;
+    if (el.id) return `#${CSS.escape(el.id)}`;
     const testId = el.getAttribute("data-testid");
-    if (testId) return `[data-testid="${testId}"]`;
+    if (testId) return `[data-testid="${CSS.escape(testId)}"]`;
     const tag = el.tagName.toLowerCase();
     const type = el.getAttribute("type");
-    if (tag === "input" && type) return `input[type='${type}']`;
+    if (tag === "input" && type) return `input[type='${CSS.escape(type)}']`;
     return `xpath=${xpathFor(el)}`;
   };
   return els.map((el) => {
@@ -784,12 +908,14 @@ function extractInteractiveElementsInPage() {
       ancestorChain: contextPathFor(el),
       region: regionFor(el),
       nearbyText: el.parentElement?.textContent?.trim().slice(0, 200),
+      controlledContent: controlledContentFor(el),
       testId: el.getAttribute("data-testid") ?? void 0,
       attributes,
       xpath: xpathFor(el),
       contextPath: contextPathFor(el),
       siblingIndex: siblings.indexOf(el),
-      cssSelector: cssSelectorFor(el)
+      cssSelector: cssSelectorFor(el),
+      parentXpath: el.parentElement ? xpathFor(el.parentElement) : null
     };
   });
 }
@@ -811,11 +937,13 @@ async function extractCandidates(page) {
     ancestorChain: r.ancestorChain,
     region: r.region,
     nearbyText: r.nearbyText,
+    controlledContent: r.controlledContent,
     testId: r.testId,
     attributes: r.attributes,
     xpath: r.xpath,
     contextPath: r.contextPath,
-    siblingIndex: r.siblingIndex
+    siblingIndex: r.siblingIndex,
+    parentXpath: r.parentXpath
   }));
 }
 
@@ -834,13 +962,17 @@ async function isUniqueVisible(locator) {
   if (count !== 1) return false;
   return locator.isVisible().catch(() => false);
 }
-async function locate(test, step, page, cache, healing) {
+async function locate(test, step, page, cache, healing, storeTestId) {
   const domCandidates = await extractCandidates(page);
   const domHash = computeDomHash(domCandidates);
   const testId = test.flow.id;
   const hit = cache.getSelector(testId, step.id, domHash);
   if (hit && await isUniqueVisible(page.locator(hit.cachedSelector))) {
-    return { locator: page.locator(hit.cachedSelector), source: "cached" };
+    return {
+      locator: page.locator(hit.cachedSelector),
+      selector: hit.cachedSelector,
+      source: "cached"
+    };
   }
   const seed = step.target?.resolution?.cachedSelector;
   if (seed && await isUniqueVisible(page.locator(seed))) {
@@ -851,16 +983,23 @@ async function locate(test, step, page, cache, healing) {
       cachedSelector: seed,
       band: step.target.resolution.band
     });
-    return { locator: page.locator(seed), source: "cached" };
+    return { locator: page.locator(seed), selector: seed, source: "cached" };
   }
-  const outcome = await healing.runtimeHeal(test, step.id, page, seed ?? null);
+  const outcome = await healing.runtimeHeal(
+    test,
+    step.id,
+    page,
+    seed ?? null,
+    storeTestId
+  );
   if (outcome.status === "healed") {
     return {
       locator: page.locator(outcome.cachedSelector),
+      selector: outcome.cachedSelector,
       source: "resolver"
     };
   }
-  return { locator: null, source: "none" };
+  return { locator: null, selector: null, source: "none" };
 }
 
 // src/execution/types.ts
@@ -874,6 +1013,24 @@ function checkPrecondition(step, page) {
 
 // src/execution/adapters/ui.ts
 var logger = pino({ name: "ui-adapter" });
+function expectsNavigation(step) {
+  return step.expectedOutcome.some(
+    (o) => o.type === "navigation" || o.type === "url_change"
+  ) || step.assertions.some((a) => a.type === "urlContains");
+}
+async function awaitNavigationIfExpected(step, page, urlBefore) {
+  if (!expectsNavigation(step)) return;
+  await page.waitForURL((url) => url.toString() !== urlBefore, {
+    waitUntil: "load"
+  }).catch(() => {
+  });
+}
+var PENDING_UI_SELECTOR = '[aria-busy="true"], button[disabled], [data-loading="true"]';
+var PENDING_UI_TIMEOUT_MS = 3e3;
+async function waitForPendingUiToClear(page) {
+  await page.locator(PENDING_UI_SELECTOR).first().waitFor({ state: "detached", timeout: PENDING_UI_TIMEOUT_MS }).catch(() => {
+  });
+}
 async function captureScreenshot(ctx, stepId) {
   try {
     const dir = path3.join(ctx.screenshotsDir, ctx.runId);
@@ -900,6 +1057,7 @@ var UiAdapter = class {
     const isTarget = step.action !== "navigate" && step.action !== "wait";
     let selection = void 0;
     let band = void 0;
+    let resolvedSelector = null;
     if (isTarget) {
       const groundedStep = ctx.test.steps.find((s) => s.id === step.id);
       if (groundedStep?.kind !== "ui")
@@ -914,7 +1072,8 @@ var UiAdapter = class {
         groundedStep,
         ctx.page,
         ctx.cache,
-        ctx.healing
+        ctx.healing,
+        ctx.testId
       );
       selection = result.source;
       if (!result.locator) {
@@ -922,24 +1081,29 @@ var UiAdapter = class {
           stepId: step.id,
           status: "stale",
           selection: "none",
+          screenshot: await captureScreenshot(ctx, step.id),
           durationMs: Date.now() - start
         };
       }
       band = groundedStep.target?.resolution?.band;
+      resolvedSelector = result.selector;
     }
     const urlBefore = ctx.page.url();
     try {
-      const groundedStep = ctx.test.steps.find((s) => s.id === step.id);
-      const cachedSelector = groundedStep?.kind === "ui" ? groundedStep.target?.resolution?.cachedSelector ?? null : null;
-      await act(ctx.page, step, isTarget ? cachedSelector : null, ctx.vars);
+      await act(ctx.page, step, resolvedSelector, ctx.vars);
     } catch (e) {
       return maybeInvert(
         step,
-        fail(step.id, "ACTION_FAILED", String(e), start),
+        {
+          ...fail(step.id, "ACTION_FAILED", String(e), start),
+          screenshot: await captureScreenshot(ctx, step.id)
+        },
         selection,
         band
       );
     }
+    await awaitNavigationIfExpected(step, ctx.page, urlBefore);
+    await waitForPendingUiToClear(ctx.page);
     let outcomeFailure;
     for (const outcome of step.expectedOutcome) {
       const res = await evaluateExpectedOutcome(outcome, {
@@ -1098,6 +1262,7 @@ var PlaywrightTestRunner = class {
     const session = await openSession(this.config);
     const ctx = {
       test,
+      testId: opts.testId,
       page: session.page,
       vars: { ...test.flow.vars, ...opts.vars ?? {} },
       cache: this.cache,
@@ -1106,6 +1271,7 @@ var PlaywrightTestRunner = class {
       screenshotsDir: this.config.screenshotsDir
     };
     const results = [];
+    this.cache.startRun(runId, opts.testId, startedAt);
     opts.emit?.({ type: "run.start", runId, testId: opts.testId });
     try {
       await session.page.goto(test.groundedUrl);
@@ -1121,6 +1287,9 @@ var PlaywrightTestRunner = class {
         opts.emit?.({ type: "step.result", result });
         if (isFatal(step.onFailure, result)) break;
       }
+    } catch (e) {
+      this.cache.failRun(runId, (/* @__PURE__ */ new Date()).toISOString());
+      throw e;
     } finally {
       await session.close();
     }
@@ -1146,13 +1315,42 @@ function toGroundedTest(spec, steps, groundedUrl) {
   };
 }
 
+// src/grounding/selector-escape.ts
+function cssEscape(value) {
+  let result = "";
+  for (let i = 0; i < value.length; i++) {
+    const char = value[i];
+    const code = value.charCodeAt(i);
+    if (code === 0) {
+      result += "\uFFFD";
+      continue;
+    }
+    if (code >= 1 && code <= 31 || code === 127 || i === 0 && code >= 48 && code <= 57 || i === 1 && code >= 48 && code <= 57 && value.charCodeAt(0) === 45) {
+      result += `\\${code.toString(16)} `;
+      continue;
+    }
+    if (i === 0 && char === "-" && value.length === 1) {
+      result += `\\${char}`;
+      continue;
+    }
+    if (code >= 128 || char === "-" || char === "_" || code >= 48 && code <= 57 || code >= 65 && code <= 90 || code >= 97 && code <= 122) {
+      result += char;
+      continue;
+    }
+    result += `\\${char}`;
+  }
+  return result;
+}
+
 // src/grounding/gate.ts
 function accept(band) {
   return band !== "low";
 }
 function durableSelector(winner) {
-  if (winner.anchors.testId) return `[data-testid="${winner.anchors.testId}"]`;
-  if (winner.anchors.attributes?.id) return `#${winner.anchors.attributes.id}`;
+  if (winner.anchors.testId)
+    return `[data-testid="${cssEscape(winner.anchors.testId)}"]`;
+  if (winner.anchors.attributes?.id)
+    return `#${cssEscape(winner.anchors.attributes.id)}`;
   return winner.selector;
 }
 function withCachedSelector(resolution) {
@@ -1187,6 +1385,7 @@ function computeWeights(page, allScores) {
   if (page.iconRatio > 0.5) w.structure += 0.15;
   if (page.textDensity > 0.6) w.semantics += 0.1;
   if (page.hasForm || page.hasModal) w.context += 0.1;
+  if (page.repeatedStructure) w.structure += 0.15;
   for (const key of Object.keys(w)) {
     const allZero = allScores.every((s) => s[key] === 0);
     if (allZero) w[key] = 0;
@@ -1255,7 +1454,15 @@ var PlaywrightGroundingService = class {
       await session.page.goto(spec.flow.startUrl);
       for (const step of spec.steps) {
         if (step.kind !== "ui" || isNonTargetStep(step)) {
-          if (step.kind === "ui") await act(session.page, step, null, vars);
+          if (step.kind === "ui") {
+            try {
+              await act(session.page, step, null, vars);
+            } catch {
+              groundedSteps.push(step);
+              stoppedAt = step.id;
+              break;
+            }
+          }
           groundedSteps.push(step);
           continue;
         }
@@ -1274,7 +1481,10 @@ var PlaywrightGroundingService = class {
         if (accept(resolution.band)) {
           const grounded = withCachedSelector(resolution);
           groundedSteps.push(mergeResolution(step, grounded));
+          const urlBefore = session.page.url();
           await act(session.page, step, grounded.cachedSelector, vars);
+          await awaitNavigationIfExpected(step, session.page, urlBefore);
+          await waitForPendingUiToClear(session.page);
         } else {
           groundedSteps.push(mergeResolution(step, toWinnerOnly(resolution)));
           stoppedAt = step.id;
@@ -1333,7 +1543,7 @@ function enqueue(cache, testId, stepId, url, topCandidates) {
 }
 
 // src/healing/runtime.ts
-async function runtimeHeal(grounding, cache, test, stepId, page, previousSelector) {
+async function runtimeHeal(grounding, cache, test, stepId, page, previousSelector, storeTestId) {
   const result = await grounding.reground(test, stepId, page);
   if (result.band !== "low" && result.cachedSelector) {
     cache.putSelector({
@@ -1343,7 +1553,7 @@ async function runtimeHeal(grounding, cache, test, stepId, page, previousSelecto
       cachedSelector: result.cachedSelector,
       band: result.band
     });
-    audit(cache, test.flow.id, stepId, "healed", {
+    audit(cache, storeTestId, stepId, "healed", {
       from: previousSelector,
       to: result.cachedSelector,
       band: result.band
@@ -1356,8 +1566,8 @@ async function runtimeHeal(grounding, cache, test, stepId, page, previousSelecto
     };
   }
   const topCandidates = result.resolution.candidates.slice(0, 5);
-  enqueue(cache, test.flow.id, stepId, page.url(), topCandidates);
-  audit(cache, test.flow.id, stepId, "stale", {
+  enqueue(cache, storeTestId, stepId, page.url(), topCandidates);
+  audit(cache, storeTestId, stepId, "stale", {
     from: previousSelector,
     reason: "no candidate reached medium confidence"
   });
@@ -1393,8 +1603,8 @@ var CoreHealingService = class {
   cache;
   authoring;
   store;
-  runtimeHeal(test, stepId, page, previousSelector) {
-    return runtimeHeal(this.grounding, this.cache, test, stepId, page, previousSelector);
+  runtimeHeal(test, stepId, page, previousSelector, storeTestId) {
+    return runtimeHeal(this.grounding, this.cache, test, stepId, page, previousSelector, storeTestId);
   }
   buildRepairPayload(testId) {
     return buildRepairPayload(this.store, testId);
@@ -1494,11 +1704,16 @@ function selectBest(scored, generalization, bands) {
 function tiebreak(tied) {
   const withTestId = tied.find((s) => s.candidate.testId);
   if (withTestId) return withTestId;
-  const withSiblingIndex = [...tied].sort(
-    (a, b) => (a.candidate.siblingIndex ?? 99) - (b.candidate.siblingIndex ?? 99)
+  const sameParent = tied.every(
+    (s) => s.candidate.parentXpath != null && s.candidate.parentXpath === tied[0].candidate.parentXpath
   );
-  if (withSiblingIndex[0]?.candidate.siblingIndex !== void 0)
-    return withSiblingIndex[0];
+  if (sameParent) {
+    const withSiblingIndex = [...tied].sort(
+      (a, b) => (a.candidate.siblingIndex ?? 99) - (b.candidate.siblingIndex ?? 99)
+    );
+    if (withSiblingIndex[0]?.candidate.siblingIndex !== void 0)
+      return withSiblingIndex[0];
+  }
   return null;
 }
 
@@ -1547,6 +1762,13 @@ var ContextSignal = class {
         jaccard(cand.nearbyText, target.intent)
       );
       score += textMatch * 0.3;
+    }
+    if (cand.controlledContent) {
+      const revealMatch = Math.max(
+        jaccard(cand.controlledContent, target.label),
+        jaccard(cand.controlledContent, target.intent)
+      );
+      score += revealMatch * 0.2;
     }
     return Math.min(1, score);
   }
@@ -1670,7 +1892,8 @@ var MultiSignalResolver = class {
         xpath: c.xpath,
         contextPath: c.contextPath ?? [],
         siblingIndex: c.siblingIndex,
-        nearbyText: c.nearbyText
+        nearbyText: c.nearbyText,
+        controlledContent: c.controlledContent
       },
       signals: {
         semantics: semanticsScores[i],

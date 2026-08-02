@@ -4,10 +4,14 @@
 **Implements:** [ADR-002 §6](../adr/ADR-002.md), [ADR-003 §5–6](../adr/ADR-003.md)
 **LLD:** [LLD-008](../lld/LLD-008-mcp-server.md) (MCP + REST/WS), [LLD-009](../lld/LLD-009-cli.md) (CLI)
 
-> The surfaces developers and coding agents use to drive Gimbal. The **CLI** is the single process you
-> start; it hosts the **MCP** control plane for agents and **opens** the **dashboard** for humans (the
-> dashboard's static assets are served by **core**, not the CLI). Neither the CLI nor the dashboard ever
-> executes tests — they call core.
+> The surfaces developers and coding agents use to drive Gimbal. The CLI splits by audience: `gimbal
+> start` is what a developer runs directly (idempotently spawns core, then **opens** the **dashboard** for
+> humans; the dashboard's static assets are served by **core**, not the CLI); `gimbal mcp` is what an
+> agent's MCP client registers (hosts the **MCP** control plane over stdio, connects to an already-running
+> core, spawning one in the background only if needed, and never opens the dashboard). The split matters
+> because an MCP client respawns its registered command on every session/reconnect, and `start`'s
+> dashboard-opening side effect would repeat every time if the two were the same command. Neither the CLI
+> nor the dashboard ever executes tests — they call core.
 
 ---
 
@@ -15,7 +19,7 @@
 
 ```
 npx gimbal init                 # scaffold .gimbal/ + config in the project
-npx gimbal start                # spawn core (localhost), write .gimbal/gimbal.pid, start MCP (stdio), open dashboard
+npx gimbal start                # spawn core if not already alive (localhost), write .gimbal/gimbal.pid, open dashboard
 npx gimbal ground <testId>      # first live run → candidates.json + grounded test
 npx gimbal test [<testId>]      # deterministic run(s); prints RunReport; streams to dashboard
 npx gimbal heal <testId>        # print the repair payload for a stale test (no LLM call — read-only)
@@ -26,13 +30,20 @@ npx gimbal stop                 # read .gimbal/gimbal.pid → SIGTERM the core p
   connected agent calling `submitSpec` over MCP (SPEC-001 §2). `gimbal heal` is read-only for the same
   reason: it prints the repair payload so you can hand it to your agent; it doesn't attempt a fix itself.
 - `test` with no id runs the whole suite. Exit code reflects the verdict (CI-friendly).
-- `start` runs core as a child process and records its PID in `.gimbal/gimbal.pid`; `stop` (from any
-  terminal) reads that pidfile to shut core down. Foreground `start` also stops on Ctrl-C.
+- `start` is idempotent: it checks core's `/health` endpoint first and only spawns a child process
+  (recording its PID in `.gimbal/gimbal.pid`) if none is already running; `stop` (from any terminal) reads
+  that pidfile to shut core down regardless of which command spawned it. Foreground `start` also stops on
+  Ctrl-C.
+- `start` never hosts MCP. See [§2](#2-coding-agent-flow-mcp) for the separate `gimbal mcp` command.
 - Everything the CLI does is a REST/WS call into core — the CLI holds no execution logic.
 
 ## 2. Coding-agent flow (MCP)
 
-An agent connects to the MCP server (stdio) that `gimbal start` hosts and drives Gimbal with tools:
+An agent connects to the MCP server (stdio) that `gimbal mcp` hosts, not `gimbal start`. The two are
+separate commands so an MCP client (e.g. `claude mcp add gimbal -- node .../index.js mcp`) can respawn
+`gimbal mcp` on every session/reconnect without duplicating core or reopening a dashboard tab each time.
+`gimbal mcp` connects to an already-running core, silently spawning one in the background only if
+`isCoreAlive` reports none running, and it never opens the dashboard. It drives Gimbal with tools:
 
 | Tool | Does | Backing |
 |---|---|---|

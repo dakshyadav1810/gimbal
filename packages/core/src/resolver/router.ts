@@ -26,6 +26,11 @@ export function computeWeights(
   if (page.iconRatio > 0.5) w.structure += 0.15;
   if (page.textDensity > 0.6) w.semantics += 0.1;
   if (page.hasForm || page.hasModal) w.context += 0.1;
+  // Repeated-row lists (e.g. a table of near-identical items) are exactly where semantics is
+  // least discriminating — candidates likely share similar or identical accessible names, so
+  // position/structure (which siblingIndex-based tiebreaking in banding.ts can actually use) is
+  // the signal that carries information here.
+  if (page.repeatedStructure) w.structure += 0.15;
 
   for (const key of Object.keys(w) as (keyof WeightedScores)[]) {
     const allZero = allScores.every((s) => s[key] === 0);

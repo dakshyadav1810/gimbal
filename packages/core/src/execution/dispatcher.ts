@@ -58,6 +58,7 @@ export class PlaywrightTestRunner implements TestRunner {
     const session = await openSession(this.config);
     const ctx: RunContext = {
       test,
+      testId: opts.testId,
       page: session.page,
       vars: { ...test.flow.vars, ...(opts.vars ?? {}) },
       cache: this.cache,
@@ -67,6 +68,9 @@ export class PlaywrightTestRunner implements TestRunner {
     };
     const results: StepResult[] = [];
 
+    // Placeholder row so GET /runs/:id can tell "still running" apart from "never existed" while
+    // this executes — without it, polling during the run is indistinguishable from a bad run id.
+    this.cache.startRun(runId, opts.testId, startedAt);
     opts.emit?.({ type: "run.start", runId, testId: opts.testId });
     try {
       await session.page.goto(test.groundedUrl);
@@ -82,6 +86,9 @@ export class PlaywrightTestRunner implements TestRunner {
         opts.emit?.({ type: "step.result", result });
         if (isFatal(step.onFailure, result)) break;
       }
+    } catch (e) {
+      this.cache.failRun(runId, new Date().toISOString());
+      throw e;
     } finally {
       await session.close();
     }

@@ -11,6 +11,10 @@ export const GimbalConfig = z.object({
   embeddingModel: z.string().default("Xenova/all-MiniLM-L6-v2"),
   bands: z
     .object({ high: Score.default(0.7), medium: Score.default(0.5) })
+    .refine((b) => b.high > b.medium, {
+      message: "bands.high must be greater than bands.medium — a misconfigured ordering would silently invert confidence semantics",
+      path: ["high"],
+    })
     .default({}),
   timeouts: z
     .object({

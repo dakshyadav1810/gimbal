@@ -20,7 +20,8 @@ export function migrate(db: DrizzleDb): void {
     );
     CREATE TABLE IF NOT EXISTS step_results (
       run_id TEXT NOT NULL, step_id TEXT NOT NULL, status TEXT NOT NULL,
-      selection_source TEXT, band TEXT, duration_ms INTEGER NOT NULL, screenshot_path TEXT
+      selection_source TEXT, band TEXT, duration_ms INTEGER NOT NULL, screenshot_path TEXT,
+      failure_reason TEXT, failure_message TEXT
     );
     CREATE TABLE IF NOT EXISTS heal_audit (
       test_id TEXT NOT NULL, step_id TEXT NOT NULL, event TEXT NOT NULL,
@@ -31,4 +32,18 @@ export function migrate(db: DrizzleDb): void {
       screenshot_path TEXT, candidates_json TEXT, open INTEGER NOT NULL DEFAULT 1
     );
   `);
+
+  // step_results predates failure_reason/failure_message; CREATE TABLE IF NOT EXISTS above is a
+  // no-op against an already-existing table, so existing databases need an explicit ALTER.
+  const stepResultsColumns = sqlite
+    .prepare("PRAGMA table_info(step_results)")
+    .all() as Array<{ name: string }>;
+  const hasColumn = (name: string) =>
+    stepResultsColumns.some((c) => c.name === name);
+  if (!hasColumn("failure_reason")) {
+    sqlite.exec("ALTER TABLE step_results ADD COLUMN failure_reason TEXT;");
+  }
+  if (!hasColumn("failure_message")) {
+    sqlite.exec("ALTER TABLE step_results ADD COLUMN failure_message TEXT;");
+  }
 }

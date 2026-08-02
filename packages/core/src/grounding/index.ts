@@ -9,6 +9,10 @@ import type {
 } from "@gimbal/shared";
 import type { Page } from "playwright";
 import { act } from "../execution/act.js";
+import {
+  awaitNavigationIfExpected,
+  waitForPendingUiToClear,
+} from "../execution/adapters/ui.js";
 import { openSession } from "../execution/playwright.js";
 import type { Resolver } from "../resolver/index.js";
 import { extractCandidates } from "./candidate.js";
@@ -80,7 +84,18 @@ export class PlaywrightGroundingService implements GroundingService {
 
       for (const step of spec.steps) {
         if (step.kind !== "ui" || isNonTargetStep(step)) {
-          if (step.kind === "ui") await act(session.page, step, null, vars);
+          if (step.kind === "ui") {
+            try {
+              await act(session.page, step, null, vars);
+            } catch {
+              // A navigate that lands off the intended URL (e.g. an auth-guard redirect) would
+              // otherwise silently ground every downstream step against the wrong page — stop
+              // grounding here rather than let candidate extraction run against the wrong page.
+              groundedSteps.push(step);
+              stoppedAt = step.id;
+              break;
+            }
+          }
           groundedSteps.push(step);
           continue;
         }
@@ -101,7 +116,13 @@ export class PlaywrightGroundingService implements GroundingService {
         if (accept(resolution.band)) {
           const grounded = withCachedSelector(resolution);
           groundedSteps.push(mergeResolution(step, grounded));
+          const urlBefore = session.page.url();
           await act(session.page, step, grounded.cachedSelector, vars); // ACT-to-advance
+          // Same server-action-redirect race as execution's UiAdapter: a submit/click can
+          // trigger a navigation that hasn't landed by the time act() resolves, so the next
+          // step's candidate extraction would otherwise run against the pre-redirect DOM.
+          await awaitNavigationIfExpected(step, session.page, urlBefore);
+          await waitForPendingUiToClear(session.page);
         } else {
           groundedSteps.push(mergeResolution(step, toWinnerOnly(resolution)));
           stoppedAt = step.id;

@@ -4,9 +4,13 @@
 **Implements:** [SPEC-005](../specs/SPEC-005-mcp-cli-dashboard.md), [ADR-003 §6](../adr/ADR-003.md), [PLAN-001](../PLAN-001.md)
 **Depends on:** [LLD-008](./LLD-008-mcp-server.md) (MCP host), [LLD-001](./LLD-001-shared-ir.md) (config/DTOs)
 
-> `npx gimbal` — the single process a developer or agent starts. It orchestrates lifecycle (spawn + health
-> the core server, open the dashboard) and hosts the MCP control plane. It contains **no execution logic**
-> (invariants #4/#6): every command is a REST/WS call into core.
+> `npx gimbal` — the process a developer or agent starts, split by audience into two entrypoints:
+> `gimbal start` (developer-facing: orchestrates lifecycle, spawning and health-checking the core server
+> idempotently, then opens the dashboard) and `gimbal mcp` (agent-facing: hosts the MCP control plane over
+> stdio, connecting to an already-running core and spawning one in the background only if needed, never
+> opening the dashboard). The split exists because an MCP client respawns its registered command on every
+> session/reconnect, so the agent-facing command can't carry `start`'s dashboard-opening side effect. It
+> contains **no execution logic** (invariants #4/#6): every command is a REST/WS call into core.
 
 ---
 
@@ -15,7 +19,7 @@
 ```
 packages/cli/src/
 ├── index.ts            # commander program (entry: bin "gimbal")
-├── commands/           # init | start | stop | ground | test | heal | report
+├── commands/           # init | start | mcp | stop | ground | test | heal | report
 ├── core-process.ts     # spawn + health-check + shutdown the core server (execa)
 ├── client.ts           # typed REST/WS client for core (uses shared DTOs)
 ├── mcp/server.ts       # @modelcontextprotocol/sdk stdio server (LLD-008)
@@ -27,7 +31,8 @@ packages/cli/src/
 | Command | Does | Calls |
 |---|---|---|
 | `gimbal init` | scaffold `.gimbal/` + `gimbal.config.json` | local FS |
-| `gimbal start` | spawn core, start MCP (stdio), serve+open dashboard | `core-process` + `mcp/server` |
+| `gimbal start` | spawn core if not already alive (idempotent), serve+open dashboard; never hosts MCP | `core-process` |
+| `gimbal mcp` | start MCP (stdio) for a coding agent; spawn core in the background only if not already alive; never opens the dashboard | `core-process` + `mcp/server` |
 | `gimbal stop` | graceful shutdown of core | `core-process` |
 | `gimbal ground <testId>` | first-run grounding | `POST /tests/:id/ground` |
 | `gimbal test [<testId>]` | run test / suite; print report; stream to dashboard | `POST /runs` + `GET /ws/runs/:id` |
@@ -44,19 +49,31 @@ repair itself.
 
 ## 3. Lifecycle (`core-process.ts`, `execa`)
 
+`core-process.ts` exports `isCoreAlive(config)` (checks core's `/health` endpoint) and `startCore(config,
+coreEntry)` (spawns core, writes `.gimbal/gimbal.pid`), used by both commands but composed differently:
+
 ```ts
-async start() {
-  const proc = execa("node", [coreEntry], { env: { ...process.env, GIMBAL_PORT } });
-  await waitForHealth(`http://127.0.0.1:${GIMBAL_PORT}/health`, { timeoutMs: 15000 });
-  await mcp.start();                 // stdio MCP server, proxying to core
-  await open(`http://127.0.0.1:${GIMBAL_PORT}/`);   // dashboard served by core
-  registerShutdown(() => proc.kill("SIGTERM"));
+// gimbal start (developer-facing)
+async function start() {
+  if (!(await isCoreAlive(config))) {
+    await startCore(config, coreEntry);   // spawn + health-check, write pidfile
+  }
+  await open(`http://127.0.0.1:${GIMBAL_PORT}/`);   // dashboard served by core; always runs
+}
+
+// gimbal mcp (agent-facing)
+async function mcp() {
+  if (!(await isCoreAlive(config))) {
+    await startCore(config, coreEntry);   // silent background spawn, no dashboard
+  }
+  await mcp.start();   // stdio MCP server, proxying to core; blocks, never opens a browser
 }
 ```
 
 - Core is a child process; the CLI supervises it (health poll, restart-on-crash optional, clean SIGTERM).
-- In `start`, MCP and dashboard come up only after `/health` passes.
-- The dashboard is **served by core** (static assets); the CLI only opens the URL.
+- In both `start` and `mcp`, the dashboard open / MCP server start only happens after `/health` passes
+  (whether core was already alive or freshly spawned).
+- The dashboard is **served by core** (static assets); the CLI only opens the URL, and only from `start`.
 
 ## 4. Core client (`client.ts`)
 

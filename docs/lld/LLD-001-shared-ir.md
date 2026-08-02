@@ -74,7 +74,7 @@ export const Precondition = z.discriminatedUnion("kind", [
 export const ExpectedOutcome = z.discriminatedUnion("type", [
   z.object({ type: z.literal("navigation") }),
   z.object({ type: z.literal("url_change"),   value: z.string() }),
-  z.object({ type: z.literal("element_appears"), value: z.string() }),
+  z.object({ type: z.literal("element_appears"), target: Tier1Target }),
   z.object({ type: z.literal("text_contains"), value: z.string() }),
   z.object({ type: z.literal("field_contains"), value: z.string() }),
 ]);
