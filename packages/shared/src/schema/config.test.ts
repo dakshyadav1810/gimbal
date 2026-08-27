@@ -13,7 +13,11 @@ describe("GimbalConfig.bands", () => {
   });
 
   it("rejects a bands config where high <= medium (would silently invert confidence semantics)", () => {
-    expect(() => GimbalConfig.parse({ bands: { high: 0.5, medium: 0.5 } })).toThrow();
-    expect(() => GimbalConfig.parse({ bands: { high: 0.4, medium: 0.6 } })).toThrow();
+    expect(() =>
+      GimbalConfig.parse({ bands: { high: 0.5, medium: 0.5 } }),
+    ).toThrow();
+    expect(() =>
+      GimbalConfig.parse({ bands: { high: 0.4, medium: 0.6 } }),
+    ).toThrow();
   });
 });

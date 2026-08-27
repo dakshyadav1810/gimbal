@@ -2,7 +2,33 @@ import { RunRequest, SpecIR } from "@gimbal/shared";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import type { CoreClient } from "../client.js";
+import { CoreApiError, type CoreClient } from "../client.js";
+
+// Every tool handler is wrapped with this so a CoreApiError (or any other throw) surfaces as a
+// clean, human-readable MCP error instead of an unformatted exception — this is the first thing
+// a new user sees on their first three calls (submitSpec/groundTest/runTest), so the message
+// needs to be actionable without them reading a raw HTTP+JSON dump.
+function toolHandler<T>(fn: () => Promise<T>) {
+  return async () => {
+    try {
+      const res = await fn();
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(res) }],
+      };
+    } catch (err) {
+      const message =
+        err instanceof CoreApiError
+          ? `gimbal core error (${err.apiCode}): ${err.message}`
+          : err instanceof Error
+            ? err.message
+            : String(err);
+      return {
+        content: [{ type: "text" as const, text: message }],
+        isError: true,
+      };
+    }
+  };
+}
 
 // Agent-facing MCP control plane, hosted by `gimbal mcp`. Every tool proxies to core over REST,
 // no in-process shortcut (invariant #7, LLD-008).
@@ -24,13 +50,12 @@ export function buildMcpServer(client: CoreClient): McpServer {
       inputSchema: {
         entryUrl: z
           .string()
-          .describe("The route URL whose page.tsx you want the component subgraph for, e.g. '/login'."),
+          .describe(
+            "The route URL whose page.tsx you want the component subgraph for, e.g. '/login'.",
+          ),
       },
     },
-    async ({ entryUrl }) => {
-      const kdg = await client.getKdg(entryUrl);
-      return { content: [{ type: "text", text: JSON.stringify(kdg) }] };
-    },
+    async ({ entryUrl }) => toolHandler(() => client.getKdg(entryUrl))(),
   );
 
   server.registerTool(
@@ -41,7 +66,9 @@ export function buildMcpServer(client: CoreClient): McpServer {
         "re-fetching the whole subgraph. Use after a code change when you want to know if anything " +
         "relevant to your test moved.",
       inputSchema: {
-        sinceVersion: z.string().describe("A KDG version identifier previously returned by getMap."),
+        sinceVersion: z
+          .string()
+          .describe("A KDG version identifier previously returned by getMap."),
       },
     },
     async () => ({
@@ -64,10 +91,7 @@ export function buildMcpServer(client: CoreClient): McpServer {
         "vars instead. After this call, run groundTest before runTest; a fresh spec is not runnable yet.",
       inputSchema: SpecIR.shape,
     },
-    async (spec) => {
-      const res = await client.submitSpec(spec as SpecIR);
-      return { content: [{ type: "text", text: JSON.stringify(res) }] };
-    },
+    async (spec) => toolHandler(() => client.submitSpec(spec as SpecIR))(),
   );
 
   server.registerTool(
@@ -85,12 +109,11 @@ export function buildMcpServer(client: CoreClient): McpServer {
         "runTest, and again any time the spec changes or a step goes stale. Check the response for " +
         "ungrounded steps before assuming the test is ready to run: an ambiguous target usually means add " +
         "a disambiguator (index, nearby text) or richer semantics, not retry the same spec unchanged.",
-      inputSchema: { testId: z.string().describe("The spec/test ID returned by submitSpec.") },
+      inputSchema: {
+        testId: z.string().describe("The spec/test ID returned by submitSpec."),
+      },
     },
-    async ({ testId }) => {
-      const res = await client.groundTest(testId);
-      return { content: [{ type: "text", text: JSON.stringify(res) }] };
-    },
+    async ({ testId }) => toolHandler(() => client.groundTest(testId))(),
   );
 
   server.registerTool(
@@ -106,10 +129,7 @@ export function buildMcpServer(client: CoreClient): McpServer {
         "the returned runId to see results; this call does not block until the run finishes.",
       inputSchema: RunRequest.shape,
     },
-    async (req) => {
-      const res = await client.runTest(req);
-      return { content: [{ type: "text", text: JSON.stringify(res) }] };
-    },
+    async (req) => toolHandler(() => client.runTest(req))(),
   );
 
   server.registerTool(
@@ -121,12 +141,11 @@ export function buildMcpServer(client: CoreClient): McpServer {
         "failure reason/message, duration, and a screenshot where captured. needsReview on the report " +
         "means at least one step needs author attention. Use this to decide next action: a stale step " +
         "means call healing next, not retry the run as-is.",
-      inputSchema: { runId: z.string().describe("The run ID returned by runTest.") },
+      inputSchema: {
+        runId: z.string().describe("The run ID returned by runTest."),
+      },
     },
-    async ({ runId }) => {
-      const res = await client.getReport(runId);
-      return { content: [{ type: "text", text: JSON.stringify(res) }] };
-    },
+    async ({ runId }) => toolHandler(() => client.getReport(runId))(),
   );
   server.registerTool(
     "pollRun",
@@ -135,12 +154,11 @@ export function buildMcpServer(client: CoreClient): McpServer {
         "Alias for getReport. Poll a run's status/report by runId while it's still in progress or to " +
         "fetch its final result. Prefer calling this in a loop right after runTest instead of assuming the " +
         "run is done immediately.",
-      inputSchema: { runId: z.string().describe("The run ID returned by runTest.") },
+      inputSchema: {
+        runId: z.string().describe("The run ID returned by runTest."),
+      },
     },
-    async ({ runId }) => {
-      const res = await client.getReport(runId);
-      return { content: [{ type: "text", text: JSON.stringify(res) }] };
-    },
+    async ({ runId }) => toolHandler(() => client.getReport(runId))(),
   );
 
   server.registerTool(
@@ -154,12 +172,13 @@ export function buildMcpServer(client: CoreClient): McpServer {
         "updateTest. A step usually goes stale because the element was removed, the app reached an " +
         "unreached state, its semantic identity fully changed, or two candidates are ambiguously tied, " +
         "not because of routine attribute/class churn, which the runtime heal already absorbed silently.",
-      inputSchema: { testId: z.string().describe("The ID of the stale test to fetch repair context for.") },
+      inputSchema: {
+        testId: z
+          .string()
+          .describe("The ID of the stale test to fetch repair context for."),
+      },
     },
-    async ({ testId }) => {
-      const res = await client.getRepairPayload(testId);
-      return { content: [{ type: "text", text: JSON.stringify(res) }] };
-    },
+    async ({ testId }) => toolHandler(() => client.getRepairPayload(testId))(),
   );
 
   server.registerTool(
@@ -174,14 +193,14 @@ export function buildMcpServer(client: CoreClient): McpServer {
         "(re-ground a broken selector, or re-author a changed intent) beats regenerating the whole test.",
       inputSchema: {
         testId: z.string().describe("The stale test's ID."),
-        stepIds: z.array(z.string()).describe("IDs of the steps you actually repaired."),
+        stepIds: z
+          .array(z.string())
+          .describe("IDs of the steps you actually repaired."),
         spec: SpecIR.describe("The full patched Spec IR, not a partial diff."),
       },
     },
-    async ({ testId, stepIds, spec }) => {
-      const res = await client.maintain(testId, { stepIds, spec });
-      return { content: [{ type: "text", text: JSON.stringify(res) }] };
-    },
+    async ({ testId, stepIds, spec }) =>
+      toolHandler(() => client.maintain(testId, { stepIds, spec }))(),
   );
 
   server.registerTool(
@@ -190,12 +209,11 @@ export function buildMcpServer(client: CoreClient): McpServer {
       description:
         "Permanently delete a test and its stored history. There is no undo. Confirm with the developer " +
         "before calling this unless they've clearly already decided.",
-      inputSchema: { testId: z.string().describe("The ID of the test to delete.") },
+      inputSchema: {
+        testId: z.string().describe("The ID of the test to delete."),
+      },
     },
-    async ({ testId }) => {
-      const res = await client.deleteTest(testId);
-      return { content: [{ type: "text", text: JSON.stringify(res) }] };
-    },
+    async ({ testId }) => toolHandler(() => client.deleteTest(testId))(),
   );
 
   return server;

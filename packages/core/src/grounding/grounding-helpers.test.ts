@@ -1,6 +1,11 @@
-import type { DomCandidate } from "../resolver/base.js";
-import type { GroundedResolution, SpecIR, Step, Tier1Target } from "@gimbal/shared";
+import type {
+  GroundedResolution,
+  SpecIR,
+  Step,
+  Tier1Target,
+} from "@gimbal/shared";
 import { describe, expect, it } from "vitest";
+import type { DomCandidate } from "../resolver/base.js";
 import { computeDomHash } from "./dom-hash.js";
 import { mergeResolution, toGroundedTest } from "./emitter.js";
 import { normalize } from "./normalize.js";
@@ -11,13 +16,22 @@ function candidate(overrides: Partial<DomCandidate> = {}): DomCandidate {
 
 describe("computeDomHash", () => {
   it("is deterministic for the same candidate set", () => {
-    const candidates = [candidate({ id: "c1" }), candidate({ id: "c2", tag: "input" })];
+    const candidates = [
+      candidate({ id: "c1" }),
+      candidate({ id: "c2", tag: "input" }),
+    ];
     expect(computeDomHash(candidates)).toBe(computeDomHash(candidates));
   });
 
   it("is order-independent (signature is sorted before hashing)", () => {
-    const a = [candidate({ id: "c1", tag: "button" }), candidate({ id: "c2", tag: "input" })];
-    const b = [candidate({ id: "c2", tag: "input" }), candidate({ id: "c1", tag: "button" })];
+    const a = [
+      candidate({ id: "c1", tag: "button" }),
+      candidate({ id: "c2", tag: "input" }),
+    ];
+    const b = [
+      candidate({ id: "c2", tag: "input" }),
+      candidate({ id: "c1", tag: "button" }),
+    ];
     expect(computeDomHash(a)).toBe(computeDomHash(b));
   });
 
@@ -40,7 +54,13 @@ describe("computeDomHash", () => {
 
 describe("normalize", () => {
   it("builds a ResolverInput carrying the target, candidates, generalization, and a derived page context", () => {
-    const target: Tier1Target = { label: "Submit", semantics: [], role: "button", actions: [], intent: "submit" };
+    const target: Tier1Target = {
+      label: "Submit",
+      semantics: [],
+      role: "button",
+      actions: [],
+      intent: "submit",
+    };
     const candidates = [candidate()];
     const input = normalize(target, candidates, "same_element");
     expect(input.target).toBe(target);
@@ -61,9 +81,18 @@ describe("mergeResolution", () => {
     const step = {
       kind: "ui",
       id: "s1",
-      target: { label: "Submit", semantics: [], role: "button", actions: [], intent: "submit" },
+      target: {
+        label: "Submit",
+        semantics: [],
+        role: "button",
+        actions: [],
+        intent: "submit",
+      },
     } as unknown as Step;
-    const resolution = { status: "grounded", cachedSelector: "#submit" } as unknown as GroundedResolution;
+    const resolution = {
+      status: "grounded",
+      cachedSelector: "#submit",
+    } as unknown as GroundedResolution;
     const grounded = mergeResolution(step, resolution);
     expect(grounded).toMatchObject({
       kind: "ui",
@@ -90,7 +119,9 @@ describe("toGroundedTest", () => {
       flow: { id: "t1", name: "Sign in", startUrl: "https://app.test/" },
       steps: [],
     } as unknown as SpecIR;
-    const steps = [{ id: "s1", kind: "ui" }] as unknown as ReturnType<typeof mergeResolution>[];
+    const steps = [{ id: "s1", kind: "ui" }] as unknown as ReturnType<
+      typeof mergeResolution
+    >[];
     const grounded = toGroundedTest(spec, steps, "https://app.test/dashboard");
     expect(grounded.flow).toEqual(spec.flow);
     expect(grounded.steps).toBe(steps);

@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
-import type { GimbalConfig } from "@gimbal/shared";
 import fastifyStatic from "@fastify/static";
 import fastifyWebsocket from "@fastify/websocket";
+import type { GimbalConfig } from "@gimbal/shared";
 import Fastify from "fastify";
 import {
   type ZodTypeProvider,
@@ -38,19 +38,23 @@ export async function buildApp(config: GimbalConfig, container: Container) {
   // created after the call — set after registration, it silently never applied to any /api
   // route, which fell back to Fastify's default handler (a different, undocumented error shape)
   // instead of this one.
-  app.setErrorHandler((err: Error & { statusCode?: number; validation?: unknown[] }, _req, reply) => {
-    const isValidationError =
-      err.name === "ZodError" ||
-      (Array.isArray(err.validation) && err.validation.length > 0);
-    reply
-      .code(err.statusCode ?? (isValidationError ? 400 : 500))
-      .send({
+  app.setErrorHandler(
+    (
+      err: Error & { statusCode?: number; validation?: unknown[] },
+      _req,
+      reply,
+    ) => {
+      const isValidationError =
+        err.name === "ZodError" ||
+        (Array.isArray(err.validation) && err.validation.length > 0);
+      reply.code(err.statusCode ?? (isValidationError ? 400 : 500)).send({
         error: {
           code: isValidationError ? "validation" : "internal",
           message: err.message,
         },
       });
-  });
+    },
+  );
 
   const hub = new WsHub();
   await registerRoutes(app, container, hub);
@@ -68,7 +72,9 @@ export async function buildApp(config: GimbalConfig, container: Container) {
     if (req.method === "GET" && !isServerPath) {
       return reply.sendFile("index.html");
     }
-    reply.code(404).send({ error: { code: "not_found", message: "not found" } });
+    reply
+      .code(404)
+      .send({ error: { code: "not_found", message: "not found" } });
   });
 
   return app;

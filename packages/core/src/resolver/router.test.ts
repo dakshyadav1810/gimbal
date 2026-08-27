@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { DomCandidate, PageContext } from "./base.js";
-import { BASE_WEIGHTS, characterizePage, computeWeights, finalScore } from "./router.js";
+import {
+  BASE_WEIGHTS,
+  characterizePage,
+  computeWeights,
+  finalScore,
+} from "./router.js";
 
 function page(over: Partial<PageContext>): PageContext {
   return {
@@ -19,7 +24,9 @@ function cand(over: Partial<DomCandidate>): DomCandidate {
 
 describe("computeWeights", () => {
   it("normalizes the base weights to sum to 1 with no page-context adjustment", () => {
-    const w = computeWeights(page({}), [{ semantics: 0.5, context: 0.5, structure: 0.5 }]);
+    const w = computeWeights(page({}), [
+      { semantics: 0.5, context: 0.5, structure: 0.5 },
+    ]);
     expect(w.semantics + w.context + w.structure).toBeCloseTo(1, 10);
     // proportions unchanged from BASE_WEIGHTS since no adjustment fired
     expect(w.semantics / w.context).toBeCloseTo(

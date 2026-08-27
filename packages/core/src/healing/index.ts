@@ -1,20 +1,30 @@
-import type { Page } from "playwright";
 import type { GroundedTest, RepairPayload, SpecIR } from "@gimbal/shared";
+import type { Page } from "playwright";
 import type { AuthoringService } from "../authoring/index.js";
 import type { CacheStore } from "../cache/index.js";
 import type { GroundingService } from "../grounding/index.js";
 import type { ArtifactStore } from "../storage/index.js";
+import { type RepairResult, buildRepairPayload, maintain } from "./repair.js";
 import { type HealOutcome, runtimeHeal } from "./runtime.js";
-import { buildRepairPayload, maintain, type RepairResult } from "./repair.js";
 
 export type { HealOutcome } from "./runtime.js";
 export type { RepairResult } from "./repair.js";
 
 export interface HealingService {
-  runtimeHeal(test: GroundedTest, stepId: string, page: Page, previousSelector: string | null, storeTestId: string): Promise<HealOutcome>;
+  runtimeHeal(
+    test: GroundedTest,
+    stepId: string,
+    page: Page,
+    previousSelector: string | null,
+    storeTestId: string,
+  ): Promise<HealOutcome>;
   buildRepairPayload(testId: string): Promise<RepairPayload>;
   /** patchedSpec is required — the agent always supplies the fix. No provider fallback. */
-  maintain(testId: string, stepIds: string[], patchedSpec: SpecIR): Promise<RepairResult>;
+  maintain(
+    testId: string,
+    stepIds: string[],
+    patchedSpec: SpecIR,
+  ): Promise<RepairResult>;
 }
 
 export class CoreHealingService implements HealingService {
@@ -25,15 +35,40 @@ export class CoreHealingService implements HealingService {
     private store: ArtifactStore,
   ) {}
 
-  runtimeHeal(test: GroundedTest, stepId: string, page: Page, previousSelector: string | null, storeTestId: string): Promise<HealOutcome> {
-    return runtimeHeal(this.grounding, this.cache, test, stepId, page, previousSelector, storeTestId);
+  runtimeHeal(
+    test: GroundedTest,
+    stepId: string,
+    page: Page,
+    previousSelector: string | null,
+    storeTestId: string,
+  ): Promise<HealOutcome> {
+    return runtimeHeal(
+      this.grounding,
+      this.cache,
+      test,
+      stepId,
+      page,
+      previousSelector,
+      storeTestId,
+    );
   }
 
   buildRepairPayload(testId: string): Promise<RepairPayload> {
     return buildRepairPayload(this.store, testId);
   }
 
-  maintain(testId: string, stepIds: string[], patchedSpec: SpecIR): Promise<RepairResult> {
-    return maintain(this.authoring, this.grounding, this.store, testId, stepIds, patchedSpec);
+  maintain(
+    testId: string,
+    stepIds: string[],
+    patchedSpec: SpecIR,
+  ): Promise<RepairResult> {
+    return maintain(
+      this.authoring,
+      this.grounding,
+      this.store,
+      testId,
+      stepIds,
+      patchedSpec,
+    );
   }
 }

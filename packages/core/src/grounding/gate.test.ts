@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
 import type { Candidate } from "@gimbal/shared";
+import { describe, expect, it } from "vitest";
 import { durableSelector } from "./gate.js";
 
 function candidate(anchors: Candidate["anchors"], selector = "div"): Candidate {
@@ -7,7 +7,13 @@ function candidate(anchors: Candidate["anchors"], selector = "div"): Candidate {
     id: "c1",
     selector,
     anchors,
-    signals: { semantics: 0, affordance: 0, context: 0, structure: 0, index: 0 },
+    signals: {
+      semantics: 0,
+      affordance: 0,
+      context: 0,
+      structure: 0,
+      index: 0,
+    },
     score: 0,
     band: "high",
   };
@@ -31,7 +37,10 @@ describe("durableSelector", () => {
   });
 
   it("prefers testId over id, and escapes it", () => {
-    const winner = candidate({ testId: "submit-btn", attributes: { id: "submit" } });
+    const winner = candidate({
+      testId: "submit-btn",
+      attributes: { id: "submit" },
+    });
     expect(durableSelector(winner)).toBe('[data-testid="submit-btn"]');
   });
 

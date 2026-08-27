@@ -1,6 +1,6 @@
-import { lintSpec, SpecIR } from "@gimbal/shared";
-import type { KdgContext, KdgContextProvider } from "./kdg-context.js";
+import { SpecIR, lintSpec } from "@gimbal/shared";
 import { normalizeLlmOutput } from "./emitter.js";
+import type { KdgContext, KdgContextProvider } from "./kdg-context.js";
 
 export interface AuthoringService {
   /** The only way a spec is created: an agent has already authored it; core validates + stores. */
@@ -23,7 +23,8 @@ export class CoreAuthoringService implements AuthoringService {
   async submit(spec: unknown): Promise<SpecIR> {
     const parsed = SpecIR.parse(normalizeLlmOutput(spec));
     const lint = lintSpec(parsed);
-    if (!lint.ok) throw new AuthoringError(`spec failed lint: ${lint.errors.join("; ")}`);
+    if (!lint.ok)
+      throw new AuthoringError(`spec failed lint: ${lint.errors.join("; ")}`);
     return parsed;
   }
 }

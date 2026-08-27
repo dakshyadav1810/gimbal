@@ -1,4 +1,4 @@
-import type { GimbalConfig, Candidate, Resolution } from "@gimbal/shared";
+import type { Candidate, GimbalConfig, Resolution } from "@gimbal/shared";
 import { selectBest } from "./banding.js";
 import type { DomCandidate, ResolverInput } from "./base.js";
 import type { CachedEmbedder } from "./embeddings.js";

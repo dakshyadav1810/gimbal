@@ -6,13 +6,13 @@ import type {
 } from "@gimbal/shared";
 import type { Page } from "playwright";
 import { describe, expect, it, vi } from "vitest";
-import type { CacheStore } from "../cache/index.js";
-import type { ArtifactStore } from "../storage/index.js";
 import type { AuthoringService } from "../authoring/index.js";
+import type { CacheStore } from "../cache/index.js";
 import type { GroundingService, StepResolution } from "../grounding/index.js";
+import type { ArtifactStore } from "../storage/index.js";
 import { audit } from "./audit.js";
-import { enqueue } from "./review.js";
 import { buildRepairPayload, maintain } from "./repair.js";
+import { enqueue } from "./review.js";
 import { runtimeHeal } from "./runtime.js";
 
 function fakeCache(overrides: Partial<CacheStore> = {}): CacheStore {
@@ -34,7 +34,10 @@ function fakeCache(overrides: Partial<CacheStore> = {}): CacheStore {
 }
 
 function groundedTest(): GroundedTest {
-  return { flow: { id: "test-1", name: "flow" }, steps: [] } as unknown as GroundedTest;
+  return {
+    flow: { id: "test-1", name: "flow" },
+    steps: [],
+  } as unknown as GroundedTest;
 }
 
 describe("audit", () => {
@@ -83,24 +86,50 @@ describe("runtimeHeal", () => {
       } satisfies StepResolution),
     } as GroundingService;
 
-    const outcome = await runtimeHeal(grounding, cache, groundedTest(), "s1", page, "#old", "store-test-1");
+    const outcome = await runtimeHeal(
+      grounding,
+      cache,
+      groundedTest(),
+      "s1",
+      page,
+      "#old",
+      "store-test-1",
+    );
 
-    expect(outcome).toMatchObject({ status: "healed", cachedSelector: "#healed", band: "high", from: "#old" });
+    expect(outcome).toMatchObject({
+      status: "healed",
+      cachedSelector: "#healed",
+      band: "high",
+      from: "#old",
+    });
     // resolution_cache stays keyed by flow.id, not the storage-layer testId.
     expect(cache.putSelector).toHaveBeenCalledWith(
-      expect.objectContaining({ testId: "test-1", stepId: "s1", cachedSelector: "#healed", band: "high" }),
+      expect.objectContaining({
+        testId: "test-1",
+        stepId: "s1",
+        cachedSelector: "#healed",
+        band: "high",
+      }),
     );
     // the audit log is looked up by the storage-layer testId elsewhere (verdict.ts), so it must
     // use storeTestId, not test.flow.id.
     expect(cache.appendHeal).toHaveBeenCalledWith(
-      expect.objectContaining({ testId: "store-test-1", event: "healed", fromSel: "#old", toSel: "#healed" }),
+      expect.objectContaining({
+        testId: "store-test-1",
+        event: "healed",
+        fromSel: "#old",
+        toSel: "#healed",
+      }),
     );
     expect(cache.enqueueReview).not.toHaveBeenCalled();
   });
 
   it("enqueues a review and records a 'stale' audit event when reground can't clear low band", async () => {
     const cache = fakeCache();
-    const topCandidates = Array.from({ length: 8 }, (_, i) => ({ id: `c${i}` }) as Candidate);
+    const topCandidates = Array.from(
+      { length: 8 },
+      (_, i) => ({ id: `c${i}` }) as Candidate,
+    );
     const grounding = {
       ground: vi.fn(),
       reground: vi.fn().mockResolvedValue({
@@ -112,7 +141,15 @@ describe("runtimeHeal", () => {
     } as GroundingService;
     const pageWithUrl = { url: () => "https://app.test/current" } as Page;
 
-    const outcome = await runtimeHeal(grounding, cache, groundedTest(), "s1", pageWithUrl, "#old", "store-test-1");
+    const outcome = await runtimeHeal(
+      grounding,
+      cache,
+      groundedTest(),
+      "s1",
+      pageWithUrl,
+      "#old",
+      "store-test-1",
+    );
 
     expect(outcome.status).toBe("stale");
     expect(cache.putSelector).not.toHaveBeenCalled();
@@ -144,7 +181,15 @@ describe("runtimeHeal", () => {
     } as GroundingService;
     const pageWithUrl = { url: () => "https://app.test/x" } as Page;
 
-    const outcome = await runtimeHeal(grounding, cache, groundedTest(), "s1", pageWithUrl, null, "store-test-1");
+    const outcome = await runtimeHeal(
+      grounding,
+      cache,
+      groundedTest(),
+      "s1",
+      pageWithUrl,
+      null,
+      "store-test-1",
+    );
     expect(outcome.status).toBe("stale");
   });
 });
@@ -152,8 +197,13 @@ describe("runtimeHeal", () => {
 describe("buildRepairPayload", () => {
   it("assembles specIR + testCase with a null kdg placeholder", async () => {
     const store = {
-      loadSpec: vi.fn().mockResolvedValue({ flow: { id: "t1" } } as unknown as SpecIR),
-      loadGrounded: vi.fn().mockResolvedValue({ flow: { id: "t1" } } as unknown as GroundedTest),
+      loadSpec: vi
+        .fn()
+        .mockResolvedValue({ flow: { id: "t1" } } as unknown as SpecIR),
+      loadGrounded: vi
+        .fn()
+        .mockResolvedValue({ flow: { id: "t1" } } as unknown as GroundedTest),
+      loadCandidates: vi.fn().mockResolvedValue(null),
       saveSpec: vi.fn(),
       saveGrounded: vi.fn(),
       saveCandidates: vi.fn(),
@@ -170,13 +220,20 @@ describe("buildRepairPayload", () => {
 
 describe("maintain", () => {
   it("re-validates the agent-supplied patched spec, re-grounds it, and returns before/after", async () => {
-    const before = { flow: { id: "t1" }, steps: [{ id: "s1" }] } as unknown as GroundedTest;
-    const after = { flow: { id: "t1" }, steps: [{ id: "s1-fixed" }] } as unknown as GroundedTest;
+    const before = {
+      flow: { id: "t1" },
+      steps: [{ id: "s1" }],
+    } as unknown as GroundedTest;
+    const after = {
+      flow: { id: "t1" },
+      steps: [{ id: "s1-fixed" }],
+    } as unknown as GroundedTest;
     const patchedSpec = { flow: { id: "t1" } } as unknown as SpecIR;
 
     const store = {
       loadGrounded: vi.fn().mockResolvedValue(before),
       loadSpec: vi.fn(),
+      loadCandidates: vi.fn().mockResolvedValue(null),
       saveSpec: vi.fn(),
       saveGrounded: vi.fn(),
       saveCandidates: vi.fn(),
@@ -192,7 +249,14 @@ describe("maintain", () => {
       reground: vi.fn(),
     } as unknown as GroundingService;
 
-    const result = await maintain(authoring, grounding, store, "t1", ["s1"], patchedSpec);
+    const result = await maintain(
+      authoring,
+      grounding,
+      store,
+      "t1",
+      ["s1"],
+      patchedSpec,
+    );
 
     expect(authoring.submit).toHaveBeenCalledWith(patchedSpec);
     expect(grounding.ground).toHaveBeenCalledWith(patchedSpec, {});

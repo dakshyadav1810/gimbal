@@ -15,6 +15,7 @@ export interface ArtifactStore {
   saveCandidates(testId: string, doc: CandidatesDoc): Promise<void>;
   loadSpec(testId: string): Promise<SpecIR>;
   loadGrounded(testId: string): Promise<GroundedTest>;
+  loadCandidates(testId: string): Promise<CandidatesDoc | null>;
   list(): Promise<TestSummary[]>;
   delete(testId: string): Promise<void>;
 }
@@ -62,6 +63,18 @@ export class FsArtifactStore implements ArtifactStore {
       "utf-8",
     );
     return GroundedTest.parse(JSON.parse(raw));
+  }
+
+  async loadCandidates(testId: string): Promise<CandidatesDoc | null> {
+    try {
+      const raw = await fs.readFile(
+        candidatesPath(this.artifactsDir, testId),
+        "utf-8",
+      );
+      return CandidatesDoc.parse(JSON.parse(raw));
+    } catch {
+      return null;
+    }
   }
 
   async list(): Promise<TestSummary[]> {

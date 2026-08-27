@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { MaintainRequest, RunRequest } from "@gimbal/shared";
 import type { FastifyInstance } from "fastify";
+import { summarizeUngrounded } from "../grounding/summarize.js";
 import type { Container } from "./container.js";
 import type { WsHub } from "./ws-hub.js";
 
@@ -67,21 +68,32 @@ function registerApiRoutes(app: FastifyInstance, c: Container, hub: WsHub) {
   app.post("/tests/:id/ground", async (req, reply) => {
     const { id } = req.params as { id: string };
     const spec = await c.store.loadSpec(id);
-    // A re-ground must not be shadowed by a stale runtime-heal cache entry from a prior grounding:
-    // the cache key (testId, stepId, domHash) can coincidentally collide across groundings.
-    // resolution_cache is keyed by spec.flow.id (the author-chosen flow id), not this route's
-    // storage-layer :id (a separately generated UUID) — see locate.ts's testId derivation.
-    c.cache.clearSelectorsForTest(spec.flow.id);
     const outcome = await c.grounding.ground(spec, {});
+    // Only clear the shared selector cache once grounding actually produced a new result —
+    // clearing it up front meant a mid-loop throw left the user with neither the old cache nor
+    // a new one. resolution_cache is keyed by spec.flow.id (the author-chosen flow id), not this
+    // route's storage-layer :id (a separately generated UUID) — see locate.ts's testId derivation.
+    c.cache.clearSelectorsForTest(spec.flow.id);
     await c.store.saveCandidates(id, outcome.candidates);
     await c.store.saveGrounded(id, outcome.grounded);
-    if (outcome.stoppedAt) reply.code(200); // still 200: partial grounding is a valid, reviewable result
+    if (outcome.stoppedAt) {
+      reply.code(200); // still 200: partial grounding is a valid, reviewable result
+      return {
+        ...outcome,
+        ungrounded: summarizeUngrounded(outcome.candidates),
+      };
+    }
     return outcome;
   });
 
   app.get("/tests/:id/repair", async (req) => {
     const { id } = req.params as { id: string };
-    return c.healing.buildRepairPayload(id);
+    const payload = await c.healing.buildRepairPayload(id);
+    const candidates = await c.store.loadCandidates(id);
+    return {
+      ...payload,
+      ungrounded: candidates ? summarizeUngrounded(candidates) : [],
+    };
   });
 
   app.get("/tests/:id/runs", async (req) => {

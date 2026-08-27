@@ -1,6 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
 import type { UiStep } from "@gimbal/shared";
 import type { Page } from "playwright";
+import { describe, expect, it, vi } from "vitest";
 import {
   awaitNavigationIfExpected,
   expectsNavigation,
@@ -25,18 +25,26 @@ function step(overrides: Partial<UiStep>): UiStep {
 
 describe("expectsNavigation", () => {
   it("is true when expectedOutcome includes navigation", () => {
-    expect(expectsNavigation(step({ expectedOutcome: [{ type: "navigation" }] }))).toBe(true);
+    expect(
+      expectsNavigation(step({ expectedOutcome: [{ type: "navigation" }] })),
+    ).toBe(true);
   });
 
   it("is true when expectedOutcome includes url_change", () => {
     expect(
-      expectsNavigation(step({ expectedOutcome: [{ type: "url_change", value: "/dashboard" }] })),
+      expectsNavigation(
+        step({
+          expectedOutcome: [{ type: "url_change", value: "/dashboard" }],
+        }),
+      ),
     ).toBe(true);
   });
 
   it("is true when an assertion is urlContains", () => {
     expect(
-      expectsNavigation(step({ assertions: [{ type: "urlContains", expected: "/app" }] })),
+      expectsNavigation(
+        step({ assertions: [{ type: "urlContains", expected: "/app" }] }),
+      ),
     ).toBe(true);
   });
 
@@ -45,7 +53,18 @@ describe("expectsNavigation", () => {
       expectsNavigation(
         step({
           expectedOutcome: [{ type: "text_contains", value: "Saved" }],
-          assertions: [{ type: "elementVisible", target: { label: "Toast", semantics: [], role: "status", actions: [], intent: "confirm" } }],
+          assertions: [
+            {
+              type: "elementVisible",
+              target: {
+                label: "Toast",
+                semantics: [],
+                role: "status",
+                actions: [],
+                intent: "confirm",
+              },
+            },
+          ],
         }),
       ),
     ).toBe(false);
@@ -75,7 +94,9 @@ describe("awaitNavigationIfExpected", () => {
   });
 
   it("swallows a waitForURL timeout instead of throwing (e.g. a negative test where no redirect occurs)", async () => {
-    const waitForURL = vi.fn().mockRejectedValue(new Error("Timeout waiting for URL"));
+    const waitForURL = vi
+      .fn()
+      .mockRejectedValue(new Error("Timeout waiting for URL"));
     const page = { waitForURL } as unknown as Page;
     await expect(
       awaitNavigationIfExpected(
@@ -112,7 +133,9 @@ describe("waitForPendingUiToClear", () => {
   });
 
   it("swallows a timeout (indicator attached but never detached) instead of throwing", async () => {
-    const waitFor = vi.fn().mockRejectedValue(new Error("Timeout waiting for detached"));
+    const waitFor = vi
+      .fn()
+      .mockRejectedValue(new Error("Timeout waiting for detached"));
     const page = {
       locator: () => ({ first: () => ({ waitFor }) }),
     } as unknown as Page;

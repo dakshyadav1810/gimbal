@@ -28,7 +28,13 @@ function validSpec(overrides: Partial<SpecIR["flow"]> = {}): SpecIR {
         action: "click",
         generalization: "same_element",
         expectedOutcome: [{ type: "navigation" }],
-        target: { label: "Submit", semantics: ["submit button"], role: "button", actions: [], intent: "submit" },
+        target: {
+          label: "Submit",
+          semantics: ["submit button"],
+          role: "button",
+          actions: [],
+          intent: "submit",
+        },
       },
     ],
   };
@@ -82,7 +88,9 @@ describe("FsArtifactStore", () => {
   });
 
   it("saveSpec rejects an invalid spec before writing anything to disk", async () => {
-    await expect(store.saveSpec({ garbage: true } as unknown as SpecIR, "bad")).rejects.toThrow();
+    await expect(
+      store.saveSpec({ garbage: true } as unknown as SpecIR, "bad"),
+    ).rejects.toThrow();
     await expect(store.loadSpec("bad")).rejects.toThrow();
   });
 
@@ -98,7 +106,9 @@ describe("FsArtifactStore", () => {
   });
 
   it("saveCandidates writes without throwing and re-validates the doc", async () => {
-    await expect(store.saveCandidates("t1", validCandidatesDoc())).resolves.toBeUndefined();
+    await expect(
+      store.saveCandidates("t1", validCandidatesDoc()),
+    ).resolves.toBeUndefined();
     await expect(
       store.saveCandidates("t1", { garbage: true } as unknown as CandidatesDoc),
     ).rejects.toThrow();

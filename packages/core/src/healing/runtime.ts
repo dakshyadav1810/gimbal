@@ -1,6 +1,7 @@
 import type { Band, Candidate, GroundedTest } from "@gimbal/shared";
 import type { Page } from "playwright";
 import type { CacheStore } from "../cache/index.js";
+import { accept } from "../grounding/gate.js";
 import type { GroundingService } from "../grounding/index.js";
 import { audit } from "./audit.js";
 import { enqueue } from "./review.js";
@@ -27,7 +28,7 @@ export async function runtimeHeal(
 ): Promise<HealOutcome> {
   const result = await grounding.reground(test, stepId, page);
 
-  if (result.band !== "low" && result.cachedSelector) {
+  if (accept(result.band) && result.cachedSelector) {
     // resolution_cache stays keyed by flow.id (see locate.ts) — only the review queue and audit
     // log, which are looked up by the storage-layer id elsewhere (verdict.ts), use storeTestId.
     cache.putSelector({

@@ -43,7 +43,8 @@ export async function awaitNavigationIfExpected(
 // act() resolves — the button may show a loading spinner via aria-busy or a disabled state
 // while the async work (and the success UI an assertion is checking for) hasn't landed yet.
 // Bounded short wait: this must never stall a step that has no such indicator at all.
-const PENDING_UI_SELECTOR = '[aria-busy="true"], button[disabled], [data-loading="true"]';
+const PENDING_UI_SELECTOR =
+  '[aria-busy="true"], button[disabled], [data-loading="true"]';
 const PENDING_UI_TIMEOUT_MS = 3000;
 
 export async function waitForPendingUiToClear(page: Page): Promise<void> {

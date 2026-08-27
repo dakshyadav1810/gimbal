@@ -12,7 +12,8 @@ export const GimbalConfig = z.object({
   bands: z
     .object({ high: Score.default(0.7), medium: Score.default(0.5) })
     .refine((b) => b.high > b.medium, {
-      message: "bands.high must be greater than bands.medium — a misconfigured ordering would silently invert confidence semantics",
+      message:
+        "bands.high must be greater than bands.medium — a misconfigured ordering would silently invert confidence semantics",
       path: ["high"],
     })
     .default({}),

@@ -13,7 +13,9 @@ vi.mock("../grounding/dom-hash.js", () => ({
 
 const { locate } = await import("./locate.js");
 
-function fakeLocator(overrides: Partial<{ count: number; visible: boolean }> = {}): Locator {
+function fakeLocator(
+  overrides: Partial<{ count: number; visible: boolean }> = {},
+): Locator {
   const { count = 1, visible = true } = overrides;
   return {
     count: () => Promise.resolve(count),
@@ -23,13 +25,17 @@ function fakeLocator(overrides: Partial<{ count: number; visible: boolean }> = {
 
 function fakePage(locators: Record<string, Locator>): Page {
   return {
-    locator: (selector: string) => locators[selector] ?? fakeLocator({ count: 0 }),
+    locator: (selector: string) =>
+      locators[selector] ?? fakeLocator({ count: 0 }),
     url: () => "https://app.test/",
   } as unknown as Page;
 }
 
 function groundedTest(): GroundedTest {
-  return { flow: { id: "test-1", name: "flow" }, steps: [] } as unknown as GroundedTest;
+  return {
+    flow: { id: "test-1", name: "flow" },
+    steps: [],
+  } as unknown as GroundedTest;
 }
 
 function uiStep(overrides: Partial<GroundedUiStep> = {}): GroundedUiStep {
@@ -68,7 +74,9 @@ function fakeCache(overrides: Partial<CacheStore> = {}): CacheStore {
 
 function fakeHealing(overrides: Partial<HealingService> = {}): HealingService {
   return {
-    runtimeHeal: vi.fn().mockResolvedValue({ status: "stale", reason: "x", topCandidates: [] }),
+    runtimeHeal: vi
+      .fn()
+      .mockResolvedValue({ status: "stale", reason: "x", topCandidates: [] }),
     buildRepairPayload: vi.fn(),
     maintain: vi.fn(),
     ...overrides,
@@ -86,8 +94,17 @@ describe("locate", () => {
         band: "high" as Band,
       }),
     });
-    const page = fakePage({ "#cached": fakeLocator({ count: 1, visible: true }) });
-    const result = await locate(groundedTest(), uiStep(), page, cache, fakeHealing(), "store-test-1");
+    const page = fakePage({
+      "#cached": fakeLocator({ count: 1, visible: true }),
+    });
+    const result = await locate(
+      groundedTest(),
+      uiStep(),
+      page,
+      cache,
+      fakeHealing(),
+      "store-test-1",
+    );
     expect(result.source).toBe("cached");
     expect(result.locator).not.toBeNull();
     expect(result.selector).toBe("#cached");
@@ -114,13 +131,30 @@ describe("locate", () => {
         role: "button",
         actions: [],
         intent: "submit",
-        resolution: { status: "grounded", confidence: 0.9, band: "high", selected: "c1", cachedSelector: "#seed", winner: null },
+        resolution: {
+          status: "grounded",
+          confidence: 0.9,
+          band: "high",
+          selected: "c1",
+          cachedSelector: "#seed",
+          winner: null,
+        },
       },
     } as unknown as Partial<GroundedUiStep>);
-    const result = await locate(groundedTest(), step, page, cache, fakeHealing(), "store-test-1");
+    const result = await locate(
+      groundedTest(),
+      step,
+      page,
+      cache,
+      fakeHealing(),
+      "store-test-1",
+    );
     expect(result.source).toBe("cached");
     expect(cache.putSelector).toHaveBeenCalledWith(
-      expect.objectContaining({ cachedSelector: "#seed", domHash: "dom-hash-1" }),
+      expect.objectContaining({
+        cachedSelector: "#seed",
+        domHash: "dom-hash-1",
+      }),
     );
     // Regression: a caller must act on the selector that actually resolved (the seed), not the
     // stale cache hit that just failed isUniqueVisible.
@@ -138,7 +172,14 @@ describe("locate", () => {
         from: null,
       }),
     });
-    const result = await locate(groundedTest(), uiStep(), page, cache, healing, "store-test-1");
+    const result = await locate(
+      groundedTest(),
+      uiStep(),
+      page,
+      cache,
+      healing,
+      "store-test-1",
+    );
     expect(healing.runtimeHeal).toHaveBeenCalled();
     expect(result.source).toBe("resolver");
     expect(result.locator).not.toBeNull();
@@ -149,9 +190,20 @@ describe("locate", () => {
     const cache = fakeCache();
     const page = fakePage({});
     const healing = fakeHealing({
-      runtimeHeal: vi.fn().mockResolvedValue({ status: "stale", reason: "no match", topCandidates: [] }),
+      runtimeHeal: vi.fn().mockResolvedValue({
+        status: "stale",
+        reason: "no match",
+        topCandidates: [],
+      }),
     });
-    const result = await locate(groundedTest(), uiStep(), page, cache, healing, "store-test-1");
+    const result = await locate(
+      groundedTest(),
+      uiStep(),
+      page,
+      cache,
+      healing,
+      "store-test-1",
+    );
     expect(result.source).toBe("none");
     expect(result.locator).toBeNull();
     expect(result.selector).toBeNull();

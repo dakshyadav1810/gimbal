@@ -7,8 +7,12 @@ describe("storage layout paths", () => {
     const dir = testDir("/data/tests", "abc123");
     expect(dir).toBe(path.join("/data/tests", "abc123"));
     expect(specPath("/data/tests", "abc123")).toBe(path.join(dir, "spec.json"));
-    expect(candidatesPath("/data/tests", "abc123")).toBe(path.join(dir, "candidates.json"));
-    expect(groundedPath("/data/tests", "abc123")).toBe(path.join(dir, "grounded.json"));
+    expect(candidatesPath("/data/tests", "abc123")).toBe(
+      path.join(dir, "candidates.json"),
+    );
+    expect(groundedPath("/data/tests", "abc123")).toBe(
+      path.join(dir, "grounded.json"),
+    );
   });
 
   it("produces distinct paths for distinct testIds under the same artifactsDir", () => {

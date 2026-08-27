@@ -1,6 +1,6 @@
+import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import fs from "node:fs/promises";
 import type { GimbalConfig } from "@gimbal/shared";
 import type { FastifyInstance } from "fastify";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -106,7 +106,10 @@ describe("global error handler", () => {
       const err = Object.assign(new Error("nope"), { statusCode: 418 });
       throw err;
     });
-    const res = await app.inject({ method: "GET", url: "/api/__test-explicit-status" });
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/__test-explicit-status",
+    });
     expect(res.statusCode).toBe(418);
     expect(res.json().error.code).toBe("internal");
   });

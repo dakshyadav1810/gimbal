@@ -30,9 +30,26 @@ export function extractInteractiveElementsInPage(): RawDomElement[] {
   const INTERACTIVE_SELECTOR =
     "button,a,input,select,textarea,[role=button],[role=link],[role=textbox],[role=checkbox],[role=radio],[role=menuitem],[role=tab],[tabindex],[onclick]";
 
-  const els = Array.from(
-    document.querySelectorAll(INTERACTIVE_SELECTOR),
-  ) as HTMLElement[];
+  const els: HTMLElement[] = [];
+
+  // Recursively traverse DOM, traversing into Shadow Roots
+  const traverse = (root: ParentNode) => {
+    const found = Array.from(
+      root.querySelectorAll(INTERACTIVE_SELECTOR),
+    ) as HTMLElement[];
+    for (const el of found) {
+      if (!els.includes(el)) els.push(el);
+    }
+    const all = root.querySelectorAll("*");
+    for (const el of Array.from(all)) {
+      const element = el as HTMLElement;
+      if (element.shadowRoot) {
+        traverse(element.shadowRoot);
+      }
+    }
+  };
+
+  traverse(document);
 
   const accessibleName = (el: HTMLElement): string | undefined => {
     const ariaLabel = el.getAttribute("aria-label");
@@ -53,7 +70,21 @@ export function extractInteractiveElementsInPage(): RawDomElement[] {
     const title = el.getAttribute("title");
     if (title) return title;
     const text = el.textContent?.trim();
-    return text || undefined;
+    if (text) return text;
+
+    // Fallback for Icon buttons / SVGs / IMGs inside interactive elements
+    const icon = el.querySelector("svg, img");
+    if (icon) {
+      const iconAriaLabel = icon.getAttribute("aria-label");
+      if (iconAriaLabel) return iconAriaLabel;
+      const iconTitle =
+        icon.getAttribute("title") ||
+        icon.querySelector("title")?.textContent?.trim();
+      if (iconTitle) return iconTitle;
+      const iconAlt = icon.getAttribute("alt");
+      if (iconAlt) return iconAlt;
+    }
+    return undefined;
   };
 
   // XPath has no native escape function; a value containing `"` would otherwise terminate the
@@ -70,30 +101,44 @@ export function extractInteractiveElementsInPage(): RawDomElement[] {
   const xpathFor = (el: HTMLElement): string => {
     if (el.id) return `//*[@id=${xpathLiteral(el.id)}]`;
     const parts: string[] = [];
-    let node: HTMLElement | null = el;
+    let node: Node | null = el;
     while (node && node.nodeType === Node.ELEMENT_NODE) {
+      const element = node as HTMLElement;
       let index = 1;
-      let sibling = node.previousElementSibling;
+      let sibling = element.previousElementSibling;
       while (sibling) {
-        if (sibling.tagName === node.tagName) index++;
+        if (sibling.tagName === element.tagName) index++;
         sibling = sibling.previousElementSibling;
       }
-      parts.unshift(`${node.tagName.toLowerCase()}[${index}]`);
-      node = node.parentElement;
+      parts.unshift(`${element.tagName.toLowerCase()}[${index}]`);
+      node =
+        element.parentElement ||
+        (element.parentNode?.nodeType === Node.DOCUMENT_FRAGMENT_NODE
+          ? (element.parentNode as any).host
+          : null);
     }
     return `/${parts.join("/")}`;
   };
 
   const contextPathFor = (el: HTMLElement): string[] => {
     const path: string[] = [];
-    let node = el.parentElement;
+    let node: Node | null =
+      el.parentElement ||
+      (el.parentNode?.nodeType === Node.DOCUMENT_FRAGMENT_NODE
+        ? (el.parentNode as any).host
+        : null);
     let depth = 0;
-    while (node && depth < 5) {
+    while (node && depth < 5 && node.nodeType === Node.ELEMENT_NODE) {
+      const element = node as HTMLElement;
       path.push(
-        node.tagName.toLowerCase() +
-          (node.id ? `#${CSS.escape(node.id)}` : ""),
+        element.tagName.toLowerCase() +
+          (element.id ? `#${CSS.escape(element.id)}` : ""),
       );
-      node = node.parentElement;
+      node =
+        element.parentElement ||
+        (element.parentNode?.nodeType === Node.DOCUMENT_FRAGMENT_NODE
+          ? (element.parentNode as any).host
+          : null);
       depth++;
     }
     return path;
@@ -103,7 +148,8 @@ export function extractInteractiveElementsInPage(): RawDomElement[] {
   // than absent — reading it doesn't require opening the trigger, unlike content that's only
   // conditionally rendered on click. Absent/unmounted targets simply yield no signal.
   const controlledContentFor = (el: HTMLElement): string | undefined => {
-    const ref = el.getAttribute("aria-controls") ?? el.getAttribute("aria-owns");
+    const ref =
+      el.getAttribute("aria-controls") ?? el.getAttribute("aria-owns");
     if (!ref) return undefined;
     const text = ref
       .split(/\s+/)
@@ -134,6 +180,38 @@ export function extractInteractiveElementsInPage(): RawDomElement[] {
     return `xpath=${xpathFor(el)}`;
   };
 
+  const getNearbyText = (element: HTMLElement): string => {
+    const STOP_TAGS = ["form", "section", "tr", "li", "ul", "ol", "header", "footer", "article", "aside", "nav"];
+    let node: HTMLElement | null = element;
+    let depth = 0;
+    while (node && depth < 3) {
+      if (node.parentElement) {
+        const parent = node.parentElement;
+        if (parent.tagName === "BODY" || parent.tagName === "HTML") {
+          break;
+        }
+        node = parent;
+        depth++;
+        
+        const tag = node.tagName.toLowerCase();
+        const id = node.id.toLowerCase();
+        const cls = node.className.toLowerCase();
+        
+        // Stop traversing if we hit a row, card, section, or form container
+        if (
+          STOP_TAGS.includes(tag) ||
+          id.includes("row") || id.includes("card") || id.includes("section") || id.includes("item") ||
+          cls.includes("row") || cls.includes("card") || cls.includes("section") || cls.includes("item")
+        ) {
+          break;
+        }
+      } else {
+        break;
+      }
+    }
+    return node.textContent?.trim().slice(0, 200) ?? "";
+  };
+
   return els.map((el) => {
     const rect = el.getBoundingClientRect();
     const style = getComputedStyle(el);
@@ -142,13 +220,27 @@ export function extractInteractiveElementsInPage(): RawDomElement[] {
       style.visibility !== "hidden" &&
       rect.width > 0 &&
       rect.height > 0;
-    const siblings = Array.from(el.parentElement?.children ?? []).filter(
-      (s) => s.tagName === el.tagName,
-    );
+
+    const parentNode =
+      el.parentElement ||
+      (el.parentNode?.nodeType === Node.DOCUMENT_FRAGMENT_NODE
+        ? el.parentNode
+        : null);
+    const siblings = parentNode
+      ? Array.from(parentNode.children ?? []).filter(
+          (s) => s.tagName === el.tagName,
+        )
+      : [el];
 
     const attributes: Record<string, string> = {};
     for (const attr of Array.from(el.attributes))
       attributes[attr.name] = attr.value;
+
+    const parentXpath = el.parentElement
+      ? xpathFor(el.parentElement)
+      : el.parentNode?.nodeType === Node.DOCUMENT_FRAGMENT_NODE
+        ? xpathFor((el.parentNode as any).host)
+        : null;
 
     return {
       tag: el.tagName.toLowerCase(),
@@ -168,7 +260,7 @@ export function extractInteractiveElementsInPage(): RawDomElement[] {
       },
       ancestorChain: contextPathFor(el),
       region: regionFor(el),
-      nearbyText: el.parentElement?.textContent?.trim().slice(0, 200),
+      nearbyText: getNearbyText(el),
       controlledContent: controlledContentFor(el),
       testId: el.getAttribute("data-testid") ?? undefined,
       attributes,
@@ -176,7 +268,7 @@ export function extractInteractiveElementsInPage(): RawDomElement[] {
       contextPath: contextPathFor(el),
       siblingIndex: siblings.indexOf(el),
       cssSelector: cssSelectorFor(el),
-      parentXpath: el.parentElement ? xpathFor(el.parentElement) : null,
+      parentXpath,
     };
   });
 }

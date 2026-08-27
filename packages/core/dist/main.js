@@ -18,6 +18,34 @@ import {
 // src/server/routes.ts
 import { randomUUID } from "crypto";
 import { MaintainRequest, RunRequest } from "@gimbal/shared";
+
+// src/grounding/summarize.ts
+function summarizeUngrounded(doc) {
+  const out = [];
+  for (const step of doc.steps) {
+    const { resolution } = step;
+    if (resolution.status === "grounded") continue;
+    const ranked = [...resolution.candidates].sort((a, b) => b.score - a.score);
+    const [top, runnerUp] = ranked;
+    const topCandidates = ranked.slice(0, 3).map((c) => ({
+      label: c.label,
+      selector: c.selector,
+      score: c.score
+    }));
+    let reason;
+    if (!top) {
+      reason = "no candidate matched this target at all";
+    } else if (resolution.selected === null && runnerUp) {
+      reason = `ambiguous \u2014 top two candidates tied at ${top.score.toFixed(2)} ("${top.label ?? top.selector}") vs ${runnerUp.score.toFixed(2)} ("${runnerUp.label ?? runnerUp.selector}"); add a disambiguator (nearby text, index) or a looser generalization`;
+    } else {
+      reason = `low confidence \u2014 best match "${top.label ?? top.selector}" only scored ${top.score.toFixed(2)}`;
+    }
+    out.push({ stepId: step.stepId, reason, topCandidates });
+  }
+  return out;
+}
+
+// src/server/routes.ts
 function apiError(code, message) {
   return { error: { code, message } };
 }
@@ -63,16 +91,27 @@ function registerApiRoutes(app2, c, hub) {
   app2.post("/tests/:id/ground", async (req, reply) => {
     const { id } = req.params;
     const spec = await c.store.loadSpec(id);
-    c.cache.clearSelectorsForTest(spec.flow.id);
     const outcome = await c.grounding.ground(spec, {});
+    c.cache.clearSelectorsForTest(spec.flow.id);
     await c.store.saveCandidates(id, outcome.candidates);
     await c.store.saveGrounded(id, outcome.grounded);
-    if (outcome.stoppedAt) reply.code(200);
+    if (outcome.stoppedAt) {
+      reply.code(200);
+      return {
+        ...outcome,
+        ungrounded: summarizeUngrounded(outcome.candidates)
+      };
+    }
     return outcome;
   });
   app2.get("/tests/:id/repair", async (req) => {
     const { id } = req.params;
-    return c.healing.buildRepairPayload(id);
+    const payload = await c.healing.buildRepairPayload(id);
+    const candidates = await c.store.loadCandidates(id);
+    return {
+      ...payload,
+      ungrounded: candidates ? summarizeUngrounded(candidates) : []
+    };
   });
   app2.get("/tests/:id/runs", async (req) => {
     const { id } = req.params;
@@ -173,15 +212,17 @@ async function buildApp(config2, container2) {
     prefix: "/screenshots/",
     decorateReply: false
   });
-  app2.setErrorHandler((err, _req, reply) => {
-    const isValidationError = err.name === "ZodError" || Array.isArray(err.validation) && err.validation.length > 0;
-    reply.code(err.statusCode ?? (isValidationError ? 400 : 500)).send({
-      error: {
-        code: isValidationError ? "validation" : "internal",
-        message: err.message
-      }
-    });
-  });
+  app2.setErrorHandler(
+    (err, _req, reply) => {
+      const isValidationError = err.name === "ZodError" || Array.isArray(err.validation) && err.validation.length > 0;
+      reply.code(err.statusCode ?? (isValidationError ? 400 : 500)).send({
+        error: {
+          code: isValidationError ? "validation" : "internal",
+          message: err.message
+        }
+      });
+    }
+  );
   const hub = new WsHub();
   await registerRoutes(app2, container2, hub);
   await registerWsRoutes(app2, hub);
@@ -202,14 +243,18 @@ function loadConfig() {
   let fileConfig = {};
   try {
     fileConfig = JSON.parse(fs2.readFileSync("gimbal.config.json", "utf-8"));
-  } catch {
+  } catch (err) {
+    const reason = err.code === "ENOENT" ? "no gimbal.config.json found" : `gimbal.config.json is invalid: ${err.message}`;
+    console.warn(
+      `[gimbal] ${reason} in ${process.cwd()} \u2014 falling back to defaults. If tests/.gimbal state seem missing, you're probably running gimbal from the wrong directory.`
+    );
   }
   const envConfig = process.env.GIMBAL_PORT ? { port: Number(process.env.GIMBAL_PORT) } : {};
   return GimbalConfig.parse({ ...fileConfig, ...envConfig });
 }
 
 // src/authoring/index.ts
-import { lintSpec, SpecIR } from "@gimbal/shared";
+import { SpecIR, lintSpec } from "@gimbal/shared";
 
 // src/authoring/emitter.ts
 function normalizeLlmOutput(raw) {
@@ -244,7 +289,8 @@ var CoreAuthoringService = class {
   async submit(spec) {
     const parsed = SpecIR.parse(normalizeLlmOutput(spec));
     const lint = lintSpec(parsed);
-    if (!lint.ok) throw new AuthoringError(`spec failed lint: ${lint.errors.join("; ")}`);
+    if (!lint.ok)
+      throw new AuthoringError(`spec failed lint: ${lint.errors.join("; ")}`);
     return parsed;
   }
 };
@@ -647,7 +693,10 @@ function deepEqual(a, b) {
   const bKeys = Object.keys(b);
   if (aKeys.length !== bKeys.length) return false;
   return aKeys.every(
-    (k) => deepEqual(a[k], b[k])
+    (k) => deepEqual(
+      a[k],
+      b[k]
+    )
   );
 }
 
@@ -802,9 +851,23 @@ async function act(page, step, selector, vars) {
 // src/grounding/dom-extractor.ts
 function extractInteractiveElementsInPage() {
   const INTERACTIVE_SELECTOR = "button,a,input,select,textarea,[role=button],[role=link],[role=textbox],[role=checkbox],[role=radio],[role=menuitem],[role=tab],[tabindex],[onclick]";
-  const els = Array.from(
-    document.querySelectorAll(INTERACTIVE_SELECTOR)
-  );
+  const els = [];
+  const traverse = (root) => {
+    const found = Array.from(
+      root.querySelectorAll(INTERACTIVE_SELECTOR)
+    );
+    for (const el of found) {
+      if (!els.includes(el)) els.push(el);
+    }
+    const all = root.querySelectorAll("*");
+    for (const el of Array.from(all)) {
+      const element = el;
+      if (element.shadowRoot) {
+        traverse(element.shadowRoot);
+      }
+    }
+  };
+  traverse(document);
   const accessibleName = (el) => {
     const ariaLabel = el.getAttribute("aria-label");
     if (ariaLabel) return ariaLabel;
@@ -824,7 +887,17 @@ function extractInteractiveElementsInPage() {
     const title = el.getAttribute("title");
     if (title) return title;
     const text2 = el.textContent?.trim();
-    return text2 || void 0;
+    if (text2) return text2;
+    const icon = el.querySelector("svg, img");
+    if (icon) {
+      const iconAriaLabel = icon.getAttribute("aria-label");
+      if (iconAriaLabel) return iconAriaLabel;
+      const iconTitle = icon.getAttribute("title") || icon.querySelector("title")?.textContent?.trim();
+      if (iconTitle) return iconTitle;
+      const iconAlt = icon.getAttribute("alt");
+      if (iconAlt) return iconAlt;
+    }
+    return void 0;
   };
   const xpathLiteral = (value) => {
     if (!value.includes('"')) return `"${value}"`;
@@ -836,26 +909,28 @@ function extractInteractiveElementsInPage() {
     const parts = [];
     let node = el;
     while (node && node.nodeType === Node.ELEMENT_NODE) {
+      const element = node;
       let index = 1;
-      let sibling = node.previousElementSibling;
+      let sibling = element.previousElementSibling;
       while (sibling) {
-        if (sibling.tagName === node.tagName) index++;
+        if (sibling.tagName === element.tagName) index++;
         sibling = sibling.previousElementSibling;
       }
-      parts.unshift(`${node.tagName.toLowerCase()}[${index}]`);
-      node = node.parentElement;
+      parts.unshift(`${element.tagName.toLowerCase()}[${index}]`);
+      node = element.parentElement || (element.parentNode?.nodeType === Node.DOCUMENT_FRAGMENT_NODE ? element.parentNode.host : null);
     }
     return `/${parts.join("/")}`;
   };
   const contextPathFor = (el) => {
     const path5 = [];
-    let node = el.parentElement;
+    let node = el.parentElement || (el.parentNode?.nodeType === Node.DOCUMENT_FRAGMENT_NODE ? el.parentNode.host : null);
     let depth = 0;
-    while (node && depth < 5) {
+    while (node && depth < 5 && node.nodeType === Node.ELEMENT_NODE) {
+      const element = node;
       path5.push(
-        node.tagName.toLowerCase() + (node.id ? `#${CSS.escape(node.id)}` : "")
+        element.tagName.toLowerCase() + (element.id ? `#${CSS.escape(element.id)}` : "")
       );
-      node = node.parentElement;
+      node = element.parentElement || (element.parentNode?.nodeType === Node.DOCUMENT_FRAGMENT_NODE ? element.parentNode.host : null);
       depth++;
     }
     return path5;
@@ -881,16 +956,42 @@ function extractInteractiveElementsInPage() {
     if (tag === "input" && type) return `input[type='${CSS.escape(type)}']`;
     return `xpath=${xpathFor(el)}`;
   };
+  const getNearbyText = (element) => {
+    const STOP_TAGS = ["form", "section", "tr", "li", "ul", "ol", "header", "footer", "article", "aside", "nav"];
+    let node = element;
+    let depth = 0;
+    while (node && depth < 3) {
+      if (node.parentElement) {
+        const parent = node.parentElement;
+        if (parent.tagName === "BODY" || parent.tagName === "HTML") {
+          break;
+        }
+        node = parent;
+        depth++;
+        const tag = node.tagName.toLowerCase();
+        const id = node.id.toLowerCase();
+        const cls = node.className.toLowerCase();
+        if (STOP_TAGS.includes(tag) || id.includes("row") || id.includes("card") || id.includes("section") || id.includes("item") || cls.includes("row") || cls.includes("card") || cls.includes("section") || cls.includes("item")) {
+          break;
+        }
+      } else {
+        break;
+      }
+    }
+    return node.textContent?.trim().slice(0, 200) ?? "";
+  };
   return els.map((el) => {
     const rect = el.getBoundingClientRect();
     const style = getComputedStyle(el);
     const visible = style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
-    const siblings = Array.from(el.parentElement?.children ?? []).filter(
+    const parentNode = el.parentElement || (el.parentNode?.nodeType === Node.DOCUMENT_FRAGMENT_NODE ? el.parentNode : null);
+    const siblings = parentNode ? Array.from(parentNode.children ?? []).filter(
       (s) => s.tagName === el.tagName
-    );
+    ) : [el];
     const attributes = {};
     for (const attr of Array.from(el.attributes))
       attributes[attr.name] = attr.value;
+    const parentXpath = el.parentElement ? xpathFor(el.parentElement) : el.parentNode?.nodeType === Node.DOCUMENT_FRAGMENT_NODE ? xpathFor(el.parentNode.host) : null;
     return {
       tag: el.tagName.toLowerCase(),
       role: el.getAttribute("role") ?? void 0,
@@ -907,7 +1008,7 @@ function extractInteractiveElementsInPage() {
       },
       ancestorChain: contextPathFor(el),
       region: regionFor(el),
-      nearbyText: el.parentElement?.textContent?.trim().slice(0, 200),
+      nearbyText: getNearbyText(el),
       controlledContent: controlledContentFor(el),
       testId: el.getAttribute("data-testid") ?? void 0,
       attributes,
@@ -915,7 +1016,7 @@ function extractInteractiveElementsInPage() {
       contextPath: contextPathFor(el),
       siblingIndex: siblings.indexOf(el),
       cssSelector: cssSelectorFor(el),
-      parentXpath: el.parentElement ? xpathFor(el.parentElement) : null
+      parentXpath
     };
   });
 }
@@ -1478,7 +1579,7 @@ var PlaywrightGroundingService = class {
         );
         const resolution = await this.resolver.resolve(input);
         candidatesDoc.steps.push({ stepId: step.id, resolution });
-        if (accept(resolution.band)) {
+        if (accept(resolution.band) && resolution.selected) {
           const grounded = withCachedSelector(resolution);
           groundedSteps.push(mergeResolution(step, grounded));
           const urlBefore = session.page.url();
@@ -1518,6 +1619,19 @@ var PlaywrightGroundingService = class {
   }
 };
 
+// src/healing/repair.ts
+async function buildRepairPayload(store, testId) {
+  const specIR = await store.loadSpec(testId);
+  const testCase = await store.loadGrounded(testId);
+  return { specIR, testCase, kdg: null };
+}
+async function maintain(authoring, grounding, store, testId, _stepIds, patchedSpec) {
+  const before = await store.loadGrounded(testId);
+  const spec = await authoring.submit(patchedSpec);
+  const outcome = await grounding.ground(spec, {});
+  return { testId, before, after: outcome.grounded };
+}
+
 // src/healing/audit.ts
 function audit(cache, testId, stepId, event, opts) {
   cache.appendHeal({
@@ -1545,7 +1659,7 @@ function enqueue(cache, testId, stepId, url, topCandidates) {
 // src/healing/runtime.ts
 async function runtimeHeal(grounding, cache, test, stepId, page, previousSelector, storeTestId) {
   const result = await grounding.reground(test, stepId, page);
-  if (result.band !== "low" && result.cachedSelector) {
+  if (accept(result.band) && result.cachedSelector) {
     cache.putSelector({
       testId: test.flow.id,
       stepId,
@@ -1578,19 +1692,6 @@ async function runtimeHeal(grounding, cache, test, stepId, page, previousSelecto
   };
 }
 
-// src/healing/repair.ts
-async function buildRepairPayload(store, testId) {
-  const specIR = await store.loadSpec(testId);
-  const testCase = await store.loadGrounded(testId);
-  return { specIR, testCase, kdg: null };
-}
-async function maintain(authoring, grounding, store, testId, _stepIds, patchedSpec) {
-  const before = await store.loadGrounded(testId);
-  const spec = await authoring.submit(patchedSpec);
-  const outcome = await grounding.ground(spec, {});
-  return { testId, before, after: outcome.grounded };
-}
-
 // src/healing/index.ts
 var CoreHealingService = class {
   constructor(grounding, cache, authoring, store) {
@@ -1604,13 +1705,28 @@ var CoreHealingService = class {
   authoring;
   store;
   runtimeHeal(test, stepId, page, previousSelector, storeTestId) {
-    return runtimeHeal(this.grounding, this.cache, test, stepId, page, previousSelector, storeTestId);
+    return runtimeHeal(
+      this.grounding,
+      this.cache,
+      test,
+      stepId,
+      page,
+      previousSelector,
+      storeTestId
+    );
   }
   buildRepairPayload(testId) {
     return buildRepairPayload(this.store, testId);
   }
   maintain(testId, stepIds, patchedSpec) {
-    return maintain(this.authoring, this.grounding, this.store, testId, stepIds, patchedSpec);
+    return maintain(
+      this.authoring,
+      this.grounding,
+      this.store,
+      testId,
+      stepIds,
+      patchedSpec
+    );
   }
 };
 
@@ -1989,6 +2105,17 @@ var FsArtifactStore = class {
       "utf-8"
     );
     return GroundedTest.parse(JSON.parse(raw));
+  }
+  async loadCandidates(testId) {
+    try {
+      const raw = await fs5.readFile(
+        candidatesPath(this.artifactsDir, testId),
+        "utf-8"
+      );
+      return CandidatesDoc.parse(JSON.parse(raw));
+    } catch {
+      return null;
+    }
   }
   async list() {
     await fs5.mkdir(this.artifactsDir, { recursive: true });

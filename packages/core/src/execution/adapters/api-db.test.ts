@@ -88,7 +88,9 @@ describe("ApiAdapter", () => {
     }) as unknown as typeof fetch;
 
     const adapter = new ApiAdapter();
-    const step = apiStep({ assertions: [{ type: "apiStatus", expected: 201 }] });
+    const step = apiStep({
+      assertions: [{ type: "apiStatus", expected: 201 }],
+    });
     const result = await adapter.execute(step, ctx());
     expect(result.status).toBe("passed");
   });
@@ -118,7 +120,10 @@ describe("ApiAdapter", () => {
     }) as unknown as typeof fetch;
 
     const adapter = new ApiAdapter();
-    const result = await adapter.execute(apiStep({ request: { method: "GET", url: "https://api.test/x" } }), ctx());
+    const result = await adapter.execute(
+      apiStep({ request: { method: "GET", url: "https://api.test/x" } }),
+      ctx(),
+    );
     expect(result.status).toBe("passed");
   });
 });
@@ -135,7 +140,9 @@ describe("DbAdapter", () => {
     const dbQuery = vi.fn().mockResolvedValue({ id: 1, name: "dana" });
     const adapter = new DbAdapter();
     const step = dbStep({
-      assertions: [{ type: "dbRow", query: "select 1", expected: { id: 1, name: "dana" } }],
+      assertions: [
+        { type: "dbRow", query: "select 1", expected: { id: 1, name: "dana" } },
+      ],
     });
     const result = await adapter.execute(step, ctx({ dbQuery }));
     expect(dbQuery).toHaveBeenCalledWith(step.query);
@@ -146,7 +153,9 @@ describe("DbAdapter", () => {
     const dbQuery = vi.fn().mockResolvedValue({ id: 1, name: "wrong" });
     const adapter = new DbAdapter();
     const step = dbStep({
-      assertions: [{ type: "dbRow", query: "select 1", expected: { id: 1, name: "dana" } }],
+      assertions: [
+        { type: "dbRow", query: "select 1", expected: { id: 1, name: "dana" } },
+      ],
     });
     const result = await adapter.execute(step, ctx({ dbQuery }));
     expect(result.status).toBe("failed");

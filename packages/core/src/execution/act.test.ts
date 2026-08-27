@@ -41,16 +41,26 @@ function fakePage(locator = fakeLocator()) {
   const url = vi.fn().mockImplementation(() => currentUrl);
   const first = vi.fn().mockReturnValue(locator);
   const locatorFn = vi.fn().mockReturnValue({ first });
-  const page = { goto, waitForTimeout, url, locator: locatorFn } as unknown as Page;
+  const page = {
+    goto,
+    waitForTimeout,
+    url,
+    locator: locatorFn,
+  } as unknown as Page;
   return { page, locator, goto, waitForTimeout, url, locatorFn, first };
 }
 
 describe("act — navigate/wait (no selector required)", () => {
   it("navigate goes to the interpolated value", async () => {
     const { page, goto } = fakePage();
-    await act(page, step({ action: "navigate", value: "https://app.test/${slug}" }), null, {
-      slug: "dashboard",
-    });
+    await act(
+      page,
+      step({ action: "navigate", value: "https://app.test/${slug}" }),
+      null,
+      {
+        slug: "dashboard",
+      },
+    );
     expect(goto).toHaveBeenCalledWith("https://app.test/dashboard");
   });
 
@@ -65,7 +75,15 @@ describe("act — navigate/wait (no selector required)", () => {
     const { page, url } = fakePage();
     url.mockReturnValue("https://app.test/sign-in");
     await expect(
-      act(page, step({ action: "navigate", value: "https://app.test/dashboard/notes/new" }), null, {}),
+      act(
+        page,
+        step({
+          action: "navigate",
+          value: "https://app.test/dashboard/notes/new",
+        }),
+        null,
+        {},
+      ),
     ).rejects.toThrow(/landed on https:\/\/app\.test\/sign-in/);
   });
 
@@ -73,7 +91,12 @@ describe("act — navigate/wait (no selector required)", () => {
     const { page, url } = fakePage();
     url.mockReturnValue("https://app.test/dashboard?tab=notes#top");
     await expect(
-      act(page, step({ action: "navigate", value: "https://app.test/dashboard" }), null, {}),
+      act(
+        page,
+        step({ action: "navigate", value: "https://app.test/dashboard" }),
+        null,
+        {},
+      ),
     ).resolves.toBeUndefined();
   });
 
@@ -93,9 +116,9 @@ describe("act — navigate/wait (no selector required)", () => {
 describe("act — selector-based actions", () => {
   it("throws when a target action has no resolved selector", async () => {
     const { page } = fakePage();
-    await expect(act(page, step({ action: "click" }), null, {})).rejects.toThrow(
-      /requires a resolved selector/,
-    );
+    await expect(
+      act(page, step({ action: "click" }), null, {}),
+    ).rejects.toThrow(/requires a resolved selector/);
   });
 
   it("click resolves the selector via .first() and clicks it", async () => {
@@ -121,7 +144,10 @@ describe("act — selector-based actions", () => {
   });
 
   it("still clicks a closed toggle (aria-expanded=false, data-state=closed)", async () => {
-    const locator = fakeLocator({ "aria-expanded": "false", "data-state": "closed" });
+    const locator = fakeLocator({
+      "aria-expanded": "false",
+      "data-state": "closed",
+    });
     const { page } = fakePage(locator);
     await act(page, step({ action: "click" }), "#menu-trigger", {});
     expect(locator.click).toHaveBeenCalledTimes(1);
@@ -139,7 +165,9 @@ describe("act — selector-based actions", () => {
 
   it("type fills the interpolated value", async () => {
     const { page, locator } = fakePage();
-    await act(page, step({ action: "type", value: "hi ${name}" }), "#msg", { name: "Dana" });
+    await act(page, step({ action: "type", value: "hi ${name}" }), "#msg", {
+      name: "Dana",
+    });
     expect(locator.fill).toHaveBeenCalledWith("hi Dana");
   });
 
@@ -151,13 +179,20 @@ describe("act — selector-based actions", () => {
 
   it("select chooses the interpolated option", async () => {
     const { page, locator } = fakePage();
-    await act(page, step({ action: "select", value: "${plan}" }), "#plan", { plan: "pro" });
+    await act(page, step({ action: "select", value: "${plan}" }), "#plan", {
+      plan: "pro",
+    });
     expect(locator.selectOption).toHaveBeenCalledWith("pro");
   });
 
   it("keypress presses the interpolated key", async () => {
     const { page, locator } = fakePage();
-    await act(page, step({ action: "keypress", value: "Escape" }), "#field", {});
+    await act(
+      page,
+      step({ action: "keypress", value: "Escape" }),
+      "#field",
+      {},
+    );
     expect(locator.press).toHaveBeenCalledWith("Escape");
   });
 

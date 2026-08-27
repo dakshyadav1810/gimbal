@@ -1,7 +1,7 @@
 import type {
-  GimbalConfig,
   Band,
   CandidatesDoc,
+  GimbalConfig,
   GroundedStep,
   GroundedTest,
   Resolution,
@@ -113,7 +113,7 @@ export class PlaywrightGroundingService implements GroundingService {
         const resolution = await this.resolver.resolve(input);
         candidatesDoc.steps.push({ stepId: step.id, resolution });
 
-        if (accept(resolution.band)) {
+        if (accept(resolution.band) && resolution.selected) {
           const grounded = withCachedSelector(resolution);
           groundedSteps.push(mergeResolution(step, grounded));
           const urlBefore = session.page.url();

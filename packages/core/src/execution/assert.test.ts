@@ -26,7 +26,9 @@ function fakePage(opts: FakePageOptions = {}): Page {
 
   const focusedLocator = {
     inputValue: () =>
-      focusedValue instanceof Promise ? focusedValue : Promise.resolve(focusedValue),
+      focusedValue instanceof Promise
+        ? focusedValue
+        : Promise.resolve(focusedValue),
   };
   const roleLocator = {
     isVisible: () => Promise.resolve(roleVisible),
@@ -118,7 +120,9 @@ describe("evaluateAssertion", () => {
   });
 
   it("value swallows an inputValue() rejection and evaluates against an empty string", async () => {
-    const page = fakePage({ focusedValue: Promise.reject(new Error("no focused element")) });
+    const page = fakePage({
+      focusedValue: Promise.reject(new Error("no focused element")),
+    });
     const res = await evaluateAssertion(
       { type: "value", expected: "" },
       { page, vars: {} },
@@ -127,12 +131,21 @@ describe("evaluateAssertion", () => {
   });
 
   it("value checks a specific target field via getByRole when target is given, ignoring focus", async () => {
-    const page = fakePage({ focusedValue: "wrong-field-value", roleValue: "Buy milk" });
+    const page = fakePage({
+      focusedValue: "wrong-field-value",
+      roleValue: "Buy milk",
+    });
     const res = await evaluateAssertion(
       {
         type: "value",
         expected: "Buy milk",
-        target: { label: "Title", semantics: [], role: "textbox", actions: [], intent: "note title" },
+        target: {
+          label: "Title",
+          semantics: [],
+          role: "textbox",
+          actions: [],
+          intent: "note title",
+        },
       },
       { page, vars: {} },
     );
@@ -153,7 +166,13 @@ describe("evaluateAssertion", () => {
     const res = await evaluateAssertion(
       {
         type: "elementVisible",
-        target: { label: "Submit", semantics: [], role: "button", actions: [], intent: "submit" },
+        target: {
+          label: "Submit",
+          semantics: [],
+          role: "button",
+          actions: [],
+          intent: "submit",
+        },
       },
       { page, vars: {} },
     );
@@ -165,7 +184,13 @@ describe("evaluateAssertion", () => {
     const res = await evaluateAssertion(
       {
         type: "elementAbsent",
-        target: { label: "Error banner", semantics: [], role: "alert", actions: [], intent: "n/a" },
+        target: {
+          label: "Error banner",
+          semantics: [],
+          role: "alert",
+          actions: [],
+          intent: "n/a",
+        },
       },
       { page, vars: {} },
     );
@@ -180,11 +205,29 @@ describe("evaluateAssertion", () => {
       }),
     } as unknown as Page;
     const visible = await evaluateAssertion(
-      { type: "elementVisible", target: { label: "X", semantics: [], role: "button", actions: [], intent: "x" } },
+      {
+        type: "elementVisible",
+        target: {
+          label: "X",
+          semantics: [],
+          role: "button",
+          actions: [],
+          intent: "x",
+        },
+      },
       { page, vars: {} },
     );
     const absent = await evaluateAssertion(
-      { type: "elementAbsent", target: { label: "X", semantics: [], role: "button", actions: [], intent: "x" } },
+      {
+        type: "elementAbsent",
+        target: {
+          label: "X",
+          semantics: [],
+          role: "button",
+          actions: [],
+          intent: "x",
+        },
+      },
       { page, vars: {} },
     );
     expect(visible.ok).toBe(false); // count() rejects -> treated as 0 matches -> "visible" assertion fails
@@ -199,7 +242,13 @@ describe("evaluateAssertion", () => {
     const res = await evaluateAssertion(
       {
         type: "elementAbsent",
-        target: { label: "Row", semantics: [], role: "row", actions: [], intent: "n/a" },
+        target: {
+          label: "Row",
+          semantics: [],
+          role: "row",
+          actions: [],
+          intent: "n/a",
+        },
       },
       { page, vars: {} },
     );
@@ -212,7 +261,13 @@ describe("evaluateAssertion", () => {
     const res = await evaluateAssertion(
       {
         type: "elementVisible",
-        target: { label: "Row", semantics: [], role: "row", actions: [], intent: "n/a" },
+        target: {
+          label: "Row",
+          semantics: [],
+          role: "row",
+          actions: [],
+          intent: "n/a",
+        },
       },
       { page, vars: {} },
     );
@@ -225,7 +280,13 @@ describe("evaluateAssertion", () => {
     const res = await evaluateAssertion(
       {
         type: "elementAbsent",
-        target: { label: "Missing", semantics: [], role: "alert", actions: [], intent: "n/a" },
+        target: {
+          label: "Missing",
+          semantics: [],
+          role: "alert",
+          actions: [],
+          intent: "n/a",
+        },
       },
       { page, vars: {} },
     );
@@ -294,7 +355,11 @@ describe("evaluateAssertion", () => {
 
   it("dbRow fails when a nested key is reordered but values differ", async () => {
     const res = await evaluateAssertion(
-      { type: "dbRow", query: "select 1", expected: { id: 1, meta: { a: 1, b: 2 } } },
+      {
+        type: "dbRow",
+        query: "select 1",
+        expected: { id: 1, meta: { a: 1, b: 2 } },
+      },
       { dbRow: { id: 1, meta: { b: 2, a: 3 } }, vars: {} },
     );
     expect(res.ok).toBe(false);
@@ -303,7 +368,10 @@ describe("evaluateAssertion", () => {
   it("apiBody passes when the resolved object has reordered keys", async () => {
     const res = await evaluateAssertion(
       { type: "apiBody", path: "user", expected: { id: 42, name: "Dana" } },
-      { apiResponse: { status: 200, body: { user: { name: "Dana", id: 42 } } }, vars: {} },
+      {
+        apiResponse: { status: 200, body: { user: { name: "Dana", id: 42 } } },
+        vars: {},
+      },
     );
     expect(res.ok).toBe(true);
   });
@@ -318,7 +386,11 @@ describe("evaluateAssertion", () => {
 
   it("dbRow compares arrays element-wise regardless of object key order within elements", async () => {
     const res = await evaluateAssertion(
-      { type: "dbRow", query: "select 1", expected: { tags: [{ id: 1, k: "a" }] } },
+      {
+        type: "dbRow",
+        query: "select 1",
+        expected: { tags: [{ id: 1, k: "a" }] },
+      },
       { dbRow: { tags: [{ k: "a", id: 1 }] }, vars: {} },
     );
     expect(res.ok).toBe(true);
@@ -372,7 +444,13 @@ describe("evaluateExpectedOutcome", () => {
     const res = await evaluateExpectedOutcome(
       {
         type: "element_appears",
-        target: { label: "Saved", semantics: [], role: "status", actions: [], intent: "save confirmation" },
+        target: {
+          label: "Saved",
+          semantics: [],
+          role: "status",
+          actions: [],
+          intent: "save confirmation",
+        },
       },
       { page, urlBefore: "", vars: {} },
     );
@@ -389,7 +467,13 @@ describe("evaluateExpectedOutcome", () => {
     const res = await evaluateExpectedOutcome(
       {
         type: "element_appears",
-        target: { label: "Saved", semantics: [], role: "status", actions: [], intent: "save confirmation" },
+        target: {
+          label: "Saved",
+          semantics: [],
+          role: "status",
+          actions: [],
+          intent: "save confirmation",
+        },
       },
       { page, urlBefore: "", vars: {} },
     );
@@ -401,7 +485,13 @@ describe("evaluateExpectedOutcome", () => {
     const res = await evaluateExpectedOutcome(
       {
         type: "element_appears",
-        target: { label: "Row", semantics: [], role: "row", actions: [], intent: "n/a" },
+        target: {
+          label: "Row",
+          semantics: [],
+          role: "row",
+          actions: [],
+          intent: "n/a",
+        },
       },
       { page, urlBefore: "", vars: {} },
     );
@@ -440,12 +530,21 @@ describe("evaluateExpectedOutcome", () => {
     // Regression: after a submit, focus often moves off the field that was actually filled in
     // (e.g. onto the submit button, or is lost entirely) — field_contains must still be able to
     // check a specific field by role/label rather than only whatever currently has focus.
-    const page = fakePage({ focusedValue: "unrelated", roleValue: "My Note Title" });
+    const page = fakePage({
+      focusedValue: "unrelated",
+      roleValue: "My Note Title",
+    });
     const res = await evaluateExpectedOutcome(
       {
         type: "field_contains",
         value: "My Note Title",
-        target: { label: "Title", semantics: [], role: "textbox", actions: [], intent: "note title" },
+        target: {
+          label: "Title",
+          semantics: [],
+          role: "textbox",
+          actions: [],
+          intent: "note title",
+        },
       },
       { page, urlBefore: "", vars: {} },
     );

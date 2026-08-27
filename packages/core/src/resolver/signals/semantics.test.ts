@@ -54,7 +54,11 @@ describe("SemanticsSignal (real embedding model)", () => {
   it(
     "scores 0 for a candidate with no label, before touching the model",
     async () => {
-      const score = await signal.score(target({ label: "Submit" }), cand({ label: undefined }), page);
+      const score = await signal.score(
+        target({ label: "Submit" }),
+        cand({ label: undefined }),
+        page,
+      );
       expect(score).toBe(0);
     },
     MODEL_TIMEOUT_MS,
@@ -91,9 +95,20 @@ describe("SemanticsSignal (real embedding model)", () => {
       // actions) as moderately related even when wrong, so this asserts the relative ordering
       // against a true match rather than an absolute "low" threshold, which real model behavior
       // doesn't cleanly support.
-      const t = target({ label: "Submit payment", semantics: ["submit payment", "checkout"] });
-      const trueMatchScore = await signal.score(t, cand({ label: "Checkout now" }), page);
-      const unrelatedScore = await signal.score(t, cand({ label: "Cancel subscription" }), page);
+      const t = target({
+        label: "Submit payment",
+        semantics: ["submit payment", "checkout"],
+      });
+      const trueMatchScore = await signal.score(
+        t,
+        cand({ label: "Checkout now" }),
+        page,
+      );
+      const unrelatedScore = await signal.score(
+        t,
+        cand({ label: "Cancel subscription" }),
+        page,
+      );
       expect(unrelatedScore).toBeLessThan(trueMatchScore);
     },
     MODEL_TIMEOUT_MS,
@@ -108,8 +123,16 @@ describe("SemanticsSignal (real embedding model)", () => {
       // model's actual behavior so a future model swap or config change that silently worsens
       // (or fixes) this gap is visible in the suite, rather than assumed.
       const t = target({ label: "Log in", semantics: ["log in", "sign in"] });
-      const logOutScore = await signal.score(t, cand({ label: "Log out" }), page);
-      const unrelatedScore = await signal.score(t, cand({ label: "Change language" }), page);
+      const logOutScore = await signal.score(
+        t,
+        cand({ label: "Log out" }),
+        page,
+      );
+      const unrelatedScore = await signal.score(
+        t,
+        cand({ label: "Change language" }),
+        page,
+      );
       // The risk: an antonym can score meaningfully closer to a true match than an unrelated
       // control does, purely on shared vocabulary/structure. Surfacing the gap (rather than
       // asserting a specific threshold) is the point — semantics alone must not be trusted to
@@ -125,9 +148,17 @@ describe("SemanticsSignal (real embedding model)", () => {
       // one strong semantic match buried among weak ones should still let the candidate win high
       const t = target({
         label: "zzz-unrelated-token",
-        semantics: ["zzz-unrelated-token", "completely different concept", "checkout button"],
+        semantics: [
+          "zzz-unrelated-token",
+          "completely different concept",
+          "checkout button",
+        ],
       });
-      const score = await signal.score(t, cand({ label: "Checkout button" }), page);
+      const score = await signal.score(
+        t,
+        cand({ label: "Checkout button" }),
+        page,
+      );
       expect(score).toBeGreaterThan(0.7);
     },
     MODEL_TIMEOUT_MS,

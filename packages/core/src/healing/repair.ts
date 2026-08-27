@@ -1,7 +1,7 @@
 import type { GroundedTest, RepairPayload, SpecIR } from "@gimbal/shared";
 import type { AuthoringService } from "../authoring/index.js";
-import type { ArtifactStore } from "../storage/index.js";
 import type { GroundingService } from "../grounding/index.js";
+import type { ArtifactStore } from "../storage/index.js";
 
 export interface RepairResult {
   testId: string;
@@ -9,7 +9,10 @@ export interface RepairResult {
   after: GroundedTest;
 }
 
-export async function buildRepairPayload(store: ArtifactStore, testId: string): Promise<RepairPayload> {
+export async function buildRepairPayload(
+  store: ArtifactStore,
+  testId: string,
+): Promise<RepairPayload> {
   const specIR = await store.loadSpec(testId);
   const testCase = await store.loadGrounded(testId);
   return { specIR, testCase, kdg: null };

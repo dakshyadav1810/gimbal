@@ -50,7 +50,13 @@ function dbStep(overrides: Partial<Step> = {}): Step {
 function groundedTest(steps: Step[]): GroundedTest {
   return {
     version: "1.0",
-    flow: { id: "flow-1", name: "test", intent: "x", startUrl: "https://app.test/", vars: {} },
+    flow: {
+      id: "flow-1",
+      name: "test",
+      intent: "x",
+      startUrl: "https://app.test/",
+      vars: {},
+    },
     groundedAt: "2026-07-28T00:00:00.000Z",
     groundedUrl: "https://app.test/",
     steps,
@@ -77,7 +83,11 @@ function fakeCache(): CacheStore {
 }
 
 function fakeHealing(): HealingService {
-  return { runtimeHeal: vi.fn(), buildRepairPayload: vi.fn(), maintain: vi.fn() } as unknown as HealingService;
+  return {
+    runtimeHeal: vi.fn(),
+    buildRepairPayload: vi.fn(),
+    maintain: vi.fn(),
+  } as unknown as HealingService;
 }
 
 describe("PlaywrightTestRunner", () => {
@@ -102,7 +112,12 @@ describe("PlaywrightTestRunner", () => {
     const runner = new PlaywrightTestRunner(config(), cache, fakeHealing());
     const executeSpy = vi
       .spyOn(DbAdapter.prototype, "execute")
-      .mockResolvedValueOnce({ stepId: "s1", status: "failed", durationMs: 1, failure: { reason: "X", message: "first" } })
+      .mockResolvedValueOnce({
+        stepId: "s1",
+        status: "failed",
+        durationMs: 1,
+        failure: { reason: "X", message: "first" },
+      })
       .mockResolvedValueOnce({ stepId: "s1", status: "passed", durationMs: 1 });
     const test = groundedTest([dbStep({ id: "s1", onFailure: "retry_once" })]);
 
@@ -119,7 +134,12 @@ describe("PlaywrightTestRunner", () => {
     const runner = new PlaywrightTestRunner(config(), cache, fakeHealing());
     const executeSpy = vi
       .spyOn(DbAdapter.prototype, "execute")
-      .mockResolvedValue({ stepId: "s1", status: "failed", durationMs: 1, failure: { reason: "X", message: "still failing" } });
+      .mockResolvedValue({
+        stepId: "s1",
+        status: "failed",
+        durationMs: 1,
+        failure: { reason: "X", message: "still failing" },
+      });
     const test = groundedTest([dbStep({ id: "s1", onFailure: "retry_once" })]);
 
     const report = await runner.run(test, { testId: "t1" });
@@ -167,7 +187,12 @@ describe("PlaywrightTestRunner", () => {
 
     await runner.run(test, { testId: "t1", emit });
 
-    expect(emitted).toEqual(["run.start", "step.start", "step.result", "run.complete"]);
+    expect(emitted).toEqual([
+      "run.start",
+      "step.start",
+      "step.result",
+      "run.complete",
+    ]);
   });
 
   it("uses the supplied runId, or generates one if omitted", async () => {
@@ -175,7 +200,10 @@ describe("PlaywrightTestRunner", () => {
     const runner = new PlaywrightTestRunner(config(), cache, fakeHealing());
     const test = groundedTest([dbStep({ id: "s1" })]);
 
-    const withId = await runner.run(test, { testId: "t1", runId: "fixed-run-id" });
+    const withId = await runner.run(test, {
+      testId: "t1",
+      runId: "fixed-run-id",
+    });
     expect(withId.runId).toBe("fixed-run-id");
 
     const withoutId = await runner.run(test, { testId: "t1" });
@@ -210,13 +238,20 @@ describe("PlaywrightTestRunner", () => {
       .spyOn(DbAdapter.prototype, "execute")
       .mockImplementation(async () => {
         // startRun must have already been called by the time a step executes.
-        expect(cache.startRun).toHaveBeenCalledWith("fixed-run-id", "t1", expect.any(String));
+        expect(cache.startRun).toHaveBeenCalledWith(
+          "fixed-run-id",
+          "t1",
+          expect.any(String),
+        );
         expect(cache.saveRun).not.toHaveBeenCalled();
         return { stepId: "s1", status: "passed", durationMs: 1 };
       });
     const test = groundedTest([dbStep({ id: "s1" })]);
 
-    const report = await runner.run(test, { testId: "t1", runId: "fixed-run-id" });
+    const report = await runner.run(test, {
+      testId: "t1",
+      runId: "fixed-run-id",
+    });
 
     expect(cache.saveRun).toHaveBeenCalledWith(report);
     expect(cache.failRun).not.toHaveBeenCalled();
@@ -235,7 +270,10 @@ describe("PlaywrightTestRunner", () => {
       runner.run(test, { testId: "t1", runId: "fixed-run-id" }),
     ).rejects.toThrow("adapter blew up");
 
-    expect(cache.failRun).toHaveBeenCalledWith("fixed-run-id", expect.any(String));
+    expect(cache.failRun).toHaveBeenCalledWith(
+      "fixed-run-id",
+      expect.any(String),
+    );
     expect(cache.saveRun).not.toHaveBeenCalled();
     executeSpy.mockRestore();
   });

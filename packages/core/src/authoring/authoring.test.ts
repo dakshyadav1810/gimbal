@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { normalizeLlmOutput } from "./emitter.js";
-import { EmptyKdgContextProvider } from "./kdg-context.js";
 import { AuthoringError, CoreAuthoringService } from "./index.js";
+import { EmptyKdgContextProvider } from "./kdg-context.js";
 
 function validSpecCamelCase() {
   return {
@@ -20,7 +20,13 @@ function validSpecCamelCase() {
         kind: "ui",
         action: "type",
         value: "${email}",
-        target: { label: "Email", semantics: ["email address"], role: "textbox", actions: [], intent: "email field" },
+        target: {
+          label: "Email",
+          semantics: ["email address"],
+          role: "textbox",
+          actions: [],
+          intent: "email field",
+        },
         expectedOutcome: [{ type: "field_contains", value: "${email}" }],
       },
     ],
@@ -40,7 +46,9 @@ describe("normalizeLlmOutput", () => {
   });
 
   it("walks arrays and converts keys within array elements", () => {
-    const out = normalizeLlmOutput({ steps: [{ step_id: "s1" }, { step_id: "s2" }] });
+    const out = normalizeLlmOutput({
+      steps: [{ step_id: "s1" }, { step_id: "s2" }],
+    });
     expect(out).toEqual({ steps: [{ stepId: "s1" }, { stepId: "s2" }] });
   });
 
@@ -59,7 +67,10 @@ describe("normalizeLlmOutput", () => {
 describe("EmptyKdgContextProvider", () => {
   it("always returns an empty routes/conditionals context regardless of entryUrl", async () => {
     const provider = new EmptyKdgContextProvider();
-    expect(await provider.build("https://app.test/")).toEqual({ routes: [], conditionals: [] });
+    expect(await provider.build("https://app.test/")).toEqual({
+      routes: [],
+      conditionals: [],
+    });
     expect(await provider.build("")).toEqual({ routes: [], conditionals: [] });
   });
 });
@@ -96,6 +107,9 @@ describe("CoreAuthoringService", () => {
 
   it("context() delegates to the injected KdgContextProvider", async () => {
     const service = new CoreAuthoringService(new EmptyKdgContextProvider());
-    expect(await service.context("https://app.test/")).toEqual({ routes: [], conditionals: [] });
+    expect(await service.context("https://app.test/")).toEqual({
+      routes: [],
+      conditionals: [],
+    });
   });
 });

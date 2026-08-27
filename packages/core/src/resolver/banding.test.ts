@@ -83,15 +83,24 @@ describe("selectBest — same_element (full margin 0.15)", () => {
   });
 
   it("falls through to sibling-index tiebreak when tied candidates share a parent and neither has a testId", () => {
-    const a = scored({ id: "a", siblingIndex: 3, parentXpath: "//*[@id='nav']" }, 0.85);
-    const b = scored({ id: "b", siblingIndex: 1, parentXpath: "//*[@id='nav']" }, 0.8);
+    const a = scored(
+      { id: "a", siblingIndex: 3, parentXpath: "//*[@id='nav']" },
+      0.85,
+    );
+    const b = scored(
+      { id: "b", siblingIndex: 1, parentXpath: "//*[@id='nav']" },
+      0.8,
+    );
     const res = selectBest([a, b], "same_element", bands);
     expect(res.ambiguous).toBe(false);
     expect(res.winner?.candidate.id).toBe("b"); // lower siblingIndex wins
   });
 
   it("prefers testId tiebreak over siblingIndex when both are present among tied candidates", () => {
-    const a = scored({ id: "a", siblingIndex: 0, parentXpath: "//*[@id='nav']" }, 0.85);
+    const a = scored(
+      { id: "a", siblingIndex: 0, parentXpath: "//*[@id='nav']" },
+      0.85,
+    );
     const b = scored(
       { id: "b", testId: "x", siblingIndex: 5, parentXpath: "//*[@id='nav']" },
       0.8,
@@ -107,11 +116,21 @@ describe("selectBest — same_element (full margin 0.15)", () => {
     // This exact shape shipped a theme-toggle button as a profile-menu trigger with no
     // ambiguity flag raised, because the old code picked whichever sorted first.
     const themeToggle = scored(
-      { id: "theme-toggle", label: "Toggle theme", siblingIndex: 0, parentXpath: "//*[@id='header-right']" },
+      {
+        id: "theme-toggle",
+        label: "Toggle theme",
+        siblingIndex: 0,
+        parentXpath: "//*[@id='header-right']",
+      },
       0.676,
     );
     const profileMenu = scored(
-      { id: "profile-menu", label: "WH", siblingIndex: 0, parentXpath: "//*[@id='header-left']" },
+      {
+        id: "profile-menu",
+        label: "WH",
+        siblingIndex: 0,
+        parentXpath: "//*[@id='header-left']",
+      },
       0.638,
     );
     const res = selectBest([themeToggle, profileMenu], "same_element", bands);
@@ -137,7 +156,10 @@ describe("selectBest — same_element (full margin 0.15)", () => {
   });
 
   it("still uses siblingIndex when only one tied candidate has a parentXpath (not comparable, falls through to ambiguous)", () => {
-    const a = scored({ id: "a", siblingIndex: 0, parentXpath: "//*[@id='nav']" }, 0.85);
+    const a = scored(
+      { id: "a", siblingIndex: 0, parentXpath: "//*[@id='nav']" },
+      0.85,
+    );
     const b = scored({ id: "b", siblingIndex: 1 }, 0.8); // no parentXpath at all
     const res = selectBest([a, b], "same_element", bands);
     expect(res.ambiguous).toBe(true);

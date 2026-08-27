@@ -24,7 +24,9 @@ function landedOnIntendedUrl(targetUrl: string, actualUrl: string): boolean {
   try {
     const target = new URL(targetUrl);
     const actual = new URL(actualUrl);
-    return target.origin === actual.origin && target.pathname === actual.pathname;
+    return (
+      target.origin === actual.origin && target.pathname === actual.pathname
+    );
   } catch {
     return true; // relative/unparseable value — nothing meaningful to compare
   }

@@ -1,4 +1,4 @@
-import type { GimbalConfig, Band, Generalization } from "@gimbal/shared";
+import type { Band, Generalization, GimbalConfig } from "@gimbal/shared";
 import type { DomCandidate } from "./base.js";
 
 export const CONFIDENCE_MARGIN = 0.15;

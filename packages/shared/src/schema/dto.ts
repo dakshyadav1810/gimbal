@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { Band } from "./enums.js";
-import { SpecIR } from "./spec.js";
 import { GroundedTest } from "./groundedTest.js";
+import { SpecIR } from "./spec.js";
 
 // No AuthorRequest: Gimbal never calls an LLM provider. The connected agent authors the SpecIR entirely
 // in its own session and calls submitSpec with the finished spec.
@@ -9,11 +9,17 @@ import { GroundedTest } from "./groundedTest.js";
 export const GroundRequest = z.object({ specId: z.string() });
 export type GroundRequest = z.infer<typeof GroundRequest>;
 
-export const RunRequest = z.object({ testId: z.string(), vars: z.record(z.string()).optional() });
+export const RunRequest = z.object({
+  testId: z.string(),
+  vars: z.record(z.string()).optional(),
+});
 export type RunRequest = z.infer<typeof RunRequest>;
 
 // `spec` is required: the agent always supplies the repaired SpecIR. No core-side generation fallback.
-export const MaintainRequest = z.object({ stepIds: z.array(z.string()), spec: SpecIR });
+export const MaintainRequest = z.object({
+  stepIds: z.array(z.string()),
+  spec: SpecIR,
+});
 export type MaintainRequest = z.infer<typeof MaintainRequest>;
 
 export const StepResult = z.object({

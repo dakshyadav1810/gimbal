@@ -103,7 +103,9 @@ export function registerCommands(program: Command) {
   program
     .command("heal")
     .argument("<testId>")
-    .description("print the repair payload for a stale test (read-only — no LLM call)")
+    .description(
+      "print the repair payload for a stale test (read-only — no LLM call)",
+    )
     .action(async (testId) => {
       const client = new CoreClient(baseUrl(loadConfig()));
       const payload = await client.getRepairPayload(testId);

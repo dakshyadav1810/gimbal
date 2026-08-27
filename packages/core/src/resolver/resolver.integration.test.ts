@@ -64,7 +64,12 @@ describe("MultiSignalResolver — real-model integration", () => {
           role: "link",
           label: "Learn more", // copy changed from "More information..." after a redesign
         }),
-        cand({ id: "unrelated", tag: "a", role: "link", label: "Privacy policy" }),
+        cand({
+          id: "unrelated",
+          tag: "a",
+          role: "link",
+          label: "Privacy policy",
+        }),
       ];
       const res = await resolver.resolve({
         target,
@@ -133,8 +138,18 @@ describe("MultiSignalResolver — real-model integration", () => {
         intent: "submit the login form",
       };
       const candidates = [
-        cand({ id: "logout-decoy", tag: "button", role: "button", label: "Log out" }),
-        cand({ id: "true-login", tag: "button", role: "button", label: "Sign in" }),
+        cand({
+          id: "logout-decoy",
+          tag: "button",
+          role: "button",
+          label: "Log out",
+        }),
+        cand({
+          id: "true-login",
+          tag: "button",
+          role: "button",
+          label: "Sign in",
+        }),
       ];
       const res = await resolver.resolve({
         target,
@@ -164,8 +179,18 @@ describe("MultiSignalResolver — real-model integration", () => {
         intent: "add the product to the cart",
       };
       const candidates = [
-        cand({ id: "product-1-add", tag: "button", role: "button", label: "Add to cart" }),
-        cand({ id: "product-2-add", tag: "button", role: "button", label: "Add to cart" }),
+        cand({
+          id: "product-1-add",
+          tag: "button",
+          role: "button",
+          label: "Add to cart",
+        }),
+        cand({
+          id: "product-2-add",
+          tag: "button",
+          role: "button",
+          label: "Add to cart",
+        }),
       ];
       const res = await resolver.resolve({
         target,

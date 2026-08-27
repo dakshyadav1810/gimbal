@@ -37,17 +37,29 @@ describe("ContextSignal", () => {
   });
 
   it("rewards a form-region candidate when the page has a form", () => {
-    const score = signal.score(target({}), cand({ region: "form" }), page({ hasForm: true }));
+    const score = signal.score(
+      target({}),
+      cand({ region: "form" }),
+      page({ hasForm: true }),
+    );
     expect(score).toBeCloseTo(0.7, 10);
   });
 
   it("does not reward a form-region candidate when the page-level flag is false", () => {
-    const score = signal.score(target({}), cand({ region: "form" }), page({ hasForm: false }));
+    const score = signal.score(
+      target({}),
+      cand({ region: "form" }),
+      page({ hasForm: false }),
+    );
     expect(score).toBeCloseTo(0.5, 10);
   });
 
   it("rewards a modal-region candidate when the page has a modal", () => {
-    const score = signal.score(target({}), cand({ region: "modal" }), page({ hasModal: true }));
+    const score = signal.score(
+      target({}),
+      cand({ region: "modal" }),
+      page({ hasModal: true }),
+    );
     expect(score).toBeCloseTo(0.7, 10);
   });
 
@@ -95,7 +107,11 @@ describe("ContextSignal", () => {
   });
 
   it("ignores nearbyText when absent, leaving only the region bonus", () => {
-    const score = signal.score(target({}), cand({ region: "form" }), page({ hasForm: true }));
+    const score = signal.score(
+      target({}),
+      cand({ region: "form" }),
+      page({ hasForm: true }),
+    );
     expect(score).toBeCloseTo(0.7, 10);
   });
 

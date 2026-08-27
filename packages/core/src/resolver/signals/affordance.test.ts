@@ -39,7 +39,9 @@ describe("AffordanceSignal", () => {
 
   it("accepts a candidate whose tag matches the required action, regardless of role", () => {
     const t = target({ actions: ["type"] });
-    expect(signal.score(t, cand({ tag: "input", role: undefined }), page)).toBe(1);
+    expect(signal.score(t, cand({ tag: "input", role: undefined }), page)).toBe(
+      1,
+    );
   });
 
   it("accepts a candidate whose role matches even if the tag itself wouldn't", () => {
@@ -50,23 +52,33 @@ describe("AffordanceSignal", () => {
 
   it("rejects a candidate whose tag and role both fail every requested action", () => {
     const t = target({ actions: ["type"] });
-    expect(signal.score(t, cand({ tag: "div", role: "presentation" }), page)).toBe(0);
+    expect(
+      signal.score(t, cand({ tag: "div", role: "presentation" }), page),
+    ).toBe(0);
   });
 
   it("requires every action in a multi-action target to be satisfiable", () => {
     // "focus" allows input/textarea/select/button/a; "type" allows only input/textarea
     const t = target({ actions: ["focus", "type"] });
-    expect(signal.score(t, cand({ tag: "select", role: "combobox" }), page)).toBe(0);
-    expect(signal.score(t, cand({ tag: "input", role: "textbox" }), page)).toBe(1);
+    expect(
+      signal.score(t, cand({ tag: "select", role: "combobox" }), page),
+    ).toBe(0);
+    expect(signal.score(t, cand({ tag: "input", role: "textbox" }), page)).toBe(
+      1,
+    );
   });
 
   it("ignores an action with no defined tag mapping rather than rejecting", () => {
     const t = target({ actions: ["submit"] }); // not in ACTION_TAGS
-    expect(signal.score(t, cand({ tag: "button", role: "button" }), page)).toBe(1);
+    expect(signal.score(t, cand({ tag: "button", role: "button" }), page)).toBe(
+      1,
+    );
   });
 
   it("treats an empty actions list as automatically satisfied", () => {
     const t = target({ actions: [] });
-    expect(signal.score(t, cand({ tag: "div", role: "presentation" }), page)).toBe(1);
+    expect(
+      signal.score(t, cand({ tag: "div", role: "presentation" }), page),
+    ).toBe(1);
   });
 });

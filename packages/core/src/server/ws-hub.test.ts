@@ -6,7 +6,11 @@ function fakeSocket() {
   return { send: vi.fn() };
 }
 
-const message: WsMessage = { type: "log", runId: "r1", message: "hello" } as unknown as WsMessage;
+const message: WsMessage = {
+  type: "log",
+  runId: "r1",
+  message: "hello",
+} as unknown as WsMessage;
 
 describe("WsHub", () => {
   it("delivers an emitted message to every subscriber of that key", () => {

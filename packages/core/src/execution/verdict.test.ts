@@ -8,7 +8,12 @@ function step(overrides: Partial<StepResult> = {}): StepResult {
 
 describe("aggregate", () => {
   it("passes when every step passed", () => {
-    const report = aggregate("r1", "t1", [step(), step({ stepId: "s2" })], "2026-07-28T00:00:00.000Z");
+    const report = aggregate(
+      "r1",
+      "t1",
+      [step(), step({ stepId: "s2" })],
+      "2026-07-28T00:00:00.000Z",
+    );
     expect(report.status).toBe("passed");
     expect(report.needsReview).toBe(false);
   });
@@ -35,7 +40,12 @@ describe("aggregate", () => {
   });
 
   it("fails when there are zero executed (non-skipped) steps, even with no failures", () => {
-    const report = aggregate("r1", "t1", [step({ status: "skipped" })], "2026-07-28T00:00:00.000Z");
+    const report = aggregate(
+      "r1",
+      "t1",
+      [step({ status: "skipped" })],
+      "2026-07-28T00:00:00.000Z",
+    );
     expect(report.status).toBe("failed");
   });
 
@@ -50,7 +60,12 @@ describe("aggregate", () => {
   });
 
   it("keys the report by the passed-in testId (artifact-store id), not any field derived from steps", () => {
-    const report = aggregate("r1", "store-id-123", [step()], "2026-07-28T00:00:00.000Z");
+    const report = aggregate(
+      "r1",
+      "store-id-123",
+      [step()],
+      "2026-07-28T00:00:00.000Z",
+    );
     expect(report.testId).toBe("store-id-123");
   });
 

@@ -214,9 +214,15 @@ describe("SqliteCacheStore — runs", () => {
   });
 
   it("lists runs for a test ordered most-recent-first, without the steps body", () => {
-    store.saveRun(report({ runId: "r1", startedAt: "2026-07-28T00:00:00.000Z" }));
-    store.saveRun(report({ runId: "r2", startedAt: "2026-07-28T01:00:00.000Z" }));
-    store.saveRun(report({ runId: "r3", startedAt: "2026-07-27T23:00:00.000Z" }));
+    store.saveRun(
+      report({ runId: "r1", startedAt: "2026-07-28T00:00:00.000Z" }),
+    );
+    store.saveRun(
+      report({ runId: "r2", startedAt: "2026-07-28T01:00:00.000Z" }),
+    );
+    store.saveRun(
+      report({ runId: "r3", startedAt: "2026-07-27T23:00:00.000Z" }),
+    );
     const list = store.listRuns("t1");
     expect(list.map((r) => r.runId)).toEqual(["r2", "r1", "r3"]);
     expect(list.every((r) => !("steps" in r))).toBe(true);
@@ -308,15 +314,27 @@ describe("SqliteCacheStore — review queue", () => {
   });
 
   it("removes a review from the open list once resolved", () => {
-    store.enqueueReview({ testId: "t1", stepId: "s1", url: "https://app.test/x" });
+    store.enqueueReview({
+      testId: "t1",
+      stepId: "s1",
+      url: "https://app.test/x",
+    });
     expect(store.openReviews("t1")).toHaveLength(1);
     store.resolveReview("t1", "s1");
     expect(store.openReviews("t1")).toEqual([]);
   });
 
   it("resolveReview only closes the matching (testId, stepId) pair", () => {
-    store.enqueueReview({ testId: "t1", stepId: "s1", url: "https://app.test/x" });
-    store.enqueueReview({ testId: "t1", stepId: "s2", url: "https://app.test/y" });
+    store.enqueueReview({
+      testId: "t1",
+      stepId: "s1",
+      url: "https://app.test/x",
+    });
+    store.enqueueReview({
+      testId: "t1",
+      stepId: "s2",
+      url: "https://app.test/y",
+    });
     store.resolveReview("t1", "s1");
     const remaining = store.openReviews("t1");
     expect(remaining).toHaveLength(1);

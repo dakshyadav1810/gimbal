@@ -23,7 +23,12 @@ describe("IndexSignal", () => {
   const signal = new IndexSignal();
 
   it("returns a neutral 0.5 when siblingIndex is present", () => {
-    const cand: DomCandidate = { id: "c", selector: "#c", tag: "div", siblingIndex: 2 };
+    const cand: DomCandidate = {
+      id: "c",
+      selector: "#c",
+      tag: "div",
+      siblingIndex: 2,
+    };
     expect(signal.score(target, cand, page)).toBe(0.5);
   });
 
@@ -33,7 +38,12 @@ describe("IndexSignal", () => {
   });
 
   it("treats siblingIndex 0 as present, not absent (must check undefined, not falsiness)", () => {
-    const cand: DomCandidate = { id: "c", selector: "#c", tag: "div", siblingIndex: 0 };
+    const cand: DomCandidate = {
+      id: "c",
+      selector: "#c",
+      tag: "div",
+      siblingIndex: 0,
+    };
     expect(signal.score(target, cand, page)).toBe(0.5);
   });
 });

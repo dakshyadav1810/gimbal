@@ -21,7 +21,10 @@ if (typeof (globalThis as any).CSS === "undefined") {
       (code >= 0x0001 && code <= 0x001f) ||
       code === 0x007f ||
       (i === 0 && code >= 0x0030 && code <= 0x0039) ||
-      (i === 1 && code >= 0x0030 && code <= 0x0039 && value.charCodeAt(0) === 0x002d)
+      (i === 1 &&
+        code >= 0x0030 &&
+        code <= 0x0039 &&
+        value.charCodeAt(0) === 0x002d)
     ) {
       result += `\\${code.toString(16)} `;
       continue;
@@ -117,7 +120,13 @@ describe("extractInteractiveElementsInPage", () => {
     const [found] = extractInteractiveElementsInPage();
     expect(found.xpath).toBe(`//*[@id=concat("weird", '"', "and'id")]`);
     expect(() =>
-      document.evaluate(found.xpath, document, null, XPathResult.ANY_TYPE, null),
+      document.evaluate(
+        found.xpath,
+        document,
+        null,
+        XPathResult.ANY_TYPE,
+        null,
+      ),
     ).not.toThrow();
   });
 
@@ -211,9 +220,15 @@ describe("extractInteractiveElementsInPage", () => {
     stubRect(zeroBtn, { width: 0, height: 0 });
 
     const found = extractInteractiveElementsInPage();
-    expect(found.find((e) => e.attributes.id === "visible-btn")?.visible).toBe(true);
-    expect(found.find((e) => e.attributes.id === "hidden-style")?.visible).toBe(false);
-    expect(found.find((e) => e.attributes.id === "zero-size")?.visible).toBe(false);
+    expect(found.find((e) => e.attributes.id === "visible-btn")?.visible).toBe(
+      true,
+    );
+    expect(found.find((e) => e.attributes.id === "hidden-style")?.visible).toBe(
+      false,
+    );
+    expect(found.find((e) => e.attributes.id === "zero-size")?.visible).toBe(
+      false,
+    );
   });
 
   it("computes disabled from the disabled property and aria-disabled attribute", () => {
@@ -236,9 +251,15 @@ describe("extractInteractiveElementsInPage", () => {
       <button id="in-none">X</button>
     `);
     const found = extractInteractiveElementsInPage();
-    expect(found.find((e) => e.attributes.id === "in-modal")?.region).toBe("modal");
-    expect(found.find((e) => e.attributes.id === "in-form")?.region).toBe("form");
-    expect(found.find((e) => e.attributes.id === "in-section")?.region).toBe("section");
+    expect(found.find((e) => e.attributes.id === "in-modal")?.region).toBe(
+      "modal",
+    );
+    expect(found.find((e) => e.attributes.id === "in-form")?.region).toBe(
+      "form",
+    );
+    expect(found.find((e) => e.attributes.id === "in-section")?.region).toBe(
+      "section",
+    );
     expect(found.find((e) => e.attributes.id === "in-none")?.region).toBeNull();
   });
 
@@ -286,7 +307,9 @@ describe("extractInteractiveElementsInPage", () => {
   });
 
   it("captures every attribute verbatim into `attributes`, including data-testid", () => {
-    setup(`<button id="x" data-testid="save-btn" role="button" data-foo="bar">Save</button>`);
+    setup(
+      `<button id="x" data-testid="save-btn" role="button" data-foo="bar">Save</button>`,
+    );
     const [el] = extractInteractiveElementsInPage();
     expect(el.attributes).toMatchObject({
       id: "x",
@@ -310,7 +333,8 @@ describe("extractInteractiveElementsInPage", () => {
       <button id="trigger" aria-controls="menu" aria-haspopup="menu">Account</button>
       <div id="menu" style="display:none"><button>Sign Out</button><span>Account</span></div>
     `;
-    for (const el of Array.from(document.body.querySelectorAll("*"))) stubRect(el as HTMLElement);
+    for (const el of Array.from(document.body.querySelectorAll("*")))
+      stubRect(el as HTMLElement);
     const found = extractInteractiveElementsInPage();
     const trigger = found.find((e) => e.attributes.id === "trigger");
     expect(trigger?.controlledContent).toBe("Sign OutAccount");

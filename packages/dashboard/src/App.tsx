@@ -1,9 +1,9 @@
 import { Redirect, Route, Switch } from "wouter";
 import { Nav } from "./components/Nav.js";
-import { RunDetailPage } from "./pages/RunDetailPage.js";
-import { RunHistoryPage } from "./pages/RunHistoryPage.js";
 import { ReviewDetailPage } from "./pages/ReviewDetailPage.js";
 import { ReviewQueuePage } from "./pages/ReviewQueuePage.js";
+import { RunDetailPage } from "./pages/RunDetailPage.js";
+import { RunHistoryPage } from "./pages/RunHistoryPage.js";
 import { TestDetailPage } from "./pages/TestDetailPage.js";
 import { TestListPage } from "./pages/TestListPage.js";
 

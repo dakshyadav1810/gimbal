@@ -364,8 +364,14 @@ var GimbalConfig = z8.object({
 // src/schema/dto.ts
 import { z as z9 } from "zod";
 var GroundRequest = z9.object({ specId: z9.string() });
-var RunRequest = z9.object({ testId: z9.string(), vars: z9.record(z9.string()).optional() });
-var MaintainRequest = z9.object({ stepIds: z9.array(z9.string()), spec: SpecIR });
+var RunRequest = z9.object({
+  testId: z9.string(),
+  vars: z9.record(z9.string()).optional()
+});
+var MaintainRequest = z9.object({
+  stepIds: z9.array(z9.string()),
+  spec: SpecIR
+});
 var StepResult = z9.object({
   stepId: z9.string(),
   status: z9.enum(["passed", "failed", "warning", "skipped", "stale"]),
