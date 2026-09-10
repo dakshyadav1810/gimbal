@@ -143,3 +143,26 @@ teardown — shared by grounding (LLD-003) and execution but never sharing live 
   Execution never calls `grounding.reground` directly and never persists a heal decision itself.
 - Execution reads the grounded test + cache; it writes only regenerable artifacts (run history,
   screenshots) — never the versioned spec/grounded test.
+
+## 10. 2026-09-13 additions (DECISIONS.md #27)
+
+- `RunContext` gained `context: BrowserContext` (the `page`'s owning context). `adapters/ui.ts` uses
+  it to detect a popup/new-tab a step's own action opened (`context.pages().length` growth) and
+  adopts it into `ctx.page` for subsequent steps — safe only because `ctx` is a plain mutable object
+  re-read fresh by each step's `execute()` call. `StepResult` gained an optional `note` field so this
+  (and other non-fatal, execution-transparency events) surface in the run stream without new
+  WebSocket message plumbing.
+- `execution/locate.ts` scopes a resolved selector to its originating iframe (`step.target.resolution
+  .winner.frame`, LLD-004 §10) via `page.frames().find(f => f.url() === frame.url)`, falling back to
+  the captured index. This only covers the "seed" (fresh-from-grounded-artifact) path today — the
+  cache-hit and healed-outcome paths don't yet carry frame metadata through the SQLite selector
+  cache, and `auto-wait.ts`'s bounding-box stability polling still assumes the main document.
+- `ActionType` gained `"file"`; `act.ts` dispatches it via `locator.setInputFiles()`, resolving
+  `step.value` against the new `GimbalConfig.fixturesDir` only (never an arbitrary filesystem path).
+- `openSession` (`playwright.ts`) now honors `GimbalConfig.determinism` (`fixedTime` via
+  `page.clock.setFixedTime`, `harPath`/`harMode` via `context.routeFromHAR`, `storageStatePath` via
+  `newContext`) — all opt-in, unset by default.
+- New `execution/db-client.ts` wraps a run in a DB transaction (`BEGIN` before, `ROLLBACK` in
+  `dispatcher.ts`'s `finally`, alongside session teardown) so `ctx.dbQuery` assertions leave no
+  residue between runs. This only covers writes made through that same connection — it cannot roll
+  back the application-under-test's own writes on its own separate connection(s).

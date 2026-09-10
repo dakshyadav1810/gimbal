@@ -13,9 +13,14 @@ import {
   awaitNavigationIfExpected,
   waitForPendingUiToClear,
 } from "../execution/adapters/ui.js";
+import {
+  hydrationTimeoutsFrom,
+  waitForPageHydration,
+} from "../execution/hydration.js";
 import { openSession } from "../execution/playwright.js";
 import type { Resolver } from "../resolver/index.js";
-import { extractCandidates } from "./candidate.js";
+import { captureAriaSnapshot } from "./aria-oracle.js";
+import { extractCandidatesWithScroll } from "./candidate.js";
 import { computeDomHash } from "./dom-hash.js";
 import { mergeResolution, toGroundedTest } from "./emitter.js";
 import {
@@ -30,6 +35,8 @@ export interface GroundingOutcome {
   candidates: CandidatesDoc;
   grounded: GroundedTest;
   stoppedAt?: string;
+  // Verification/debugging oracle (Phase 4b) — the final page's ARIA tree, not a resolver input.
+  ariaSnapshot: string;
 }
 
 export interface StepResolution {
@@ -57,6 +64,15 @@ function isNonTargetStep(step: SpecIR["steps"][number]): boolean {
   );
 }
 
+const DEFAULT_WAIT_FOR_SELECTOR_TIMEOUT_MS = 10000;
+const WAIT_FOR_SELECTOR_POLL_MS = 300;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export { waitForPageHydration } from "../execution/hydration.js";
+
 export class PlaywrightGroundingService implements GroundingService {
   constructor(
     private resolver: Resolver,
@@ -68,6 +84,7 @@ export class PlaywrightGroundingService implements GroundingService {
     opts: { vars?: Record<string, string> },
   ): Promise<GroundingOutcome> {
     const vars = { ...spec.flow.vars, ...(opts.vars ?? {}) };
+    const hydrationTimeouts = hydrationTimeoutsFrom(this.config);
     const session = await openSession(this.config);
     const candidatesDoc: CandidatesDoc = {
       version: "1.0",
@@ -78,15 +95,24 @@ export class PlaywrightGroundingService implements GroundingService {
     };
     const groundedSteps: GroundedStep[] = [];
     let stoppedAt: string | undefined;
+    let ariaSnapshot = "";
 
     try {
-      await session.page.goto(spec.flow.startUrl);
+      await session.page.goto(spec.flow.startUrl, { waitUntil: "domcontentloaded" });
+      await waitForPageHydration(session.page, undefined, hydrationTimeouts);
 
       for (const step of spec.steps) {
         if (step.kind !== "ui" || isNonTargetStep(step)) {
           if (step.kind === "ui") {
             try {
-              await act(session.page, step, null, vars);
+              await act(
+                session.page,
+                step,
+                null,
+                vars,
+                undefined,
+                hydrationTimeouts,
+              );
             } catch {
               // A navigate that lands off the intended URL (e.g. an auth-guard redirect) would
               // otherwise silently ground every downstream step against the wrong page — stop
@@ -104,31 +130,71 @@ export class PlaywrightGroundingService implements GroundingService {
           continue;
         }
 
-        const domCandidates = await extractCandidates(session.page);
-        const input = normalize(
-          step.target,
-          domCandidates,
-          step.generalization,
-        );
-        const resolution = await this.resolver.resolve(input);
+        // Grounding otherwise has NO retry loop — one extraction, one resolve, and it either
+        // accepts or gives up. That's fine for most steps (the page just acted on something and
+        // should already be settled), but it means a step landing right after variable-latency
+        // async rendering (a React.lazy()/Suspense boundary, a slow API-backed dropdown) can lose
+        // a race against content that hasn't rendered yet, with no second chance. `waitForSelector`
+        // exists specifically to give grounding that second (and third, and fourth...) chance by
+        // polling until its own timeout, instead of asking every OTHER step to absorb that risk.
+        const isWaitForSelector =
+          step.kind === "ui" && step.action === "waitForSelector";
+        const waitBudgetMs = isWaitForSelector
+          ? Number(step.value) || DEFAULT_WAIT_FOR_SELECTOR_TIMEOUT_MS
+          : 0;
+        const deadline = Date.now() + waitBudgetMs;
+
+        let resolution: Resolution;
+        for (;;) {
+          const domCandidates = await extractCandidatesWithScroll(
+            session.page,
+            this.config.maxScrollPasses,
+          );
+          const input = normalize(
+            step.target,
+            domCandidates,
+            step.generalization,
+          );
+          resolution = await this.resolver.resolve(input);
+          if (accept(resolution.band) && resolution.selected) break;
+          if (!isWaitForSelector || Date.now() >= deadline) break;
+          await sleep(WAIT_FOR_SELECTOR_POLL_MS);
+        }
         candidatesDoc.steps.push({ stepId: step.id, resolution });
 
         if (accept(resolution.band) && resolution.selected) {
           const grounded = withCachedSelector(resolution);
           groundedSteps.push(mergeResolution(step, grounded));
-          const urlBefore = session.page.url();
-          await act(session.page, step, grounded.cachedSelector, vars); // ACT-to-advance
-          // Same server-action-redirect race as execution's UiAdapter: a submit/click can
-          // trigger a navigation that hasn't landed by the time act() resolves, so the next
-          // step's candidate extraction would otherwise run against the pre-redirect DOM.
-          await awaitNavigationIfExpected(step, session.page, urlBefore);
-          await waitForPendingUiToClear(session.page);
+          if (isWaitForSelector) {
+            // Nothing to act on — the step's whole job was confirming the target resolved.
+            await waitForPendingUiToClear(session.page);
+            await waitForPageHydration(session.page, undefined, hydrationTimeouts);
+          } else {
+            const urlBefore = session.page.url();
+            await act(
+              session.page,
+              step,
+              grounded.cachedSelector,
+              vars,
+              undefined,
+              hydrationTimeouts,
+            ); // ACT-to-advance
+            // Same server-action-redirect race as execution's UiAdapter: a submit/click can
+            // trigger a navigation that hasn't landed by the time act() resolves, so the next
+            // step's candidate extraction would otherwise run against the pre-redirect DOM.
+            await awaitNavigationIfExpected(step, session.page, urlBefore);
+            await waitForPendingUiToClear(session.page);
+            await waitForPageHydration(session.page, undefined, hydrationTimeouts);
+          }
         } else {
           groundedSteps.push(mergeResolution(step, toWinnerOnly(resolution)));
           stoppedAt = step.id;
           break;
         }
       }
+      // Best-effort — captured while the session is still open; a failure here shouldn't fail
+      // grounding itself since this is a verification oracle, not a resolver input.
+      ariaSnapshot = await captureAriaSnapshot(session.page).catch(() => "");
     } finally {
       await session.close();
     }
@@ -137,6 +203,7 @@ export class PlaywrightGroundingService implements GroundingService {
       candidates: candidatesDoc,
       grounded: toGroundedTest(spec, groundedSteps, spec.flow.startUrl),
       stoppedAt,
+      ariaSnapshot,
     };
   }
 
@@ -150,7 +217,10 @@ export class PlaywrightGroundingService implements GroundingService {
     if (!step || step.kind !== "ui" || !step.target) {
       throw new Error(`step ${stepId} is not a groundable UI step`);
     }
-    const domCandidates = await extractCandidates(page);
+    const domCandidates = await extractCandidatesWithScroll(
+      page,
+      this.config.maxScrollPasses,
+    );
     const domHash = computeDomHash(domCandidates);
     const input = normalize(step.target, domCandidates, step.generalization);
     const resolution = await this.resolver.resolve(input);

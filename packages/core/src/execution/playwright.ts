@@ -25,8 +25,20 @@ export async function openSession(
   const browser = await ENGINES[config.browser].launch({
     headless: config.headless,
   });
-  const context = await browser.newContext();
+  const { fixedTime, harPath, harMode, storageStatePath } =
+    config.determinism;
+  const context = await browser.newContext(
+    storageStatePath ? { storageState: storageStatePath } : {},
+  );
+  if (harPath) {
+    // update: true (record) captures live traffic into the file; update: false (replay) serves
+    // requests from it instead of hitting the network — never the implicit default (see schema).
+    await context.routeFromHAR(harPath, { update: harMode === "record" });
+  }
   const page = await context.newPage();
+  if (fixedTime) {
+    await page.clock.setFixedTime(new Date(fixedTime));
+  }
   page.setDefaultTimeout(config.timeouts.actionMs);
   page.setDefaultNavigationTimeout(config.timeouts.navMs);
   return {

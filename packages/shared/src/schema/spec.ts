@@ -17,12 +17,19 @@ export const SpecIR = z.object({
 export type SpecIR = z.infer<typeof SpecIR>;
 
 // spec lint (LLD-002 §5): every ${var} used must exist in flow.vars; actuating UI steps need a target;
-// wait/navigate must not have one; at least one assertion/expectedOutcome across the spec.
-export function lintSpec(spec: SpecIR): { ok: boolean; errors: string[] } {
+// wait/navigate must not have one; at least one assertion/expectedOutcome across the spec;
+// warn on trivial urlContains assertions that already match active URL without element checks.
+export function lintSpec(spec: SpecIR): {
+  ok: boolean;
+  errors: string[];
+  warnings: string[];
+} {
   const errors: string[] = [];
+  const warnings: string[] = [];
   const varNames = new Set(Object.keys(spec.flow.vars));
   const varRefRe = /\$\{(\w+)\}/g;
   let hasAssertion = false;
+  let currentKnownUrl = spec.flow.startUrl;
 
   for (const step of spec.steps) {
     const text = JSON.stringify(step);
@@ -45,9 +52,29 @@ export function lintSpec(spec: SpecIR): { ok: boolean; errors: string[] } {
         errors.push(`step ${step.id}: actuating action requires a target`);
       if (!actuating && step.target)
         errors.push(`step ${step.id}: wait/navigate must not have a target`);
+
+      if (step.action === "navigate" && step.value) {
+        currentKnownUrl = step.value;
+      }
+
+      // Check for trivial urlContains assertions
+      for (const a of step.assertions) {
+        if (a.type === "urlContains") {
+          const expected = a.expected;
+          const isTrivial = currentKnownUrl.includes(expected);
+          const hasOtherChecks =
+            step.assertions.length > 1 ||
+            ("expectedOutcome" in step && step.expectedOutcome.length > 0);
+          if (isTrivial && !hasOtherChecks && step.action !== "navigate") {
+            warnings.push(
+              `step ${step.id}: urlContains("${expected}") is already satisfied by current URL ("${currentKnownUrl}") without verifying element or DOM state changes`,
+            );
+          }
+        }
+      }
     }
   }
   if (!hasAssertion)
     errors.push("spec has no assertion or expectedOutcome across any step");
-  return { ok: errors.length === 0, errors };
+  return { ok: errors.length === 0, errors, warnings };
 }

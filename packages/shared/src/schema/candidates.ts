@@ -40,5 +40,13 @@ export const Candidate = z.object({
   signals: SignalScores,
   score: Score,
   band: Band,
+  // Enclosing landmark container at grounding time (mirrors resolver/base.ts's DomCandidate) —
+  // used by healing/runtime.ts to block a heal from leaking outside an open modal. Must survive
+  // the save/load round-trip through this schema, unlike DomCandidate's other resolver-internal
+  // fields, since the cross-container drift guard runs against the persisted GroundedTest.
+  region: z.enum(["form", "modal", "section"]).nullable().optional(),
+  // Set when this candidate came from a same-origin/cross-origin child iframe rather than the
+  // main frame — must survive save/load like `region` above so a heal can still target it.
+  frame: z.object({ url: z.string(), index: z.number() }).optional(),
 });
 export type Candidate = z.infer<typeof Candidate>;

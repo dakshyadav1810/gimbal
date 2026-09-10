@@ -98,3 +98,12 @@ SQLite + local FS by default; no cloud dependency. (Kept thin this pass.)
 - Deleting `cache.db` loses only speed: selectors re-ground, embeddings recompute, history clears.
 - Only `storage` writes versioned artifacts; grounding/execution/healing write cache via `cache`.
 - Migrations run on startup; schema is defined once in Drizzle and typed from it.
+
+## 7. 2026-09-13 additions (DECISIONS.md #27)
+
+- `ArtifactStore` gained `saveAriaSnapshot`/`loadAriaSnapshot`, persisting the ARIA-snapshot oracle
+  (LLD-004 §10) as a sibling text file (`layout.ts`'s `ariaSnapshotPath`), following the existing
+  `specPath`/`candidatesPath` convention rather than a new field on an existing JSON doc.
+- `GET /tests/:id/candidates` was added, routing the already-existing `store.loadCandidates` (it had
+  a save/load pair but no REST route) — the dashboard's per-step resolution panel (SPEC-005-adjacent)
+  reads through it.

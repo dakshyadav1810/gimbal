@@ -74,6 +74,7 @@ export class MultiSignalResolver implements Resolver {
       scored,
       generalization,
       this.bands,
+      target,
     );
 
     const candidatesOut: Candidate[] = survivors.map((c, i) => ({
@@ -81,6 +82,8 @@ export class MultiSignalResolver implements Resolver {
       selector: c.selector,
       label: c.label,
       role: c.role,
+      region: c.region,
+      frame: c.frame,
       boundingBox: c.boundingBox,
       anchors: {
         testId: c.testId,

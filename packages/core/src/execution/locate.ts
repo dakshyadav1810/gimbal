@@ -1,7 +1,7 @@
-import type { GroundedTest, GroundedUiStep } from "@gimbal/shared";
+import type { GimbalConfig, GroundedTest, GroundedUiStep } from "@gimbal/shared";
 import type { Locator, Page } from "playwright";
 import type { CacheStore } from "../cache/index.js";
-import { extractCandidates } from "../grounding/candidate.js";
+import { extractCandidatesWithScroll } from "../grounding/candidate.js";
 import { computeDomHash } from "../grounding/dom-hash.js";
 import type { HealingService } from "../healing/index.js";
 
@@ -17,6 +17,22 @@ async function isUniqueVisible(locator: Locator): Promise<boolean> {
   return locator.isVisible().catch(() => false);
 }
 
+// Scopes `selector` to the frame the winning candidate was extracted from, when set — matched by
+// URL first (frame order can shift between grounding and execution), falling back to the captured
+// index. Absent `frame` (the overwhelming majority of steps — same-document targets), behavior is
+// unchanged: `page.locator(selector)` exactly as before this field existed.
+function locatorFor(
+  page: Page,
+  selector: string,
+  frame?: { url: string; index: number },
+): Locator {
+  if (!frame) return page.locator(selector);
+  const frames = page.frames();
+  const target =
+    frames.find((f) => f.url() === frame.url) ?? frames[frame.index];
+  return (target ?? page).locator(selector);
+}
+
 // Ladder: selector cache (by domHash) -> grounded-artifact selector -> runtime heal -> stale (LLD-005 §4).
 export async function locate(
   test: GroundedTest,
@@ -25,8 +41,12 @@ export async function locate(
   cache: CacheStore,
   healing: HealingService,
   storeTestId: string,
+  config: GimbalConfig,
 ): Promise<LocateResult> {
-  const domCandidates = await extractCandidates(page);
+  const domCandidates = await extractCandidatesWithScroll(
+    page,
+    config.maxScrollPasses,
+  );
   const domHash = computeDomHash(domCandidates);
   // resolution_cache is deliberately keyed by flow.id, not storeTestId — see routes.ts's
   // clearSelectorsForTest(spec.flow.id) comment; that cache key must stay as-is.
@@ -42,7 +62,8 @@ export async function locate(
   }
 
   const seed = step.target?.resolution?.cachedSelector;
-  if (seed && (await isUniqueVisible(page.locator(seed)))) {
+  const seedFrame = step.target?.resolution?.winner?.frame;
+  if (seed && (await isUniqueVisible(locatorFor(page, seed, seedFrame)))) {
     cache.putSelector({
       testId,
       stepId: step.id,
@@ -50,7 +71,11 @@ export async function locate(
       cachedSelector: seed,
       band: step.target!.resolution!.band,
     });
-    return { locator: page.locator(seed), selector: seed, source: "cached" };
+    return {
+      locator: locatorFor(page, seed, seedFrame),
+      selector: seed,
+      source: "cached",
+    };
   }
 
   const outcome = await healing.runtimeHeal(

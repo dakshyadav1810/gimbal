@@ -5,7 +5,7 @@ import type { CacheStore } from "../cache/index.js";
 import type { HealingService } from "../healing/index.js";
 
 vi.mock("../grounding/candidate.js", () => ({
-  extractCandidates: vi.fn().mockResolvedValue([]),
+  extractCandidatesWithScroll: vi.fn().mockResolvedValue([]),
 }));
 vi.mock("../grounding/dom-hash.js", () => ({
   computeDomHash: vi.fn().mockReturnValue("dom-hash-1"),
@@ -104,6 +104,7 @@ describe("locate", () => {
       cache,
       fakeHealing(),
       "store-test-1",
+      { maxScrollPasses: 3 } as unknown as import("@gimbal/shared").GimbalConfig,
     );
     expect(result.source).toBe("cached");
     expect(result.locator).not.toBeNull();
@@ -148,6 +149,7 @@ describe("locate", () => {
       cache,
       fakeHealing(),
       "store-test-1",
+      { maxScrollPasses: 3 } as unknown as import("@gimbal/shared").GimbalConfig,
     );
     expect(result.source).toBe("cached");
     expect(cache.putSelector).toHaveBeenCalledWith(
@@ -179,6 +181,7 @@ describe("locate", () => {
       cache,
       healing,
       "store-test-1",
+      { maxScrollPasses: 3 } as unknown as import("@gimbal/shared").GimbalConfig,
     );
     expect(healing.runtimeHeal).toHaveBeenCalled();
     expect(result.source).toBe("resolver");
@@ -203,6 +206,7 @@ describe("locate", () => {
       cache,
       healing,
       "store-test-1",
+      { maxScrollPasses: 3 } as unknown as import("@gimbal/shared").GimbalConfig,
     );
     expect(result.source).toBe("none");
     expect(result.locator).toBeNull();

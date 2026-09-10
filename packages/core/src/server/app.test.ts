@@ -19,9 +19,12 @@ async function makeApp(): Promise<{ app: FastifyInstance; dir: string }> {
     dbPath: path.join(dir, "cache.db"),
     artifactsDir: path.join(dir, "tests"),
     screenshotsDir: path.join(dir, "screenshots"),
+    fixturesDir: path.join(dir, "fixtures"),
+    maxScrollPasses: 3,
+    determinism: {},
     embeddingModel: "Xenova/all-MiniLM-L6-v2",
     bands: { high: 0.7, medium: 0.5 },
-    timeouts: { actionMs: 15000, navMs: 30000 },
+    timeouts: { actionMs: 15000, navMs: 30000, hydrationNetworkIdleMs: 2000, hydrationQuietWindowMs: 150 },
     db: { readOnly: true },
   };
   const container = buildContainer(config);

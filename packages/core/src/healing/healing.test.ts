@@ -207,6 +207,8 @@ describe("buildRepairPayload", () => {
       saveSpec: vi.fn(),
       saveGrounded: vi.fn(),
       saveCandidates: vi.fn(),
+      saveAriaSnapshot: vi.fn(),
+      loadAriaSnapshot: vi.fn(),
       list: vi.fn(),
       delete: vi.fn(),
     } as ArtifactStore;
@@ -237,6 +239,8 @@ describe("maintain", () => {
       saveSpec: vi.fn(),
       saveGrounded: vi.fn(),
       saveCandidates: vi.fn(),
+      saveAriaSnapshot: vi.fn(),
+      loadAriaSnapshot: vi.fn(),
       list: vi.fn(),
       delete: vi.fn(),
     } as ArtifactStore;

@@ -110,3 +110,13 @@ async maintain(testId, stepIds, patchedSpec) {
   either, and it holds no LLM client of its own.
 - Healing writes audit + review + cache (regenerable) and, on accepted maintenance, the versioned test via
   storage (LLD-007).
+
+## 8. 2026-09-13 fix (DECISIONS.md #27)
+
+`runtimeHeal`'s cross-container drift guard (§ above) read `(step?.target as any)?.resolution?.winner
+?.region` — the `as any` was masking that `region` didn't exist on the persisted `Candidate` schema
+at all, so this check was silently always `undefined` after any save/load round-trip (i.e. in every
+real run against a previously-grounded artifact, not just same-process tests). Fixed by adding
+`region` to `Candidate` (LLD-004 §10) and replacing the cast with a proper `step?.kind === "ui"`
+narrowing. The sandbox corpus's `modal-duplicate-buttons-across-layers` case is a live, verified
+instance of the leakage this guard exists to prevent.

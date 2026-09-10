@@ -22,6 +22,13 @@ export interface DomCandidate {
   contextPath?: string[];
   siblingIndex?: number;
   parentXpath?: string | null;
+  spatialLabel?: string;
+  // Set when this candidate was extracted from a same-origin iframe rather than the main frame —
+  // execution/locate.ts branches to page.frameLocator(...) when present.
+  frame?: { url: string; index: number };
+  // Informational only (see dom-extractor.ts) — feeds candidate.ts's scroll-and-re-extract decision,
+  // never scored by the resolver, so it isn't part of the persisted Candidate schema.
+  insideVirtualizedContainer?: boolean;
 }
 
 export interface PageContext {

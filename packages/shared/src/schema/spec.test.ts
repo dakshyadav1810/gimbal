@@ -47,6 +47,37 @@ describe("SpecIR", () => {
     const bad = { ...spec, flow: { ...spec.flow, vars: {} } };
     expect(lintSpec(SpecIR.parse(bad)).ok).toBe(false);
   });
+
+  it("warns on trivial urlContains assertion matching already active URL", () => {
+    const trivial: SpecIR = {
+      ...spec,
+      steps: [
+        {
+          id: "s1",
+          kind: "ui",
+          action: "click",
+          intent: "click next",
+          onFailure: "abort",
+          preconditions: [],
+          expectedOutcome: [],
+          assertions: [{ type: "urlContains", expected: "app.local" }],
+          negative: false,
+          generalization: "same_element",
+          target: {
+            label: "Next",
+            role: "button",
+            semantics: ["next"],
+            actions: ["click"],
+            intent: "next",
+          },
+        },
+      ],
+    };
+    const result = lintSpec(trivial);
+    expect(result.ok).toBe(true);
+    expect(result.warnings.length).toBeGreaterThan(0);
+    expect(result.warnings[0]).toContain("already satisfied by current URL");
+  });
 });
 
 describe("GroundedTest", () => {

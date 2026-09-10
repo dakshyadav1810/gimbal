@@ -93,3 +93,17 @@ This is a property of the spec's declared expectation, evaluated deterministical
 
 Configurable, but fixed per run: action/nav timeouts, `retry_once` count, band thresholds, margin. Same
 inputs ⇒ same verdict. Screenshots and run history persist to the SQLite cache (regenerable), not git.
+
+## 9. 2026-09-13 additions (DECISIONS.md #27)
+
+- New `ariaSnapshot` assertion variant compares `locator.ariaSnapshot()` (or the whole page's, when
+  no target is given) against an expected string — reuses Playwright's own ARIA-tree serialization
+  rather than hand-rolled diffing.
+- New `"file"` UI action, dispatched via `locator.setInputFiles()`, resolving its value only against
+  `GimbalConfig.fixturesDir` (never an arbitrary filesystem path).
+- `GimbalConfig.determinism` (`fixedTime`, `harPath`/`harMode`, `storageStatePath`) makes timing/
+  network/session state deterministic and reproducible across runs when a project opts in — all unset
+  by default, so this is behavior-neutral until configured. A DB fixture/rollback wrapper
+  (`execution/db-client.ts`) similarly resets state touched through `dbRow` assertions between runs,
+  but cannot roll back writes the application under test makes on its own DB connection — see LLD-005
+  §10 for the limitation.

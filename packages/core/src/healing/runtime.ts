@@ -28,7 +28,18 @@ export async function runtimeHeal(
 ): Promise<HealOutcome> {
   const result = await grounding.reground(test, stepId, page);
 
-  if (accept(result.band) && result.cachedSelector) {
+  // Bounded healing: prevent cross-container drift (e.g. leaking outside an open modal)
+  const step = test.steps.find((s) => s.id === stepId);
+  const originalWinner =
+    step?.kind === "ui" ? step.target?.resolution?.winner : undefined;
+  const originalRegion = originalWinner?.region;
+  const healedCandidate = result.resolution.candidates.find(
+    (c) => c.id === result.resolution.selected,
+  );
+  const crossContainerDrift =
+    Boolean(originalRegion === "modal" && healedCandidate && healedCandidate.region !== "modal");
+
+  if (accept(result.band) && result.cachedSelector && !crossContainerDrift) {
     // resolution_cache stays keyed by flow.id (see locate.ts) — only the review queue and audit
     // log, which are looked up by the storage-layer id elsewhere (verdict.ts), use storeTestId.
     cache.putSelector({
@@ -51,15 +62,19 @@ export async function runtimeHeal(
     };
   }
 
+  const staleReason = crossContainerDrift
+    ? "cross-container boundary drift: candidate outside original modal"
+    : "no candidate reached medium confidence";
+
   const topCandidates = result.resolution.candidates.slice(0, 5);
   enqueue(cache, storeTestId, stepId, page.url(), topCandidates);
   audit(cache, storeTestId, stepId, "stale", {
     from: previousSelector,
-    reason: "no candidate reached medium confidence",
+    reason: staleReason,
   });
   return {
     status: "stale",
-    reason: "no candidate reached medium confidence",
+    reason: staleReason,
     topCandidates,
   };
 }

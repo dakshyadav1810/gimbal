@@ -1,7 +1,13 @@
 import { randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import { CandidatesDoc, GroundedTest, SpecIR } from "@gimbal/shared";
-import { candidatesPath, groundedPath, specPath, testDir } from "./layout.js";
+import {
+  ariaSnapshotPath,
+  candidatesPath,
+  groundedPath,
+  specPath,
+  testDir,
+} from "./layout.js";
 
 export interface TestSummary {
   testId: string;
@@ -16,6 +22,8 @@ export interface ArtifactStore {
   loadSpec(testId: string): Promise<SpecIR>;
   loadGrounded(testId: string): Promise<GroundedTest>;
   loadCandidates(testId: string): Promise<CandidatesDoc | null>;
+  saveAriaSnapshot(testId: string, snapshot: string): Promise<void>;
+  loadAriaSnapshot(testId: string): Promise<string | null>;
   list(): Promise<TestSummary[]>;
   delete(testId: string): Promise<void>;
 }
@@ -24,7 +32,7 @@ export interface ArtifactStore {
 export class FsArtifactStore implements ArtifactStore {
   constructor(private artifactsDir: string) {}
 
-  async saveSpec(spec: SpecIR, testId = randomUUID()): Promise<string> {
+  async saveSpec(spec: SpecIR, testId: string = randomUUID()): Promise<string> {
     const validated = SpecIR.parse(spec);
     await fs.mkdir(testDir(this.artifactsDir, testId), { recursive: true });
     await fs.writeFile(
@@ -72,6 +80,22 @@ export class FsArtifactStore implements ArtifactStore {
         "utf-8",
       );
       return CandidatesDoc.parse(JSON.parse(raw));
+    } catch {
+      return null;
+    }
+  }
+
+  async saveAriaSnapshot(testId: string, snapshot: string): Promise<void> {
+    await fs.mkdir(testDir(this.artifactsDir, testId), { recursive: true });
+    await fs.writeFile(ariaSnapshotPath(this.artifactsDir, testId), snapshot);
+  }
+
+  async loadAriaSnapshot(testId: string): Promise<string | null> {
+    try {
+      return await fs.readFile(
+        ariaSnapshotPath(this.artifactsDir, testId),
+        "utf-8",
+      );
     } catch {
       return null;
     }

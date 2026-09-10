@@ -114,6 +114,15 @@ describe("FsArtifactStore", () => {
     ).rejects.toThrow();
   });
 
+  it("saveAriaSnapshot/loadAriaSnapshot round-trip the raw snapshot text", async () => {
+    await store.saveAriaSnapshot("t1", '- button "Submit"');
+    expect(await store.loadAriaSnapshot("t1")).toBe('- button "Submit"');
+  });
+
+  it("loadAriaSnapshot returns null when no snapshot was ever saved", async () => {
+    expect(await store.loadAriaSnapshot("never-grounded")).toBeNull();
+  });
+
   it("list() returns an empty array when no tests exist yet", async () => {
     expect(await store.list()).toEqual([]);
   });

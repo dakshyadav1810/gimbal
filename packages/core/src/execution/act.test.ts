@@ -25,6 +25,9 @@ function fakeLocator(attrs: Record<string, string | null> = {}) {
     fill: vi.fn().mockResolvedValue(undefined),
     selectOption: vi.fn().mockResolvedValue(undefined),
     press: vi.fn().mockResolvedValue(undefined),
+    pressSequentially: vi.fn().mockResolvedValue(undefined),
+    inputValue: vi.fn().mockResolvedValue(null),
+    setInputFiles: vi.fn().mockResolvedValue(undefined),
     getAttribute: vi.fn((name: string) => Promise.resolve(attrs[name] ?? null)),
   };
 }
@@ -61,13 +64,17 @@ describe("act — navigate/wait (no selector required)", () => {
         slug: "dashboard",
       },
     );
-    expect(goto).toHaveBeenCalledWith("https://app.test/dashboard");
+    expect(goto).toHaveBeenCalledWith("https://app.test/dashboard", {
+      waitUntil: "domcontentloaded",
+    });
   });
 
   it("navigate falls back to the current page URL when value is empty", async () => {
     const { page, goto, url } = fakePage();
     await act(page, step({ action: "navigate", value: "" }), null, {});
-    expect(goto).toHaveBeenCalledWith("https://app.test/current");
+    expect(goto).toHaveBeenCalledWith("https://app.test/current", {
+      waitUntil: "domcontentloaded",
+    });
     expect(url).toHaveBeenCalled();
   });
 
@@ -200,5 +207,41 @@ describe("act — selector-based actions", () => {
     const { page, locator } = fakePage();
     await act(page, step({ action: "submit", value: "ignored" }), "#form", {});
     expect(locator.press).toHaveBeenCalledWith("Enter");
+  });
+});
+
+describe("act — file", () => {
+  it("resolves the fixture path against fixturesDir and uploads it", async () => {
+    const { page, locator } = fakePage();
+    await act(
+      page,
+      step({ action: "file", value: "resume.pdf" }),
+      "#resume-upload",
+      {},
+      "/repo/.gimbal/fixtures",
+    );
+    expect(locator.setInputFiles).toHaveBeenCalledWith(
+      "/repo/.gimbal/fixtures/resume.pdf",
+    );
+  });
+
+  it("throws when fixturesDir is not configured", async () => {
+    const { page } = fakePage();
+    await expect(
+      act(page, step({ action: "file", value: "resume.pdf" }), "#upload", {}),
+    ).rejects.toThrow(/fixturesDir/);
+  });
+
+  it("throws when the fixture path escapes fixturesDir", async () => {
+    const { page } = fakePage();
+    await expect(
+      act(
+        page,
+        step({ action: "file", value: "../../etc/passwd" }),
+        "#upload",
+        {},
+        "/repo/.gimbal/fixtures",
+      ),
+    ).rejects.toThrow(/outside fixturesDir/);
   });
 });

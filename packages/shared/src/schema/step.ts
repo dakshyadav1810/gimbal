@@ -27,6 +27,24 @@ export const ExpectedOutcome = z.discriminatedUnion("type", [
 ]);
 export type ExpectedOutcome = z.infer<typeof ExpectedOutcome>;
 
+export const GeometricType = z.enum([
+  "isRightOf",
+  "isLeftOf",
+  "isAbove",
+  "isBelow",
+  "isInside",
+  "isAlignedHorizontally",
+  "isAlignedVertically",
+]);
+export type GeometricType = z.infer<typeof GeometricType>;
+
+export const GeometricAssertion = z.object({
+  type: GeometricType,
+  target: Tier1Target.optional(),
+  referenceTarget: Tier1Target,
+});
+export type GeometricAssertion = z.infer<typeof GeometricAssertion>;
+
 export const Assertion = z.discriminatedUnion("type", [
   z.object({ type: z.literal("urlContains"), expected: z.string() }),
   z.object({ type: z.literal("textContains"), expected: z.string() }),
@@ -49,6 +67,48 @@ export const Assertion = z.discriminatedUnion("type", [
     type: z.literal("dbRow"),
     query: z.string(),
     expected: z.unknown(),
+  }),
+  z.object({
+    type: z.literal("isRightOf"),
+    target: Tier1Target.optional(),
+    referenceTarget: Tier1Target,
+  }),
+  z.object({
+    type: z.literal("isLeftOf"),
+    target: Tier1Target.optional(),
+    referenceTarget: Tier1Target,
+  }),
+  z.object({
+    type: z.literal("isAbove"),
+    target: Tier1Target.optional(),
+    referenceTarget: Tier1Target,
+  }),
+  z.object({
+    type: z.literal("isBelow"),
+    target: Tier1Target.optional(),
+    referenceTarget: Tier1Target,
+  }),
+  z.object({
+    type: z.literal("isInside"),
+    target: Tier1Target.optional(),
+    referenceTarget: Tier1Target,
+  }),
+  z.object({
+    type: z.literal("isAlignedHorizontally"),
+    target: Tier1Target.optional(),
+    referenceTarget: Tier1Target,
+  }),
+  z.object({
+    type: z.literal("isAlignedVertically"),
+    target: Tier1Target.optional(),
+    referenceTarget: Tier1Target,
+  }),
+  // Verification/debugging oracle (grounding/aria-oracle.ts), reusing Playwright's own
+  // locator.ariaSnapshot() serialization rather than hand-rolled ARIA-tree diffing.
+  z.object({
+    type: z.literal("ariaSnapshot"),
+    target: Tier1Target.optional(),
+    expected: z.string(),
   }),
 ]);
 export type Assertion = z.infer<typeof Assertion>;

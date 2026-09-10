@@ -8,6 +8,14 @@ export const ActionType = z.enum([
   "keypress",
   "submit",
   "wait",
+  "file",
+  // Waits for a specific (Tier-1, DOM-blind) target to become resolvable before continuing —
+  // unlike "wait" (a fixed duration), this polls the resolver up to a timeout, so it survives
+  // variable-latency async rendering (a React.lazy()/Suspense boundary, a slow API-backed
+  // dropdown, ...) without hardcoding how long that latency actually is. `value`, if set, is a
+  // numeric-string timeout override in ms (default 10000); grounding has no auto-wait polling loop
+  // like execution does, so this step exists specifically to give grounding the same resilience.
+  "waitForSelector",
 ]);
 export type ActionType = z.infer<typeof ActionType>;
 

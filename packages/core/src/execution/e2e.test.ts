@@ -50,9 +50,12 @@ describe("Gimbal Full E2E Pipeline", () => {
       dbPath: path.join(tempDir, "cache.db"),
       artifactsDir: path.join(tempDir, "tests"),
       screenshotsDir: path.join(tempDir, "screenshots"),
+      fixturesDir: path.join(tempDir, "fixtures"),
+      maxScrollPasses: 3,
+      determinism: {},
       embeddingModel: "Xenova/all-MiniLM-L6-v2",
       bands: { high: 0.7, medium: 0.5 },
-      timeouts: { actionMs: 5000, navMs: 10000 },
+      timeouts: { actionMs: 5000, navMs: 10000, hydrationNetworkIdleMs: 2000, hydrationQuietWindowMs: 150 },
       db: { readOnly: true },
     };
     container = buildContainer(config);

@@ -5,12 +5,13 @@ import pino from "pino";
 import type { Page } from "playwright";
 import { act } from "../act.js";
 import { evaluateAssertion, evaluateExpectedOutcome } from "../assert.js";
-import { locate } from "../locate.js";
+import { locateWithStabilityGate } from "../auto-wait.js";
 import {
   type RunContext,
   type StepAdapter,
   checkPrecondition,
 } from "../types.js";
+import { hydrationTimeoutsFrom, waitForPageHydration } from "../hydration.js";
 
 const logger = pino({ name: "ui-adapter" });
 
@@ -99,13 +100,14 @@ export class UiAdapter implements StepAdapter {
           "step is not a grounded ui step",
           start,
         );
-      const result = await locate(
+      const result = await locateWithStabilityGate(
         ctx.test,
         groundedStep,
         ctx.page,
         ctx.cache,
         ctx.healing,
         ctx.testId,
+        ctx.config,
       );
       selection = result.source;
       if (!result.locator) {
@@ -122,14 +124,41 @@ export class UiAdapter implements StepAdapter {
     }
 
     const urlBefore = ctx.page.url();
+    const pagesBefore = ctx.context.pages().length;
+    // Adopts a popup/new-tab the step's own action opened, for every SUBSEQUENT step — ctx is a
+    // plain mutable object read fresh by each step's execute() call. Only mutates ctx.page once
+    // this step is fully done reading from it (see call sites below), so the current step's own
+    // outcome/assertion evaluation still runs against the page it actually acted on. A step that
+    // opens a popup and also needs to interact with it in the SAME step is out of scope for this
+    // first pass.
+    const adoptPopupIfOpened = (): string | undefined => {
+      const pages = ctx.context.pages();
+      if (pages.length <= pagesBefore) return undefined;
+      const newest = pages[pages.length - 1];
+      const note = `adopted new page opened by this step (${ctx.page.url()} -> ${newest.url()}); subsequent steps run against it`;
+      logger.info({ stepId: step.id, to: newest.url() }, note);
+      ctx.page = newest;
+      return note;
+    };
+    const hydrationTimeouts = hydrationTimeoutsFrom(ctx.config);
     try {
-      await act(ctx.page, step, resolvedSelector, ctx.vars);
+      await act(
+        ctx.page,
+        step,
+        resolvedSelector,
+        ctx.vars,
+        ctx.config.fixturesDir,
+        hydrationTimeouts,
+      );
     } catch (e) {
+      const screenshot = await captureScreenshot(ctx, step.id);
+      const note = adoptPopupIfOpened();
       return maybeInvert(
         step,
         {
           ...fail(step.id, "ACTION_FAILED", String(e), start),
-          screenshot: await captureScreenshot(ctx, step.id),
+          ...(note ? { note } : {}),
+          screenshot,
         },
         selection,
         band,
@@ -162,6 +191,7 @@ export class UiAdapter implements StepAdapter {
         const res = await evaluateAssertion(a, {
           page: ctx.page,
           vars: ctx.vars,
+          target: step.target,
         });
         if (!res.ok) {
           outcomeFailure = fail(
@@ -177,11 +207,14 @@ export class UiAdapter implements StepAdapter {
       }
     }
 
+    await waitForPageHydration(ctx.page, 1000, hydrationTimeouts);
     const screenshot = await captureScreenshot(ctx, step.id);
+    const note = adoptPopupIfOpened();
+    if (note) await waitForPageHydration(ctx.page, 1000, hydrationTimeouts); // freshly opened tab has its own load lifecycle
     if (outcomeFailure)
       return maybeInvert(
         step,
-        { ...outcomeFailure, screenshot },
+        { ...outcomeFailure, ...(note ? { note } : {}), screenshot },
         selection,
         band,
       );
@@ -193,6 +226,7 @@ export class UiAdapter implements StepAdapter {
       band,
       screenshot,
       durationMs: Date.now() - start,
+      ...(note ? { note } : {}),
     };
     return maybeInvert(step, passed, selection, band);
   }

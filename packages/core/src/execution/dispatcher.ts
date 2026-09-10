@@ -11,9 +11,11 @@ import type { HealingService } from "../healing/index.js";
 import { ApiAdapter } from "./adapters/api.js";
 import { DbAdapter } from "./adapters/db.js";
 import { UiAdapter } from "./adapters/ui.js";
+import { openDbSession } from "./db-client.js";
 import { openSession } from "./playwright.js";
 import type { RunContext, StepAdapter } from "./types.js";
 import { aggregate } from "./verdict.js";
+import { hydrationTimeoutsFrom, waitForPageHydration } from "./hydration.js";
 
 export interface TestRunner {
   run(
@@ -56,13 +58,18 @@ export class PlaywrightTestRunner implements TestRunner {
     const runId = opts.runId ?? randomUUID();
     const startedAt = new Date().toISOString();
     const session = await openSession(this.config);
+    const dbSession = openDbSession(this.config);
+    if (dbSession) await dbSession.beginFixture();
     const ctx: RunContext = {
       test,
       testId: opts.testId,
       page: session.page,
+      context: session.context,
       vars: { ...test.flow.vars, ...(opts.vars ?? {}) },
       cache: this.cache,
       healing: this.healing,
+      config: this.config,
+      dbQuery: dbSession?.query.bind(dbSession),
       runId,
       screenshotsDir: this.config.screenshotsDir,
     };
@@ -73,7 +80,14 @@ export class PlaywrightTestRunner implements TestRunner {
     this.cache.startRun(runId, opts.testId, startedAt);
     opts.emit?.({ type: "run.start", runId, testId: opts.testId });
     try {
-      await session.page.goto(test.groundedUrl);
+      await session.page.goto(test.groundedUrl, {
+        waitUntil: "domcontentloaded",
+      });
+      await waitForPageHydration(
+        session.page,
+        undefined,
+        hydrationTimeoutsFrom(this.config),
+      );
       for (const step of test.steps) {
         opts.emit?.({ type: "step.start", stepId: step.id });
         let result = await this.adapters[step.kind].execute(step, ctx);
@@ -90,6 +104,10 @@ export class PlaywrightTestRunner implements TestRunner {
       this.cache.failRun(runId, new Date().toISOString());
       throw e;
     } finally {
+      if (dbSession) {
+        await dbSession.rollback();
+        await dbSession.close();
+      }
       await session.close();
     }
 

@@ -78,3 +78,17 @@ the durable grounded artifact.
 Grounding "succeeds" when every actionable step reaches `status: grounded` (band ≥ medium) with a
 `cachedSelector`, and the grounded test validates as `GroundedTest`. A spec with any `ungrounded` step is
 **not runnable** until reviewed and re-grounded.
+
+## 7. 2026-09-13 additions (DECISIONS.md #27)
+
+- Extraction now walks every frame (`page.frames()`), not just the main document — a same/cross-origin
+  iframe's interactive elements are extracted the same way and tagged with `frame: {url, index}` on
+  their `Candidate` (survives persistence, unlike other `DomCandidate`-only fields).
+- A bounded scroll-and-re-extract pass (`extractCandidatesWithScroll`, capped by
+  `GimbalConfig.maxScrollPasses`) runs whenever a virtualized/windowed container is heuristically
+  detected, merging newly-revealed candidates across passes by stable identity — off-screen rows in
+  such a container don't exist in the DOM at all until scrolled into view, so extraction alone can't
+  see them without this.
+- Grounding now also captures an ARIA-snapshot oracle (`grounding/aria-oracle.ts`) once per `ground()`
+  call, persisted as a sibling artifact (LLD-007 §7). It is a verification/debugging aid, not part of
+  candidate scoring.

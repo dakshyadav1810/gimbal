@@ -15,6 +15,17 @@ vi.mock("./playwright.js", () => ({
   }),
 }));
 
+const dbFixtureMock = {
+  beginFixture: vi.fn().mockResolvedValue(undefined),
+  rollback: vi.fn().mockResolvedValue(undefined),
+  close: vi.fn().mockResolvedValue(undefined),
+  query: vi.fn().mockResolvedValue({}),
+};
+const openDbSessionMock = vi.fn().mockReturnValue(null);
+vi.mock("./db-client.js", () => ({
+  openDbSession: (...args: unknown[]) => openDbSessionMock(...args),
+}));
+
 const { PlaywrightTestRunner } = await import("./dispatcher.js");
 const { DbAdapter } = await import("./adapters/db.js");
 
@@ -25,11 +36,19 @@ function config(): GimbalConfig {
     headless: true,
     dbPath: ":memory:",
     artifactsDir: "/tmp/artifacts",
+    fixturesDir: "/tmp/fixtures",
+    maxScrollPasses: 3,
     screenshotsDir: "/tmp/screenshots",
     embeddingModel: "x",
     bands: { high: 0.7, medium: 0.5 },
-    timeouts: { actionMs: 15000, navMs: 30000 },
+    timeouts: {
+      actionMs: 15000,
+      navMs: 30000,
+      hydrationNetworkIdleMs: 2000,
+      hydrationQuietWindowMs: 150,
+    },
     db: { readOnly: true },
+    determinism: {},
   };
 }
 
@@ -91,6 +110,40 @@ function fakeHealing(): HealingService {
 }
 
 describe("PlaywrightTestRunner", () => {
+  beforeEach(() => {
+    openDbSessionMock.mockReset().mockReturnValue(null);
+    dbFixtureMock.beginFixture.mockClear();
+    dbFixtureMock.rollback.mockClear();
+    dbFixtureMock.close.mockClear();
+  });
+
+  it("begins a DB fixture transaction before the run and rolls it back after, pass or fail", async () => {
+    openDbSessionMock.mockReturnValue(dbFixtureMock);
+    const runner = new PlaywrightTestRunner(
+      config(),
+      fakeCache(),
+      fakeHealing(),
+    );
+    await runner.run(groundedTest([dbStep()]), { testId: "t1" });
+    expect(dbFixtureMock.beginFixture).toHaveBeenCalled();
+    expect(dbFixtureMock.rollback).toHaveBeenCalled();
+    expect(dbFixtureMock.close).toHaveBeenCalled();
+
+    // Rollback must run even when a step throws unexpectedly (see the "marks the run 'failed'"
+    // test below for the throwing adapter) — verified separately since it needs its own adapter.
+  });
+
+  it("does not touch the DB fixture wrapper when config.db.url is unset (openDbSession returns null)", async () => {
+    const runner = new PlaywrightTestRunner(
+      config(),
+      fakeCache(),
+      fakeHealing(),
+    );
+    await runner.run(groundedTest([dbStep()]), { testId: "t1" });
+    expect(dbFixtureMock.beginFixture).not.toHaveBeenCalled();
+    expect(dbFixtureMock.rollback).not.toHaveBeenCalled();
+  });
+
   it("runs all steps, aggregates a passing report, and persists it via cache.saveRun", async () => {
     const cache = fakeCache();
     const runner = new PlaywrightTestRunner(config(), cache, fakeHealing());
@@ -275,6 +328,28 @@ describe("PlaywrightTestRunner", () => {
       expect.any(String),
     );
     expect(cache.saveRun).not.toHaveBeenCalled();
+    executeSpy.mockRestore();
+  });
+
+  it("still rolls back the DB fixture transaction when a step throws unexpectedly", async () => {
+    openDbSessionMock.mockReturnValue(dbFixtureMock);
+    const runner = new PlaywrightTestRunner(
+      config(),
+      fakeCache(),
+      fakeHealing(),
+    );
+    const executeSpy = vi
+      .spyOn(DbAdapter.prototype, "execute")
+      .mockRejectedValue(new Error("adapter blew up"));
+    const test = groundedTest([dbStep({ id: "s1" })]);
+
+    await expect(runner.run(test, { testId: "t1" })).rejects.toThrow(
+      "adapter blew up",
+    );
+
+    expect(dbFixtureMock.beginFixture).toHaveBeenCalled();
+    expect(dbFixtureMock.rollback).toHaveBeenCalled();
+    expect(dbFixtureMock.close).toHaveBeenCalled();
     executeSpy.mockRestore();
   });
 });

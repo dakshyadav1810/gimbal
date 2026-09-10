@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { MaintainRequest, RunRequest } from "@gimbal/shared";
 import type { FastifyInstance } from "fastify";
+import { exploreUiState } from "../authoring/telemetry.js";
 import { summarizeUngrounded } from "../grounding/summarize.js";
 import type { Container } from "./container.js";
 import type { WsHub } from "./ws-hub.js";
@@ -45,6 +46,21 @@ function registerApiRoutes(app: FastifyInstance, c: Container, hub: WsHub) {
 
   app.get("/tests", async () => c.store.list());
 
+  // Hand-edit path for the dashboard's spec editor (PLAN-002 Phase A) — same validation as initial
+  // authoring. Only rewrites spec.json; a previously-grounded test keeps its (now possibly stale)
+  // grounded.json/candidates until re-grounded, same as any other spec edit.
+  app.patch("/tests/:id", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    try {
+      const spec = await c.authoring.submit(req.body);
+      await c.store.saveSpec(spec, id);
+      return { testId: id, spec };
+    } catch (e) {
+      reply.code(400);
+      return apiError("validation", String(e));
+    }
+  });
+
   app.get("/tests/:id", async (req, reply) => {
     const { id } = req.params as { id: string };
     try {
@@ -76,6 +92,7 @@ function registerApiRoutes(app: FastifyInstance, c: Container, hub: WsHub) {
     c.cache.clearSelectorsForTest(spec.flow.id);
     await c.store.saveCandidates(id, outcome.candidates);
     await c.store.saveGrounded(id, outcome.grounded);
+    await c.store.saveAriaSnapshot(id, outcome.ariaSnapshot);
     if (outcome.stoppedAt) {
       reply.code(200); // still 200: partial grounding is a valid, reviewable result
       return {
@@ -104,6 +121,17 @@ function registerApiRoutes(app: FastifyInstance, c: Container, hub: WsHub) {
   app.get("/tests/:id/reviews", async (req) => {
     const { id } = req.params as { id: string };
     return c.cache.openReviews(id);
+  });
+
+  app.get("/tests/:id/candidates", async (req) => {
+    const { id } = req.params as { id: string };
+    return c.store.loadCandidates(id);
+  });
+
+  app.get("/tests/:id/aria-snapshot", async (req) => {
+    const { id } = req.params as { id: string };
+    const snapshot = await c.store.loadAriaSnapshot(id);
+    return { snapshot };
   });
 
   app.post("/tests/:id/maintain", async (req) => {
@@ -148,6 +176,22 @@ function registerApiRoutes(app: FastifyInstance, c: Container, hub: WsHub) {
       return apiError("not_found", `run ${id} not found`);
     }
     return report;
+  });
+
+  // --- authoring telemetry ---
+  app.post("/author/explore", async (req, reply) => {
+    try {
+      const body = req.body as {
+        url: string;
+        action: any;
+        target?: any;
+        value?: string;
+      };
+      return await exploreUiState(c.config, c.resolver, body);
+    } catch (e) {
+      reply.code(400);
+      return apiError("explore_failed", String(e));
+    }
   });
 
   // --- kdg ---

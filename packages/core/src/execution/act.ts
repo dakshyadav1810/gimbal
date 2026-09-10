@@ -1,5 +1,8 @@
+import path from "node:path";
 import type { UiStep } from "@gimbal/shared";
 import type { Locator, Page } from "playwright";
+import type { HydrationTimeouts } from "./hydration.js";
+import { waitForPageHydration } from "./hydration.js";
 
 function interpolate(
   value: string | undefined,
@@ -38,12 +41,15 @@ export async function act(
   step: UiStep,
   selector: string | null,
   vars: Record<string, string>,
+  fixturesDir?: string,
+  hydrationTimeouts?: HydrationTimeouts,
 ): Promise<void> {
   const value = interpolate(step.value, vars);
   switch (step.action) {
     case "navigate": {
       const target = interpolate(step.value, vars) || page.url();
-      await page.goto(target);
+      await page.goto(target, { waitUntil: "domcontentloaded" });
+      await waitForPageHydration(page, undefined, hydrationTimeouts);
       if (!landedOnIntendedUrl(target, page.url())) {
         throw new Error(
           `navigate landed on ${page.url()} instead of intended ${target} (likely a server-side redirect)`,
@@ -68,9 +74,22 @@ export async function act(
       if (await isAlreadyOpen(locator)) return;
       await locator.click();
       return;
-    case "type":
+    case "type": {
       await locator.fill(value);
+      // React 18/19 controlled input verification: check if value was accepted
+      if (typeof locator.inputValue === "function") {
+        const actual = await locator.inputValue().catch(() => null);
+        if (
+          actual !== null &&
+          actual !== value &&
+          typeof locator.pressSequentially === "function"
+        ) {
+          await locator.fill("");
+          await locator.pressSequentially(value, { delay: 10 });
+        }
+      }
       return;
+    }
     case "select":
       await locator.selectOption(value);
       return;
@@ -80,5 +99,31 @@ export async function act(
     case "submit":
       await locator.press("Enter");
       return;
+    // Deliberately a no-op here: locateWithStabilityGate (auto-wait.ts) already resolved and
+    // stability-checked the target before act() was ever called — that IS this step's job done.
+    // Execution already retries via that stability gate; grounding.ts's own retry loop is what
+    // gives this action teeth at authoring time, where no such gate exists.
+    case "waitForSelector":
+      return;
+    case "file": {
+      if (!fixturesDir)
+        throw new Error(
+          "file action requires config.fixturesDir to resolve the fixture path",
+        );
+      // Always resolved against fixturesDir, never an arbitrary filesystem path — keeps specs
+      // portable and DOM-blind rather than encoding the author's local machine layout.
+      const resolvedFixturesDir = path.resolve(fixturesDir);
+      const filePath = path.resolve(resolvedFixturesDir, value);
+      if (
+        filePath !== resolvedFixturesDir &&
+        !filePath.startsWith(resolvedFixturesDir + path.sep)
+      ) {
+        throw new Error(
+          `file fixture "${value}" resolves outside fixturesDir (${resolvedFixturesDir})`,
+        );
+      }
+      await locator.setInputFiles(filePath);
+      return;
+    }
   }
 }

@@ -30,6 +30,9 @@ export const StepResult = z.object({
   failure: z.object({ reason: z.string(), message: z.string() }).optional(),
   durationMs: z.number(),
   screenshot: z.string().optional(),
+  // Non-fatal, execution-transparency notes surfaced in the run stream — e.g. adopting a
+  // popup/new-tab the step's own action opened.
+  note: z.string().optional(),
 });
 export type StepResult = z.infer<typeof StepResult>;
 
@@ -63,12 +66,16 @@ export const ApiError = z.object({
 });
 export type ApiError = z.infer<typeof ApiError>;
 
-export const RepairPayload = z.object({
+export interface RepairPayload {
+  specIR: SpecIR;
+  testCase: GroundedTest;
+  kdg?: unknown;
+}
+export const RepairPayload: z.ZodType<RepairPayload, z.ZodTypeDef, any> = z.object({
   specIR: SpecIR,
   testCase: GroundedTest,
-  kdg: z.unknown(), // KDG data structure deferred (ADR-002 out-of-scope)
+  kdg: z.unknown().optional(), // KDG data structure deferred (ADR-002 out-of-scope)
 });
-export type RepairPayload = z.infer<typeof RepairPayload>;
 
 // LLD-010 §2.1: thin projection of RunReport for the run-history list — no steps[] body.
 export const RunSummary = RunReport.omit({ steps: true });

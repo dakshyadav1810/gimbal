@@ -145,18 +145,14 @@ describe("extractInteractiveElementsInPage", () => {
   });
 
   it("prefers id over data-testid over input[type] over xpath, in that order, for cssSelector", () => {
-    document.body.innerHTML = `
-      <input id="i1" data-testid="t1" type="email" />
-      <input data-testid="t2" type="email" />
+    setup(`
+      <input id="i1" type="text" />
+      <input data-testid="t2" type="search" />
       <input type="email" />
       <input />
-    `;
-    const [byId, byTestId, byType, byXpath] = Array.from(
-      document.body.querySelectorAll("input"),
-    ).map((el) => {
-      stubRect(el as HTMLElement);
-      return el as HTMLElement;
-    });
+    `);
+    const inputs = document.body.querySelectorAll("input");
+    inputs.forEach((el) => stubRect(el as HTMLElement));
     const found = extractInteractiveElementsInPage();
     expect(found[0].cssSelector).toBe("#i1");
     expect(found[1].cssSelector).toBe('[data-testid="t2"]');
@@ -178,6 +174,44 @@ describe("extractInteractiveElementsInPage", () => {
     const found = extractInteractiveElementsInPage();
     const button = found.find((e) => e.tag === "button");
     expect(button?.label).toBe("Delete item");
+  });
+
+  it("resolves aria-labelledby recursively when the referenced element's own name comes from aria-label", () => {
+    setup(`
+      <span id="lbl" aria-label="Close Panel"></span>
+      <button aria-labelledby="lbl"></button>
+    `);
+    const found = extractInteractiveElementsInPage();
+    const button = found.find((e) => e.tag === "button");
+    expect(button?.label).toBe("Close Panel");
+  });
+
+  it("resolves a two-level aria-labelledby chain (A labelledby B, B labelledby C)", () => {
+    setup(`
+      <span id="c" aria-label="Revoke Access"></span>
+      <span id="b" aria-labelledby="c"></span>
+      <button aria-labelledby="b"></button>
+    `);
+    const found = extractInteractiveElementsInPage();
+    const button = found.find((e) => e.tag === "button");
+    expect(button?.label).toBe("Revoke Access");
+  });
+
+  it("does not infinitely recurse when two elements' aria-labelledby point at each other", () => {
+    setup(`
+      <span id="a" aria-labelledby="b"></span>
+      <span id="b" aria-labelledby="a"></span>
+      <button aria-labelledby="a"></button>
+    `);
+    expect(() => extractInteractiveElementsInPage()).not.toThrow();
+  });
+
+  it("excludes aria-hidden descendants from a content-based accessible name", () => {
+    setup(`
+      <button>Delete<span aria-hidden="true"> (permanently, cannot be undone)</span></button>
+    `);
+    const [el] = extractInteractiveElementsInPage();
+    expect(el.label).toBe("Delete");
   });
 
   it("resolves accessible name via a label[for] association, escaping the id", () => {
@@ -206,29 +240,53 @@ describe("extractInteractiveElementsInPage", () => {
     expect(textEl.label).toBe("Click me");
   });
 
-  it("computes visible: true only when display/visibility are not hidden and the box has area", () => {
+  it("strictly excludes elements upfront when display/visibility are hidden, zero size, or aria-hidden", () => {
     document.body.innerHTML = `
       <button id="visible-btn">Visible</button>
       <button id="hidden-style" style="display:none">Hidden</button>
       <button id="zero-size">Zero size</button>
+      <button id="aria-hidden-btn" aria-hidden="true">Aria Hidden</button>
+      <div id="drawer" aria-hidden="true">
+        <button id="drawer-btn">Inside Drawer</button>
+      </div>
     `;
     const visibleBtn = document.getElementById("visible-btn") as HTMLElement;
     const hiddenBtn = document.getElementById("hidden-style") as HTMLElement;
     const zeroBtn = document.getElementById("zero-size") as HTMLElement;
+    const ariaHiddenBtn = document.getElementById("aria-hidden-btn") as HTMLElement;
+    const drawerBtn = document.getElementById("drawer-btn") as HTMLElement;
+
     stubRect(visibleBtn, { width: 100, height: 20 });
     stubRect(hiddenBtn, { width: 100, height: 20 });
     stubRect(zeroBtn, { width: 0, height: 0 });
+    stubRect(ariaHiddenBtn, { width: 100, height: 20 });
+    stubRect(drawerBtn, { width: 100, height: 20 });
 
     const found = extractInteractiveElementsInPage();
-    expect(found.find((e) => e.attributes.id === "visible-btn")?.visible).toBe(
-      true,
-    );
-    expect(found.find((e) => e.attributes.id === "hidden-style")?.visible).toBe(
-      false,
-    );
-    expect(found.find((e) => e.attributes.id === "zero-size")?.visible).toBe(
-      false,
-    );
+    expect(found.find((e) => e.attributes.id === "visible-btn")).toBeDefined();
+    expect(found.find((e) => e.attributes.id === "hidden-style")).toBeUndefined();
+    expect(found.find((e) => e.attributes.id === "zero-size")).toBeUndefined();
+    expect(found.find((e) => e.attributes.id === "aria-hidden-btn")).toBeUndefined();
+    expect(found.find((e) => e.attributes.id === "drawer-btn")).toBeUndefined();
+  });
+
+  it("extracts accessible names from enclosed SVG aria-label or title for icon-only buttons", () => {
+    document.body.innerHTML = `
+      <button id="icon-btn-label">
+        <svg aria-label="Search icon"></svg>
+      </button>
+      <button id="icon-btn-title">
+        <svg><title>Close dialog</title></svg>
+      </button>
+    `;
+    for (const el of Array.from(document.body.querySelectorAll("*"))) {
+      stubRect(el as HTMLElement);
+    }
+    const found = extractInteractiveElementsInPage();
+    const btnLabel = found.find((e) => e.attributes.id === "icon-btn-label");
+    const btnTitle = found.find((e) => e.attributes.id === "icon-btn-title");
+    expect(btnLabel?.label).toBe("Search icon");
+    expect(btnTitle?.label).toBe("Close dialog");
   });
 
   it("computes disabled from the disabled property and aria-disabled attribute", () => {
@@ -371,4 +429,144 @@ describe("extractInteractiveElementsInPage", () => {
     const [el] = extractInteractiveElementsInPage();
     expect(el.controlledContent?.length).toBeLessThanOrEqual(200);
   });
+
+  // --- Volatile ID Filtering ---
+  it("omits a React useId() volatile ID (:r1:) from cssSelector, falling back to data-testid", () => {
+    setup(`<input id=":r1:" data-testid="email-input" type="email" />`);
+    const [el] = extractInteractiveElementsInPage();
+    expect(el.cssSelector).not.toMatch(/^#/);
+    expect(el.cssSelector).toBe('[data-testid="email-input"]');
+  });
+
+  it("omits a React useId() volatile ID from xpathFor, building structural XPath instead", () => {
+    setup(`<button id=":r2:">Submit</button>`);
+    const [el] = extractInteractiveElementsInPage();
+    expect(el.xpath).not.toContain(":r2:");
+    expect(el.xpath).toMatch(/^\//);
+  });
+
+  it("omits a Radix UI volatile ID (radix-xyz) from cssSelector, falling back to xpath", () => {
+    setup(`<button id="radix-abc123">Open</button>`);
+    const [el] = extractInteractiveElementsInPage();
+    expect(el.cssSelector).not.toMatch(/^#radix/);
+  });
+
+  it("treats a stable non-volatile id normally (keeps it in cssSelector and xpath)", () => {
+    setup(`<button id="submit-btn">Submit</button>`);
+    const [el] = extractInteractiveElementsInPage();
+    expect(el.cssSelector).toBe("#submit-btn");
+    expect(el.xpath).toContain("submit-btn");
+  });
+
+  // --- Spatial Label Extraction ---
+  it("extracts spatialLabel from a sibling label element positioned above the input", () => {
+    document.body.innerHTML = `
+      <div id="field-wrapper">
+        <label id="lbl">Email Address</label>
+        <input id="email-input" type="email" />
+      </div>
+    `;
+    const label = document.getElementById("lbl") as HTMLElement;
+    const input = document.getElementById("email-input") as HTMLElement;
+    label.getBoundingClientRect = () =>
+      ({
+        x: 10,
+        y: 0,
+        width: 100,
+        height: 20,
+        top: 0,
+        left: 10,
+        right: 110,
+        bottom: 20,
+        toJSON() {},
+      }) as DOMRect;
+    input.getBoundingClientRect = () =>
+      ({
+        x: 10,
+        y: 24,
+        width: 200,
+        height: 30,
+        top: 24,
+        left: 10,
+        right: 210,
+        bottom: 54,
+        toJSON() {},
+      }) as DOMRect;
+    const wrapper = document.getElementById("field-wrapper") as HTMLElement;
+    stubRect(wrapper);
+    const found = extractInteractiveElementsInPage();
+    const inputEl = found.find((e) => e.attributes.id === "email-input");
+    expect(inputEl?.spatialLabel).toBe("Email Address");
+  });
+
+  it("leaves spatialLabel undefined when no text node is in the label quadrant", () => {
+    setup(`<button id="isolated">Submit</button>`);
+    const [el] = extractInteractiveElementsInPage();
+    expect(el.spatialLabel).toBeUndefined();
+  });
+
+  it("extracts accessible name from wrapped <label> without for attribute", () => {
+    setup(`
+      <form>
+        <label id="lbl-wrap">
+          Confirm Password
+          <input type="password" id="confirm-pwd" />
+        </label>
+      </form>
+    `);
+    const input = document.getElementById("confirm-pwd") as HTMLElement;
+    stubRect(input);
+    const found = extractInteractiveElementsInPage();
+    const candidate = found.find((c) => c.attributes.id === "confirm-pwd");
+    expect(candidate?.label).toBe("Confirm Password");
+  });
+
+  it("extracts accessible name from multi-ID aria-labelledby", () => {
+    setup(`
+      <span id="prefix">Billing</span>
+      <span id="suffix">Zip Code</span>
+      <input id="zip" aria-labelledby="prefix suffix" />
+    `);
+    const input = document.getElementById("zip") as HTMLElement;
+    stubRect(input);
+    const found = extractInteractiveElementsInPage();
+    const candidate = found.find((c) => c.attributes.id === "zip");
+    expect(candidate?.label).toBe("Billing Zip Code");
+  });
+
+  it("guarantees unique selector synthesis for duplicate input types without collision", () => {
+    setup(`
+      <form>
+        <input type="password" placeholder="Enter password" />
+        <input type="password" placeholder="Confirm password" />
+      </form>
+    `);
+    const inputs = document.querySelectorAll("input");
+    inputs.forEach((inp) => stubRect(inp));
+    const found = extractInteractiveElementsInPage();
+    expect(found.length).toBe(2);
+    // Neither should have the colliding bare "input[type='password']"
+    expect(found[0].cssSelector).not.toBe("input[type='password']");
+    expect(found[1].cssSelector).not.toBe("input[type='password']");
+    // They should use unique placeholder selectors
+    expect(found[0].cssSelector).toBe("input[placeholder=\"Enter\\ password\"]");
+    expect(found[1].cssSelector).toBe("input[placeholder=\"Confirm\\ password\"]");
+  });
+
+  it("falls back to unique positional xpath when multiple identical inputs lack distinguishing attributes", () => {
+    setup(`
+      <div>
+        <input type="password" />
+        <input type="password" />
+      </div>
+    `);
+    const inputs = document.querySelectorAll("input");
+    inputs.forEach((inp) => stubRect(inp));
+    const found = extractInteractiveElementsInPage();
+    expect(found.length).toBe(2);
+    expect(found[0].cssSelector).toContain("xpath=");
+    expect(found[1].cssSelector).toContain("xpath=");
+    expect(found[0].cssSelector).not.toBe(found[1].cssSelector);
+  });
 });
+

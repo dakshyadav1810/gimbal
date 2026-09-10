@@ -84,7 +84,21 @@ describe("StructureSignal", () => {
     expect(score).toBeCloseTo(0.4 + 0.3, 10);
   });
 
-  it("adds xpath and contextPath credit additively", () => {
+  it("adds xpath and contextPath credit additively when the xpath is the cheap id-anchored form", () => {
+    const score = signal.score(
+      target({ role: "button" }),
+      cand({
+        role: "button",
+        tag: "button",
+        xpath: '//*[@id="submit"]',
+        contextPath: ["form", "div"],
+      }),
+      page,
+    );
+    expect(score).toBeCloseTo(0.4 + 0.15 + 0.15, 10);
+  });
+
+  it("does not reward a positional (non-id-anchored) xpath — it doesn't survive DOM reshuffles", () => {
     const score = signal.score(
       target({ role: "button" }),
       cand({
@@ -95,7 +109,92 @@ describe("StructureSignal", () => {
       }),
       page,
     );
-    expect(score).toBeCloseTo(0.4 + 0.15 + 0.15, 10);
+    expect(score).toBeCloseTo(0.4 + 0.15, 10); // contextPath credit only, no xpath bonus
+  });
+
+  it("rewards a candidate whose input[type] matches the family implied by a 'type' action", () => {
+    const score = signal.score(
+      target({ role: "textbox", actions: ["type"] }),
+      cand({ role: "textbox", tag: "input", attributes: { type: "email" } }),
+      page,
+    );
+    expect(score).toBeCloseTo(0.4 + 0.1, 10);
+  });
+
+  it("does not reward a type mismatch (reward-only, never a penalty)", () => {
+    const score = signal.score(
+      target({ role: "textbox", actions: ["type"] }),
+      cand({ role: "textbox", tag: "input", attributes: { type: "checkbox" } }),
+      page,
+    );
+    expect(score).toBeCloseTo(0.4, 10);
+  });
+
+  it("rewards a checkbox/radio candidate for a 'check' action", () => {
+    const score = signal.score(
+      target({ role: "checkbox", actions: ["check"] }),
+      cand({
+        role: "checkbox",
+        tag: "input",
+        attributes: { type: "checkbox" },
+      }),
+      page,
+    );
+    expect(score).toBeCloseTo(0.4 + 0.1, 10);
+  });
+
+  it("rewards a candidate whose id lexically resembles the label more closely (proportional, not all-or-nothing)", () => {
+    const fullMatch = signal.score(
+      target({ role: "textbox", label: "Confirm Password" }),
+      cand({
+        role: "textbox",
+        tag: "input",
+        attributes: { id: "password-confirm" },
+      }),
+      page,
+    );
+    const partialMatch = signal.score(
+      target({ role: "textbox", label: "Confirm Password" }),
+      cand({ role: "textbox", tag: "input", attributes: { id: "password" } }),
+      page,
+    );
+    // id="password-confirm" contains both label words (jaccard 1.0 -> full +0.15 bonus).
+    expect(fullMatch).toBeCloseTo(0.4 + 0.3 + 0.15, 10);
+    // id="password" contains only "password", not "confirm" (jaccard 0.5 -> partial +0.075) — a
+    // real, if partial, credit rather than zero, since it does share the head noun.
+    expect(partialMatch).toBeCloseTo(0.4 + 0.3 + 0.075, 10);
+    expect(fullMatch).toBeGreaterThan(partialMatch);
+  });
+
+  it("scores a superset match lower than a tighter match (extra unrelated tokens hurt similarity)", () => {
+    const tight = signal.score(
+      target({ role: "textbox", label: "New Password" }),
+      cand({
+        role: "textbox",
+        tag: "input",
+        attributes: { id: "new-pw", name: "new_password" },
+      }),
+      page,
+    );
+    const superset = signal.score(
+      target({ role: "textbox", label: "New Password" }),
+      cand({
+        role: "textbox",
+        tag: "input",
+        attributes: { id: "confirm-pw", name: "confirm_new_password" },
+      }),
+      page,
+    );
+    expect(tight).toBeGreaterThan(superset);
+  });
+
+  it("does not apply the modifier bonus for a single-word label (no modifier to check)", () => {
+    const score = signal.score(
+      target({ role: "button", label: "Close" }),
+      cand({ role: "button", tag: "button", attributes: { id: "close-btn" } }),
+      page,
+    );
+    expect(score).toBeCloseTo(0.4 + 0.3, 10);
   });
 
   it("caps the total at 1 even when every bonus applies", () => {
@@ -105,7 +204,7 @@ describe("StructureSignal", () => {
         role: "button",
         tag: "button",
         attributes: { id: "x" },
-        xpath: "/a",
+        xpath: '//*[@id="x"]',
         contextPath: ["a"],
       }),
       page,

@@ -1,5 +1,6 @@
-import type { Band, Generalization, GimbalConfig } from "@gimbal/shared";
+import type { Band, Generalization, GimbalConfig, Tier1Target } from "@gimbal/shared";
 import type { DomCandidate } from "./base.js";
+import { uniqueBestNameIdMatch } from "./lexical.js";
 
 export const CONFIDENCE_MARGIN = 0.15;
 
@@ -20,6 +21,7 @@ export function selectBest(
   scored: Scored[],
   generalization: Generalization,
   bands: GimbalConfig["bands"],
+  target?: Tier1Target,
 ): { winner: Scored | null; band: Band; ambiguous: boolean } {
   if (scored.length === 0)
     return { winner: null, band: "low", ambiguous: false };
@@ -40,6 +42,7 @@ export function selectBest(
   if (requiresMargin && runnerUp && top.score - runnerUp.score < margin) {
     const tiebreakWinner = tiebreak(
       sorted.filter((s) => top.score - s.score < margin),
+      target,
     );
     if (tiebreakWinner) {
       return {
@@ -55,10 +58,23 @@ export function selectBest(
   return { winner: top, band, ambiguous };
 }
 
-// Deterministic cascade: durable anchor -> sibling index (same parent only) -> DOM order.
-function tiebreak(tied: Scored[]): Scored | null {
+// Deterministic cascade: durable anchor -> id/name lexical similarity to the label -> sibling
+// index (same parent only) -> DOM order.
+function tiebreak(tied: Scored[], target?: Tier1Target): Scored | null {
   const withTestId = tied.find((s) => s.candidate.testId);
   if (withTestId) return withTestId;
+
+  // The tied candidate whose id/name is a STRICTLY closer lexical match to the target's label than
+  // every other tied candidate (Jaccard similarity, resolver/lexical.ts — not a plain "contains"
+  // check, so an over-broad superset match, e.g. name="confirm_new_password" for a "New Password"
+  // target, doesn't tie with the tighter "new_password" match). This is the deterministic-tiebreak
+  // equivalent of structure.ts's reward-only bonus, for cases where the score gap alone isn't
+  // enough to clear CONFIDENCE_MARGIN (near-duplicate fields whose OTHER signals are already
+  // near-saturated, e.g. multiple password inputs in the same form).
+  if (target) {
+    const winner = uniqueBestNameIdMatch(target.label, tied);
+    if (winner) return winner;
+  }
 
   // siblingIndex is only meaningful when the tied candidates share an immediate parent — it's
   // computed per-parent (dom-extractor.ts), so e.g. two unrelated header buttons in different

@@ -36,6 +36,15 @@ function interpolate(s: string, vars: Record<string, string>): string {
   return s.replace(/\$\{(\w+)\}/g, (_, k) => vars[k] ?? "");
 }
 
+async function getTargetBoundingBox(
+  page: Page | undefined,
+  target: Tier1Target | undefined,
+): Promise<{ x: number; y: number; width: number; height: number } | null> {
+  if (!page || !target) return null;
+  const locator = page.getByRole(target.role as any, { name: target.label });
+  return await locator.boundingBox().catch(() => null);
+}
+
 // Unified UI/API/DB assertion evaluation (SPEC-003 §3). Locate failure is handled by the caller
 // (locate.ts) and never reaches here — this only judges outcomes for elements/responses that were found.
 export async function evaluateAssertion(
@@ -45,6 +54,9 @@ export async function evaluateAssertion(
     apiResponse?: { status: number; body: unknown };
     dbRow?: unknown;
     vars: Record<string, string>;
+    target?: Tier1Target;
+    subjectBoundingBox?: { x: number; y: number; width: number; height: number };
+    referenceBoundingBox?: { x: number; y: number; width: number; height: number };
   },
 ): Promise<AssertOutcome> {
   switch (a.type) {
@@ -75,6 +87,92 @@ export async function evaluateAssertion(
       return ok(deepEqual(getPath(ctx.apiResponse?.body, a.path), a.expected));
     case "dbRow":
       return ok(deepEqual(ctx.dbRow, a.expected));
+    case "ariaSnapshot": {
+      const locator = a.target
+        ? ctx.page?.getByRole(a.target.role as any, { name: a.target.label })
+        : ctx.page?.locator("body");
+      const actual = await locator?.ariaSnapshot().catch(() => null);
+      return ok(actual?.trim() === a.expected.trim());
+    }
+    case "isRightOf":
+    case "isLeftOf":
+    case "isAbove":
+    case "isBelow":
+    case "isInside":
+    case "isAlignedHorizontally":
+    case "isAlignedVertically": {
+      const subBox =
+        ctx.subjectBoundingBox ??
+        (await getTargetBoundingBox(ctx.page, a.target ?? ctx.target));
+      const refBox =
+        ctx.referenceBoundingBox ??
+        (await getTargetBoundingBox(ctx.page, a.referenceTarget));
+
+      if (!subBox || !refBox) {
+        return {
+          ok: false,
+          reason: `could not determine bounding box for geometric assertion (subject: ${!!subBox}, reference: ${!!refBox})`,
+        };
+      }
+
+      const subject = {
+        ...subBox,
+        right: subBox.x + subBox.width,
+        bottom: subBox.y + subBox.height,
+      };
+      const reference = {
+        ...refBox,
+        right: refBox.x + refBox.width,
+        bottom: refBox.y + refBox.height,
+      };
+
+      switch (a.type) {
+        case "isRightOf":
+          return ok(
+            subject.x >= reference.right,
+            `subject (x: ${subject.x}) is not right of reference (right: ${reference.right})`,
+          );
+        case "isLeftOf":
+          return ok(
+            subject.right <= reference.x,
+            `subject (right: ${subject.right}) is not left of reference (x: ${reference.x})`,
+          );
+        case "isBelow":
+          return ok(
+            subject.y >= reference.bottom,
+            `subject (y: ${subject.y}) is not below reference (bottom: ${reference.bottom})`,
+          );
+        case "isAbove":
+          return ok(
+            subject.bottom <= reference.y,
+            `subject (bottom: ${subject.bottom}) is not above reference (y: ${reference.y})`,
+          );
+        case "isInside":
+          return ok(
+            subject.x >= reference.x &&
+              subject.y >= reference.y &&
+              subject.right <= reference.right &&
+              subject.bottom <= reference.bottom,
+            `subject is not inside reference bounding box`,
+          );
+        case "isAlignedHorizontally":
+          return ok(
+            Math.abs(subject.y - reference.y) <= 5 ||
+              Math.abs(
+                subject.y + subject.height / 2 - (reference.y + reference.height / 2),
+              ) <= 5,
+            `subject is not horizontally aligned with reference`,
+          );
+        case "isAlignedVertically":
+          return ok(
+            Math.abs(subject.x - reference.x) <= 5 ||
+              Math.abs(
+                subject.x + subject.width / 2 - (reference.x + reference.width / 2),
+              ) <= 5,
+            `subject is not vertically aligned with reference`,
+          );
+      }
+    }
   }
 }
 
@@ -105,8 +203,8 @@ export async function evaluateExpectedOutcome(
   }
 }
 
-function ok(b: boolean): AssertOutcome {
-  return b ? { ok: true } : { ok: false, reason: "assertion returned false" };
+function ok(b: boolean, reason = "assertion returned false"): AssertOutcome {
+  return b ? { ok: true } : { ok: false, reason };
 }
 function getPath(obj: unknown, path: string): unknown {
   return path.split(".").reduce((o, k) => (o as any)?.[k], obj);

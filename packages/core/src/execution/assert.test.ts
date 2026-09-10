@@ -11,6 +11,7 @@ interface FakePageOptions {
   roleVisible?: boolean;
   roleCount?: number;
   locatorVisible?: boolean;
+  ariaSnapshot?: string | Promise<never>;
 }
 
 function fakePage(opts: FakePageOptions = {}): Page {
@@ -22,7 +23,11 @@ function fakePage(opts: FakePageOptions = {}): Page {
     roleVisible = false,
     roleCount = 1,
     locatorVisible = false,
+    ariaSnapshot = "",
   } = opts;
+
+  const snapshotFn = () =>
+    ariaSnapshot instanceof Promise ? ariaSnapshot : Promise.resolve(ariaSnapshot);
 
   const focusedLocator = {
     inputValue: () =>
@@ -35,8 +40,12 @@ function fakePage(opts: FakePageOptions = {}): Page {
     inputValue: () =>
       roleValue instanceof Promise ? roleValue : Promise.resolve(roleValue),
     count: () => Promise.resolve(roleCount),
+    ariaSnapshot: snapshotFn,
   };
-  const plainLocator = { isVisible: () => Promise.resolve(locatorVisible) };
+  const plainLocator = {
+    isVisible: () => Promise.resolve(locatorVisible),
+    ariaSnapshot: snapshotFn,
+  };
 
   return {
     url: () => url,
@@ -159,6 +168,66 @@ describe("evaluateAssertion", () => {
       { page, vars: {} },
     );
     expect(res.ok).toBe(true);
+  });
+
+  it("ariaSnapshot passes when the body's snapshot matches (no target)", async () => {
+    const page = fakePage({ ariaSnapshot: '- button "Submit"' });
+    const res = await evaluateAssertion(
+      { type: "ariaSnapshot", expected: '- button "Submit"' },
+      { page, vars: {} },
+    );
+    expect(res.ok).toBe(true);
+  });
+
+  it("ariaSnapshot compares against the target's own snapshot when target is given", async () => {
+    const page = fakePage({ ariaSnapshot: '- button "Submit" [disabled]' });
+    const res = await evaluateAssertion(
+      {
+        type: "ariaSnapshot",
+        expected: '- button "Submit" [disabled]',
+        target: {
+          label: "Submit",
+          semantics: [],
+          role: "button",
+          actions: [],
+          intent: "check submit is disabled",
+        },
+      },
+      { page, vars: {} },
+    );
+    expect(res.ok).toBe(true);
+  });
+
+  it("ariaSnapshot fails on a mismatch and swallows a locator error rather than throwing", async () => {
+    const page = fakePage({ ariaSnapshot: '- button "Submit"' });
+    const mismatch = await evaluateAssertion(
+      { type: "ariaSnapshot", expected: '- button "Cancel"' },
+      { page, vars: {} },
+    );
+    expect(mismatch.ok).toBe(false);
+
+    const errored = await evaluateAssertion(
+      {
+        type: "ariaSnapshot",
+        expected: '- button "Submit"',
+        target: {
+          label: "Submit",
+          semantics: [],
+          role: "button",
+          actions: [],
+          intent: "x",
+        },
+      },
+      {
+        page: {
+          getByRole: () => ({
+            ariaSnapshot: () => Promise.reject(new Error("detached")),
+          }),
+        } as unknown as Page,
+        vars: {},
+      },
+    );
+    expect(errored.ok).toBe(false);
   });
 
   it("elementVisible passes when getByRole().isVisible() resolves true", async () => {
@@ -547,6 +616,180 @@ describe("evaluateExpectedOutcome", () => {
         },
       },
       { page, urlBefore: "", vars: {} },
+    );
+    expect(res.ok).toBe(true);
+  });
+});
+
+describe("geometric assertions", () => {
+  const dummyTarget = {
+    role: "button" as const,
+    label: "Cancel",
+    semantics: [],
+    actions: ["click"],
+    intent: "cancel button",
+  };
+
+  it("evaluates isRightOf correctly", async () => {
+    const referenceBox = { x: 100, y: 50, width: 80, height: 30 }; // right: 180
+    const subjectRight = { x: 200, y: 50, width: 60, height: 30 };
+    const subjectLeft = { x: 50, y: 50, width: 40, height: 30 };
+
+    const pass = await evaluateAssertion(
+      { type: "isRightOf", referenceTarget: dummyTarget },
+      {
+        vars: {},
+        subjectBoundingBox: subjectRight,
+        referenceBoundingBox: referenceBox,
+      },
+    );
+    expect(pass.ok).toBe(true);
+
+    const fail = await evaluateAssertion(
+      { type: "isRightOf", referenceTarget: dummyTarget },
+      {
+        vars: {},
+        subjectBoundingBox: subjectLeft,
+        referenceBoundingBox: referenceBox,
+      },
+    );
+    expect(fail.ok).toBe(false);
+  });
+
+  it("evaluates isLeftOf correctly", async () => {
+    const referenceBox = { x: 200, y: 50, width: 80, height: 30 };
+    const subjectLeft = { x: 50, y: 50, width: 100, height: 30 }; // right: 150 <= 200
+    const subjectRight = { x: 300, y: 50, width: 50, height: 30 };
+
+    const pass = await evaluateAssertion(
+      { type: "isLeftOf", referenceTarget: dummyTarget },
+      {
+        vars: {},
+        subjectBoundingBox: subjectLeft,
+        referenceBoundingBox: referenceBox,
+      },
+    );
+    expect(pass.ok).toBe(true);
+
+    const fail = await evaluateAssertion(
+      { type: "isLeftOf", referenceTarget: dummyTarget },
+      {
+        vars: {},
+        subjectBoundingBox: subjectRight,
+        referenceBoundingBox: referenceBox,
+      },
+    );
+    expect(fail.ok).toBe(false);
+  });
+
+  it("evaluates isBelow and isAbove correctly", async () => {
+    const referenceBox = { x: 100, y: 100, width: 80, height: 40 }; // bottom: 140
+    const subjectBelow = { x: 100, y: 150, width: 80, height: 30 };
+    const subjectAbove = { x: 100, y: 40, width: 80, height: 30 }; // bottom: 70
+
+    const belowPass = await evaluateAssertion(
+      { type: "isBelow", referenceTarget: dummyTarget },
+      {
+        vars: {},
+        subjectBoundingBox: subjectBelow,
+        referenceBoundingBox: referenceBox,
+      },
+    );
+    expect(belowPass.ok).toBe(true);
+
+    const abovePass = await evaluateAssertion(
+      { type: "isAbove", referenceTarget: dummyTarget },
+      {
+        vars: {},
+        subjectBoundingBox: subjectAbove,
+        referenceBoundingBox: referenceBox,
+      },
+    );
+    expect(abovePass.ok).toBe(true);
+
+    const belowFail = await evaluateAssertion(
+      { type: "isBelow", referenceTarget: dummyTarget },
+      {
+        vars: {},
+        subjectBoundingBox: subjectAbove,
+        referenceBoundingBox: referenceBox,
+      },
+    );
+    expect(belowFail.ok).toBe(false);
+  });
+
+  it("evaluates isInside correctly", async () => {
+    const container = { x: 100, y: 100, width: 300, height: 200 };
+    const inside = { x: 120, y: 120, width: 100, height: 50 };
+    const outside = { x: 50, y: 120, width: 100, height: 50 };
+
+    const pass = await evaluateAssertion(
+      { type: "isInside", referenceTarget: dummyTarget },
+      {
+        vars: {},
+        subjectBoundingBox: inside,
+        referenceBoundingBox: container,
+      },
+    );
+    expect(pass.ok).toBe(true);
+
+    const fail = await evaluateAssertion(
+      { type: "isInside", referenceTarget: dummyTarget },
+      {
+        vars: {},
+        subjectBoundingBox: outside,
+        referenceBoundingBox: container,
+      },
+    );
+    expect(fail.ok).toBe(false);
+  });
+
+  it("evaluates isAlignedHorizontally and isAlignedVertically correctly", async () => {
+    const ref = { x: 100, y: 100, width: 100, height: 40 };
+    const horizAligned = { x: 250, y: 102, width: 80, height: 38 }; // y diff <= 5
+    const vertAligned = { x: 101, y: 200, width: 98, height: 30 }; // x diff <= 5
+
+    const horizPass = await evaluateAssertion(
+      { type: "isAlignedHorizontally", referenceTarget: dummyTarget },
+      {
+        vars: {},
+        subjectBoundingBox: horizAligned,
+        referenceBoundingBox: ref,
+      },
+    );
+    expect(horizPass.ok).toBe(true);
+
+    const vertPass = await evaluateAssertion(
+      { type: "isAlignedVertically", referenceTarget: dummyTarget },
+      {
+        vars: {},
+        subjectBoundingBox: vertAligned,
+        referenceBoundingBox: ref,
+      },
+    );
+    expect(vertPass.ok).toBe(true);
+  });
+
+  it("extracts bounding box dynamically from page locator if not provided in ctx", async () => {
+    const subTarget = { ...dummyTarget, label: "Save" };
+    const refTarget = { ...dummyTarget, label: "Cancel" };
+
+    const page = {
+      getByRole: (role: string, opts: { name: string }) => {
+        if (opts.name === "Save") {
+          return {
+            boundingBox: () => Promise.resolve({ x: 250, y: 100, width: 80, height: 30 }),
+          };
+        }
+        return {
+          boundingBox: () => Promise.resolve({ x: 100, y: 100, width: 80, height: 30 }),
+        };
+      },
+    } as any;
+
+    const res = await evaluateAssertion(
+      { type: "isRightOf", target: subTarget, referenceTarget: refTarget },
+      { page, vars: {} },
     );
     expect(res.ok).toBe(true);
   });

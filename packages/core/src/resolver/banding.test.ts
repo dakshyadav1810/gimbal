@@ -82,6 +82,80 @@ describe("selectBest — same_element (full margin 0.15)", () => {
     expect(res.band).toBe("high");
   });
 
+  it("resolves a near-tie via the id/name lexical-similarity tiebreak when one candidate is a strictly closer match", () => {
+    const a = scored({ id: "a", attributes: { id: "password" } }, 0.85);
+    const b = scored({ id: "b", attributes: { id: "password-confirm" } }, 0.8);
+    const target = {
+      label: "Confirm Password",
+      semantics: [],
+      role: "textbox",
+      actions: ["type"],
+      intent: "confirm the new password",
+    } as any;
+    const res = selectBest([a, b], "same_element", bands, target);
+    expect(res.ambiguous).toBe(false);
+    expect(res.winner?.candidate.id).toBe("b");
+    expect(res.band).toBe("high");
+  });
+
+  it("does not tiebreak on a superset match — a candidate with EXTRA unrelated tokens loses to a tighter match", () => {
+    // Regression case: an inclusion-only ("contains every modifier word") check would have tied
+    // these, since both id/name attributes contain "new". Jaccard similarity correctly prefers
+    // new-pw (no extra tokens beyond the label's own words) over confirm-pw (the extra "confirm"
+    // token, absent from the "New Password" target label, drags its similarity down).
+    const a = scored(
+      { id: "new-pw", attributes: { id: "new-pw", name: "new_password" } },
+      0.99,
+    );
+    const b = scored(
+      {
+        id: "confirm-pw",
+        attributes: { id: "confirm-pw", name: "confirm_new_password" },
+      },
+      0.94,
+    );
+    const target = {
+      label: "New Password",
+      semantics: [],
+      role: "textbox",
+      actions: ["type"],
+      intent: "enter the new password",
+    } as any;
+    const res = selectBest([a, b], "same_element", bands, target);
+    expect(res.ambiguous).toBe(false);
+    expect(res.winner?.candidate.id).toBe("new-pw");
+  });
+
+  it("does not apply the lexical tiebreak when two tied candidates match the label equally well (still ambiguous)", () => {
+    const a = scored({ id: "a", attributes: { id: "confirm-x" } }, 0.85);
+    const b = scored({ id: "b", attributes: { id: "confirm-y" } }, 0.8);
+    const target = {
+      label: "Confirm Password",
+      semantics: [],
+      role: "textbox",
+      actions: ["type"],
+      intent: "x",
+    } as any;
+    // Neither has a testId, and both match "confirm" but not "password" — equal Jaccard similarity
+    // (1/3 each) — falls through unresolved since no sibling parent info is given either.
+    const res = selectBest([a, b], "same_element", bands, target);
+    expect(res.ambiguous).toBe(true);
+  });
+
+  it("does not apply the modifier tiebreak when the target label has no distinguishing modifier (single word)", () => {
+    const a = scored({ id: "a", attributes: { id: "close-outer" } }, 0.85);
+    const b = scored({ id: "b", attributes: { id: "close-inner" } }, 0.8);
+    const target = {
+      label: "Close",
+      semantics: [],
+      role: "button",
+      actions: ["click"],
+      intent: "x",
+    } as any;
+    const res = selectBest([a, b], "same_element", bands, target);
+    expect(res.ambiguous).toBe(true);
+  });
+
   it("falls through to sibling-index tiebreak when tied candidates share a parent and neither has a testId", () => {
     const a = scored(
       { id: "a", siblingIndex: 3, parentXpath: "//*[@id='nav']" },

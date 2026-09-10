@@ -135,3 +135,33 @@ score's composition page-dependent, while the bands (§6) are absolute cutoffs. 
 from different weight mixes is not strictly the same evidence, so band boundaries should be validated
 per-page-archetype, not assumed globally stable. The golden cases (§8) pin current behavior but do not by
 themselves certify the thresholds.
+
+## 10. 2026-09-13 additions (DECISIONS.md #27)
+
+- `Candidate` (persisted schema) gained `region` and `frame` fields — both were already computed on
+  `DomCandidate` at grounding time but were silently dropped in the DomCandidate→Candidate mapping
+  (`resolver/index.ts`), which broke the modal cross-container drift guard (LLD-006) on every
+  save/load round-trip. Neither is resolver-scored; both exist purely so downstream consumers
+  (healing, execution) can still see where a candidate came from after persistence.
+- `structure.ts` gained two changes to its existing formula (not new signals, not new weights): a
+  reward-only bonus when a candidate's `input[type]` matches the family implied by the target's
+  action, and the xpath bonus is now conditional on the durable id-anchored form
+  (`//*[@id=...]`) rather than any xpath string.
+- `insideVirtualizedContainer` (informational only, never scored) was added to `DomCandidate` to
+  drive `grounding/candidate.ts`'s scroll-and-re-extract loop — it is not part of the persisted
+  `Candidate` schema and never reaches this module's scoring.
+- The ARIA-snapshot oracle (`grounding/aria-oracle.ts`) is explicitly **not** a 6th signal — it never
+  touches `SignalScores` or `router.ts`'s weights. See DECISIONS.md #27 for the full rationale.
+- `banding.ts`'s deterministic tiebreak cascade (§ "Winner must lead the runner-up by
+  CONFIDENCE_MARGIN...") gained a new step between the `testId` check and the sibling-index
+  fallback: when exactly one tied candidate's `id`/`name` contains every distinguishing-modifier
+  word from the target's label (`resolver/lexical.ts`, shared with `structure.ts`'s matching
+  reward-only bonus), it wins outright. Added because near-duplicate fields (two password inputs,
+  "First/Last Name") can saturate every OTHER signal near its ceiling for the correct candidate,
+  leaving no room for a reward-only score bonus alone to manufacture the full margin — this extends
+  the existing anchor-based tiebreak cascade with one more anchor type rather than inflating scores.
+
+Note: a `getNearbyText()` extraction bug (fixed same pass, DECISIONS.md #27) had been the actual
+root cause misdiagnosed as two separate "known-gap" spatial-signal failures — worth remembering
+that a signal producing a wrong score and an extractor producing wrong input to a correct signal
+formula can look identical from the outside.

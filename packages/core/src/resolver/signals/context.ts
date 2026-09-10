@@ -1,5 +1,6 @@
 import type { Tier1Target } from "@gimbal/shared";
 import type { DomCandidate, PageContext, SignalStrategy } from "../base.js";
+import { spatialLabelScore } from "./spatial.js";
 
 function jaccard(a: string, b: string): number {
   const setA = new Set(a.toLowerCase().split(/\s+/).filter(Boolean));
@@ -11,7 +12,7 @@ function jaccard(a: string, b: string): number {
   return union === 0 ? 0 : inter / union;
 }
 
-// "is it in the right place?" — ancestor chain + region + nearby-text Jaccard (LLD-004 §3)
+// "is it in the right place?" — ancestor chain + region + nearby-text Jaccard + spatial label (LLD-004 §3)
 export class ContextSignal implements SignalStrategy {
   readonly name = "context" as const;
 
@@ -36,6 +37,13 @@ export class ContextSignal implements SignalStrategy {
       );
       score += revealMatch * 0.2;
     }
+
+    // Spatial proximity: nearest text node in the label quadrant (above/left of the element).
+    // Complements nearbyText (which is ancestor-traversal) with geometric positioning.
+    const spatial = spatialLabelScore(target, cand);
+    if (spatial > 0) score += spatial * 0.15;
+
     return Math.min(1, score);
   }
 }
+
