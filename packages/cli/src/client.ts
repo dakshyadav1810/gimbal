@@ -5,6 +5,7 @@ import type {
   RunReport,
   RunRequest,
   SpecIR,
+  Tier1Target,
 } from "@gimbal/shared";
 
 export interface TestSummary {
@@ -80,10 +81,16 @@ export class CoreClient {
     );
   }
   groundTest(testId: string) {
-    return this.req<{ grounded: GroundedTest; stoppedAt?: string }>(
-      "POST",
-      `/api/tests/${testId}/ground`,
-    );
+    return this.req<{
+      grounded: GroundedTest;
+      stoppedAt?: string;
+      ungrounded?: unknown[];
+    }>("POST", `/api/tests/${testId}/ground`);
+  }
+  async authorTest(spec: SpecIR) {
+    const { testId } = await this.submitSpec(spec);
+    const groundResult = await this.groundTest(testId);
+    return { testId, ...groundResult };
   }
   listTests() {
     return this.req<TestSummary[]>("GET", "/api/tests");
@@ -97,6 +104,22 @@ export class CoreClient {
   runTest(req: RunRequest) {
     return this.req<{ runId: string }>("POST", "/api/runs", req);
   }
+  async runTestSync(
+    req: RunRequest,
+    timeoutMs = 30000,
+    pollIntervalMs = 200,
+  ): Promise<RunReport> {
+    const { runId } = await this.runTest(req);
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      const report = await this.getReport(runId);
+      if (report.status !== "running") {
+        return report;
+      }
+      await new Promise((r) => setTimeout(r, pollIntervalMs));
+    }
+    throw new Error(`Run ${runId} timed out after ${timeoutMs}ms`);
+  }
   getReport(runId: string) {
     return this.req<RunReport>("GET", `/api/runs/${runId}`);
   }
@@ -109,5 +132,17 @@ export class CoreClient {
       `/api/tests/${testId}/maintain`,
       req,
     );
+  }
+  explore(req: {
+    url: string;
+    action: string;
+    target?: Tier1Target;
+    value?: string;
+  }) {
+    return this.req<{
+      domDiff: string[];
+      urlChangedTo?: string;
+      screenshot?: string;
+    }>("POST", "/api/author/explore", req);
   }
 }

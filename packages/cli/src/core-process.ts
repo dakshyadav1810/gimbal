@@ -1,10 +1,20 @@
 import fs from "node:fs";
 import path from "node:path";
+import os from "node:os";
 import type { GimbalConfig } from "@gimbal/shared";
 import { execa } from "execa";
 import { baseUrl } from "./config.js";
 
-const PID_FILE = path.join(".gimbal", "gimbal.pid");
+function getPidFile(): string {
+  try {
+    fs.mkdirSync(".gimbal", { recursive: true });
+    return path.join(".gimbal", "gimbal.pid");
+  } catch {
+    const fallbackDir = path.join(os.homedir(), ".gimbal");
+    fs.mkdirSync(fallbackDir, { recursive: true });
+    return path.join(fallbackDir, "gimbal.pid");
+  }
+}
 
 async function waitForHealth(url: string, timeoutMs: number): Promise<void> {
   const deadline = Date.now() + timeoutMs;
@@ -35,14 +45,14 @@ export async function isCoreAlive(config: GimbalConfig): Promise<boolean> {
 export async function startCore(
   config: GimbalConfig,
   coreEntry: string,
-): Promise<number | undefined> {
+ ): Promise<number | undefined> {
   const child = execa("node", [coreEntry], {
     env: { ...process.env, GIMBAL_PORT: String(config.port) },
     detached: true,
     stdio: "ignore",
   });
-  fs.mkdirSync(".gimbal", { recursive: true });
-  fs.writeFileSync(PID_FILE, String(child.pid));
+  const pidFile = getPidFile();
+  fs.writeFileSync(pidFile, String(child.pid));
   child.unref();
 
   await waitForHealth(baseUrl(config), 15000);
@@ -53,13 +63,14 @@ export async function startCore(
 }
 
 export function stopCore(): boolean {
-  if (!fs.existsSync(PID_FILE)) return false;
-  const pid = Number(fs.readFileSync(PID_FILE, "utf-8"));
+  const pidFile = getPidFile();
+  if (!fs.existsSync(pidFile)) return false;
+  const pid = Number(fs.readFileSync(pidFile, "utf-8"));
   try {
     process.kill(pid, "SIGTERM");
   } catch {
     // already dead
   }
-  fs.rmSync(PID_FILE, { force: true });
+  fs.rmSync(pidFile, { force: true });
   return true;
 }

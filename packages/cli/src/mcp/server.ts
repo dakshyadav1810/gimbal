@@ -1,8 +1,12 @@
-import { RunRequest, SpecIR } from "@gimbal/shared";
+import { RunRequest, SpecIR, Tier1Target } from "@gimbal/shared";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { CoreApiError, type CoreClient } from "../client.js";
+import { compileDsl } from "../dsl/compiler.js";
+import { decompileSpec } from "../dsl/decompiler.js";
+import { parseDsl } from "../dsl/parser.js";
+
 
 // Every tool handler is wrapped with this so a CoreApiError (or any other throw) surfaces as a
 // clean, human-readable MCP error instead of an unformatted exception — this is the first thing
@@ -77,83 +81,212 @@ export function buildMcpServer(client: CoreClient): McpServer {
   );
 
   server.registerTool(
-    "submitSpec",
+    "exploreUiState",
     {
       description:
-        "Create a new test. This is the only way a spec is created: Gimbal has no LLM of its own, so " +
-        "you author the full Spec IR yourself and submit it here. Author DOM-blind: describe each UI " +
-        "target by role, semantics, and intent (label, role, semantics[], actions[], intent) rather than " +
-        "guessing a CSS selector or XPath. Grounding attaches the real DOM anchors afterward, and a " +
-        "selector you invented would just be discarded. Every actuating step (click, type, select, " +
-        "keypress, submit) needs a target; wait/navigate steps must not have one. The spec needs at least " +
-        "one assertion or expectedOutcome somewhere, or it will fail lint. Reference vars as ${name} and " +
-        "declare each one in flow.vars. Never inline a secret value; pass it at run time via runTest's " +
-        "vars instead. After this call, run groundTest before runTest; a fresh spec is not runnable yet.",
-      inputSchema: SpecIR.shape,
+        "Perform exploratory DOM telemetry on a running application. Navigates to the given URL, " +
+        "optionally executes an action (e.g. click, type) on a target element, and returns a concise " +
+        "DomDiff of added/removed elements (such as newly opened modals, dropdown items, or buttons), " +
+        "along with any resulting URL change and screenshot. Use this tool to inspect UI state changes " +
+        "interactively without authoring or committing a permanent test spec.",
+      inputSchema: {
+        url: z.string().describe("The URL of the page to explore."),
+        action: z
+          .enum([
+            "click",
+            "type",
+            "select",
+            "keypress",
+            "submit",
+            "navigate",
+            "wait",
+            "file",
+          ])
+          .default("click")
+          .describe("Action to perform on the target element."),
+        target: Tier1Target.optional().describe(
+          "The Tier-1 target element to act upon.",
+        ),
+        value: z
+          .string()
+          .optional()
+          .describe("Value to type or select if applicable."),
+      },
     },
-    async (spec) => toolHandler(() => client.submitSpec(spec as SpecIR))(),
+    async ({ url, action, target, value }) =>
+      toolHandler(() =>
+        client.explore({
+          url,
+          action,
+          target,
+          value,
+        }),
+      )(),
   );
 
   server.registerTool(
-    "groundTest",
+    "authorTest",
     {
       description:
-        "Resolve a DOM-blind spec against the live app so it becomes runnable. Launches a real browser, " +
-        "walks the steps in order, and for each UI target extracts live candidates and scores them with " +
-        "the deterministic multi-signal resolver (semantics, affordance, context, structure, index; no " +
-        "LLM). A step grounds when its winning candidate clears the medium-confidence band; the durable " +
-        "selector (data-testid > stable id > unique CSS > role+name) gets cached for fast re-runs. If a " +
-        "step can't be confidently resolved it comes back ungrounded and grounding stops advancing past " +
-        "it, since later steps depend on page state that step would have produced. The target app must " +
-        "already be running locally: Gimbal drives it, it doesn't start it. Required before the first " +
-        "runTest, and again any time the spec changes or a step goes stale. Check the response for " +
-        "ungrounded steps before assuming the test is ready to run: an ambiguous target usually means add " +
-        "a disambiguator (index, nearby text) or richer semantics, not retry the same spec unchanged.",
+        "Single-turn test authoring and grounding: validates, submits, and grounds a test against the live " +
+        "running app in 1 turn. Accepts either a YAML DSL string (pass via `dsl`), a full SpecIR JSON object, " +
+        "or an existing `testId` to re-ground. Author DOM-blind: describe each UI target by role, semantics, " +
+        "and intent rather than guessing a selector. Returns the grounded test artifact or structured " +
+        "candidate ambiguity details.",
       inputSchema: {
-        testId: z.string().describe("The spec/test ID returned by submitSpec."),
+        testId: z
+          .string()
+          .optional()
+          .describe(
+            "Optional existing testId to re-ground against the live application.",
+          ),
+        version: z.literal("1.0").optional(),
+        flow: SpecIR.shape.flow.optional(),
+        steps: SpecIR.shape.steps.optional(),
+        dsl: z
+          .string()
+          .optional()
+          .describe(
+            "Optional YAML DSL string. When present, compiled to SpecIR automatically.",
+          ),
       },
     },
-    async ({ testId }) => toolHandler(() => client.groundTest(testId))(),
+    async (input) =>
+      toolHandler(async () => {
+        if (input.testId && !input.dsl && !input.steps) {
+          return client.groundTest(input.testId);
+        }
+        let spec: SpecIR;
+        if ((input as any).dsl) {
+          const ast = parseDsl((input as any).dsl as string);
+          spec = compileDsl(ast);
+        } else {
+          spec = input as SpecIR;
+        }
+        return client.authorTest(spec);
+      })(),
+  );
+
+  server.registerTool(
+    "compileDsl",
+    {
+      description:
+        "Compile a YAML DSL string into a SpecIR JSON object without submitting it. " +
+        "Use this to preview the compiled output before calling authorTest or executeDsl. " +
+        "Supports actions (`navigate: /path`, `click: button(\"Label\")`, `type: FieldName = \"value\"`, " +
+        "`select: Field = \"Option\"`) and assertions including spatial geometric checks " +
+        "(`assert: urlContains(\"/path\")`, `assert: visible(button(\"Label\"))`, " +
+        "`assert: rightOf(target, refTarget)`, `assert: below(target, refTarget)`, `assert: inside(target, refTarget)`). " +
+        "Assertions following a step are automatically attached to it.",
+      inputSchema: {
+        dsl: z.string().describe("YAML DSL string to compile into SpecIR JSON."),
+      },
+    },
+    async ({ dsl }) =>
+      toolHandler(() => {
+        const ast = parseDsl(dsl);
+        const spec = compileDsl(ast);
+        return Promise.resolve(spec);
+      })(),
+  );
+
+  server.registerTool(
+    "decompileSpec",
+    {
+      description:
+        "Fetch an existing test spec by ID and return it as a human-readable YAML DSL string. " +
+        "Useful for inspecting a test without reading raw JSON, or as a starting point for " +
+        "authoring a modified version via authorTest or executeDsl.",
+      inputSchema: {
+        testId: z
+          .string()
+          .describe("The test ID whose spec you want to decompile."),
+      },
+    },
+    async ({ testId }) =>
+      toolHandler(async () => {
+        const payload = await client.getRepairPayload(testId);
+        const dsl = decompileSpec(payload.specIR);
+        return { dsl };
+      })(),
   );
 
   server.registerTool(
     "runTest",
     {
       description:
-        "Execute a grounded test and get back a run ID. Steps run in order; each uses its cached selector " +
-        "first, falls back to a deterministic re-ground (a silent, logged heal) if the cached selector no " +
-        "longer uniquely resolves, and only fails as stale if even that can't find a confident match. An " +
-        "assertion failure (element found, app behaved wrong) is never treated as a heal opportunity: " +
-        "that is a real bug and gets reported as a failure, full stop. Pass secret or environment-specific " +
-        "values through vars here rather than baking them into the spec. Poll getReport (or pollRun) with " +
-        "the returned runId to see results; this call does not block until the run finishes.",
-      inputSchema: RunRequest.shape,
+        "Execute a grounded test. Defaults to synchronous execution (`sync: true`), waiting for " +
+        "completion and returning the full RunReport in 1 turn without polling. Set `sync: false` " +
+        "only if background asynchronous execution is explicitly required. Pass secret or " +
+        "environment-specific values through vars.",
+      inputSchema: {
+        ...RunRequest.shape,
+        sync: z
+          .boolean()
+          .optional()
+          .default(true)
+          .describe(
+            "If true (default), waits for the run to complete and returns the full RunReport in 1 turn.",
+          ),
+        timeoutMs: z
+          .number()
+          .optional()
+          .default(30000)
+          .describe("Timeout in milliseconds when waiting in sync mode."),
+      },
     },
-    async (req) => toolHandler(() => client.runTest(req))(),
+    async ({ sync, timeoutMs, ...req }) =>
+      toolHandler(async () => {
+        if (sync) {
+          return client.runTestSync(req, timeoutMs);
+        }
+        return client.runTest(req);
+      })(),
+  );
+
+  server.registerTool(
+    "executeDsl",
+    {
+      description:
+        "Directly execute a YAML DSL string against a live browser and return the deterministic report in 1 turn. " +
+        "Compiles DSL, submits, grounds, and runs synchronously without separate authoring or polling steps.",
+      inputSchema: {
+        dsl: z.string().describe("The YAML DSL string to execute."),
+        vars: z
+          .record(z.string())
+          .optional()
+          .describe("Optional runtime variables for the flow."),
+        timeoutMs: z
+          .number()
+          .optional()
+          .default(30000)
+          .describe("Timeout in milliseconds for the test execution."),
+      },
+    },
+    async ({ dsl, vars, timeoutMs }) =>
+      toolHandler(async () => {
+        const ast = parseDsl(dsl);
+        const spec = compileDsl(ast);
+        const { testId, stoppedAt, ungrounded } = await client.authorTest(spec);
+        if (stoppedAt) {
+          return {
+            status: "ungrounded",
+            testId,
+            stoppedAt,
+            ungrounded,
+          };
+        }
+        return client.runTestSync({ testId, vars }, timeoutMs);
+      })(),
   );
 
   server.registerTool(
     "getReport",
     {
       description:
-        "Fetch the full report for a run: per-step status (passed/failed/warning/skipped/stale), which " +
-        "selection source resolved each step (cached vs. resolver-healed vs. none), confidence band, " +
-        "failure reason/message, duration, and a screenshot where captured. needsReview on the report " +
-        "means at least one step needs author attention. Use this to decide next action: a stale step " +
-        "means call healing next, not retry the run as-is.",
-      inputSchema: {
-        runId: z.string().describe("The run ID returned by runTest."),
-      },
-    },
-    async ({ runId }) => toolHandler(() => client.getReport(runId))(),
-  );
-  server.registerTool(
-    "pollRun",
-    {
-      description:
-        "Alias for getReport. Poll a run's status/report by runId while it's still in progress or to " +
-        "fetch its final result. Prefer calling this in a loop right after runTest instead of assuming the " +
-        "run is done immediately.",
+        "Fetch the full report for a previous run by runId: per-step status (passed/failed/warning/skipped/stale), " +
+        "selection source (cached vs. resolver-healed vs. none), confidence band, failure reason/message, " +
+        "duration, and screenshots. Note: runTest returns this report directly in 1 turn by default (sync: true).",
       inputSchema: {
         runId: z.string().describe("The run ID returned by runTest."),
       },
