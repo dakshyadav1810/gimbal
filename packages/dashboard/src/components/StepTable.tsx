@@ -1,158 +1,129 @@
 import type { GroundedStep, StepResult } from "@gimbal/shared";
+import { ChevronRight, Clock } from "lucide-react";
+import { useState } from "react";
+import { useTestCandidates } from "../queries.js";
+import { ResolutionPanel } from "./ResolutionPanel.js";
 import { Screenshot } from "./Screenshot.js";
+import { StatusBadge } from "./StatusBadge.js";
 
-const STATUS_CONFIG: Record<
-  StepResult["status"],
-  { label: string; text: string; bg: string; border: string; icon: string }
-> = {
-  passed: {
-    label: "Passed",
-    text: "text-emerald-700 dark:text-emerald-400",
-    bg: "bg-emerald-500/10",
-    border: "border-emerald-500/20",
-    icon: "✓",
-  },
-  failed: {
-    label: "Failed",
-    text: "text-rose-700 dark:text-rose-400",
-    bg: "bg-rose-500/10",
-    border: "border-rose-500/20",
-    icon: "✗",
-  },
-  warning: {
-    label: "Warning",
-    text: "text-amber-700 dark:text-amber-400",
-    bg: "bg-amber-500/10",
-    border: "border-amber-500/20",
-    icon: "⚠️",
-  },
-  skipped: {
-    label: "Skipped",
-    text: "text-neutral-500 dark:text-neutral-400",
-    bg: "bg-neutral-100 dark:bg-neutral-900",
-    border: "border-neutral-200 dark:border-neutral-800",
-    icon: "↷",
-  },
-  stale: {
-    label: "Stale",
-    text: "text-amber-700 dark:text-amber-400",
-    bg: "bg-amber-500/10",
-    border: "border-amber-500/20",
-    icon: "⚠️",
-  },
-};
-
-const SELECTION_COLORS: Record<string, string> = {
-  cached:
-    "bg-indigo-500/10 text-brand-primary dark:text-indigo-400 border-indigo-500/20",
-  resolver:
-    "bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border-cyan-500/20",
-  none: "bg-neutral-100 text-neutral-500 dark:bg-neutral-900 dark:text-neutral-400 border-neutral-200 dark:border-neutral-800",
+const SELECTION_LABEL: Record<string, string> = {
+  cached: "cached",
+  resolver: "healed",
+  none: "none",
 };
 
 export function StepTable({
   steps,
   specSteps = [],
   showScreenshots = false,
+  testId,
 }: {
   steps: StepResult[];
   specSteps?: GroundedStep[];
   showScreenshots?: boolean;
+  // When given, each row can expand into its grounding-time resolution ranking (Phase 5a).
+  testId?: string;
 }) {
+  const { data: candidatesDoc } = useTestCandidates(testId ?? "");
+  const [expandedStepId, setExpandedStepId] = useState<string | null>(null);
+
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       {steps.map((s, index) => {
         const specStep = specSteps.find((item) => item.id === s.stepId);
-        const status = STATUS_CONFIG[s.status];
         const action =
           specStep?.kind === "ui" ? specStep.action : (specStep?.kind ?? "ui");
         const stepIntent = specStep?.intent ?? "Execute action";
+        const stepResolution = candidatesDoc?.steps.find(
+          (cs) => cs.stepId === s.stepId,
+        )?.resolution;
+        const isExpanded = expandedStepId === s.stepId;
 
         return (
-          <div
-            key={s.stepId}
-            className={`glass-panel border-l-4 rounded-xl p-5 shadow-sm transition-all duration-300 hover:shadow-md ${
-              s.status === "passed"
-                ? "border-l-emerald-500"
-                : s.status === "failed"
-                  ? "border-l-rose-500"
-                  : "border-l-amber-500"
-            }`}
-          >
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              {/* Left Column: Number, Action, Intent, Error Messages */}
-              <div className="flex-1">
-                <div className="flex flex-wrap items-center gap-2.5">
-                  <span className="flex h-6 w-6 items-center justify-center rounded-md bg-neutral-100 font-mono text-xs font-bold text-neutral-500 dark:bg-neutral-900">
+          <div key={s.stepId} className="panel p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="flex h-5 w-5 items-center justify-center rounded bg-[var(--surface-sunken)] font-mono text-[10px] font-semibold text-[var(--text-tertiary)]">
                     {index + 1}
                   </span>
-
-                  <span className="font-mono text-xs font-bold uppercase tracking-wider text-neutral-400">
+                  <span className="font-mono text-xs text-[var(--text-tertiary)]">
                     {s.stepId}
                   </span>
-
-                  <span className="rounded-lg bg-neutral-100 px-2 py-0.5 font-mono text-xs font-bold dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300">
+                  <span className="rounded bg-[var(--surface-sunken)] px-1.5 py-0.5 font-mono text-[11px] font-medium text-[var(--text-secondary)]">
                     {action}
                   </span>
-
-                  <span
-                    className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${status.bg} ${status.text} ${status.border}`}
-                  >
-                    <span>{status.icon}</span>
-                    <span>{status.label}</span>
-                  </span>
-
+                  <StatusBadge status={s.status} />
                   {s.selection && (
-                    <span
-                      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${SELECTION_COLORS[s.selection]}`}
-                    >
-                      {s.selection === "cached"
-                        ? "⚡ cached"
-                        : s.selection === "resolver"
-                          ? "🔧 healed"
-                          : "none"}
+                    <span className="rounded-md border border-[var(--border-default)] px-1.5 py-0.5 text-[11px] text-[var(--text-tertiary)]">
+                      {SELECTION_LABEL[s.selection]}
                     </span>
                   )}
-
                   {s.band && (
-                    <span className="inline-flex items-center rounded-full border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-950 px-2 py-0.5 text-xs font-medium text-neutral-600 dark:text-neutral-400">
-                      Band: {s.band}
+                    <span className="rounded-md border border-[var(--border-default)] px-1.5 py-0.5 text-[11px] text-[var(--text-tertiary)]">
+                      band: {s.band}
                     </span>
                   )}
                 </div>
 
-                <p className="mt-3 text-sm font-semibold tracking-tight text-neutral-800 dark:text-neutral-200">
+                <p className="mt-2 text-sm font-medium text-[var(--text-primary)]">
                   {stepIntent}
                 </p>
 
                 {s.failure && (
-                  <div className="mt-3 rounded-lg border border-red-500/10 bg-red-500/5 p-3.5">
-                    <p className="font-mono text-xs font-bold text-rose-600 dark:text-rose-400 uppercase tracking-wide">
+                  <div className="mt-2 rounded-md border border-rose-500/20 bg-rose-500/5 p-3">
+                    <p className="font-mono text-xs font-semibold text-rose-700 dark:text-rose-400">
                       {s.failure.reason}
                     </p>
-                    <p className="mt-1 text-xs text-rose-600/90 dark:text-rose-400/90 leading-relaxed font-mono">
+                    <p className="mt-1 font-mono text-xs text-rose-700/80 dark:text-rose-400/80">
                       {s.failure.message}
                     </p>
                   </div>
                 )}
+
+                {s.note && (
+                  <p className="mt-2 text-xs text-[var(--text-tertiary)]">{s.note}</p>
+                )}
               </div>
 
-              {/* Right Column: Duration and Screenshot */}
-              <div className="flex flex-col items-end gap-3 sm:text-right">
-                <span className="font-mono text-xs font-semibold text-neutral-400 dark:text-neutral-500">
-                  ⏱ {s.durationMs}ms
+              <div className="flex shrink-0 flex-col items-end gap-2">
+                <span className="flex items-center gap-1 font-mono text-xs text-[var(--text-tertiary)]">
+                  <Clock size={11} />
+                  {s.durationMs}ms
                 </span>
-
                 {showScreenshots && s.screenshot && (
-                  <div className="group relative w-40 overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-800 shadow-sm transition-all duration-300 hover:scale-[1.03] hover:shadow-md">
-                    <Screenshot
-                      path={s.screenshot}
-                      alt={`${s.stepId} screenshot`}
-                    />
+                  <div className="w-32 overflow-hidden rounded border border-[var(--border-default)]">
+                    <Screenshot path={s.screenshot} alt={`${s.stepId} screenshot`} />
                   </div>
                 )}
               </div>
             </div>
+
+            {stepResolution && stepResolution.candidates.length > 0 && (
+              <div className="mt-3 border-t border-[var(--border-default)] pt-3">
+                <button
+                  type="button"
+                  onClick={() => setExpandedStepId(isExpanded ? null : s.stepId)}
+                  className="flex items-center gap-1 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                >
+                  <ChevronRight
+                    size={13}
+                    className={`transition-transform ${isExpanded ? "rotate-90" : ""}`}
+                  />
+                  Resolution ranking
+                  {s.selection === "cached" && (
+                    <span className="font-normal text-[var(--text-tertiary)]">
+                      (grounding-time ranking — this step ran from cache)
+                    </span>
+                  )}
+                </button>
+                {isExpanded && (
+                  <div className="mt-3">
+                    <ResolutionPanel candidates={stepResolution.candidates} />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         );
       })}

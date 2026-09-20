@@ -10,7 +10,7 @@ import { TestListPage } from "./pages/TestListPage.js";
 // Thin developer tool — never executes tests itself, only calls core (invariant #3, SPEC-005 §3).
 export function App() {
   return (
-    <div className="min-h-screen bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+    <div className="min-h-screen bg-[var(--surface-page)] text-[var(--text-primary)]">
       <Nav />
       <Switch>
         <Route path="/">

@@ -5,14 +5,46 @@
     "Segoe UI", Roboto, sans-serif;
   --font-mono: "JetBrains Mono", monospace;
 
-  --color-brand-primary: #6366f1; /* Indigo */
-  --color-brand-primary-hover: #4f46e5;
-  --color-brand-success: #10b981; /* Emerald */
-  --color-brand-warning: #f59e0b; /* Amber */
-  --color-brand-danger: #ef4444; /* Rose */
+  /* Brand — used sparingly (links, primary actions, active nav) not as page decoration. */
+  --color-brand-primary: #00b893;
+  --color-brand-primary-hover: #009b7d;
+
+  /* Semantic status colors — the ONLY place color carries meaning in this UI. */
+  --color-status-success: #10b981;
+  --color-status-warning: #f59e0b;
+  --color-status-danger: #ef4444;
 }
 
-/* Custom scrollbar styling for premium feel */
+/* ── Design tokens (PLAN-002 Phase B) ──────────────────────────────────────
+   Two surface levels, one border, one radius scale, one shadow — used everywhere instead of each
+   page re-inventing glass/blur/glow values. No gradients, no blur, no glow shadows, no decorative
+   animation: this is a data tool, not a landing page. */
+:root {
+  --surface-page: #fafafa;
+  --surface-panel: #ffffff;
+  --surface-sunken: #f4f4f5;
+  --border-default: #e4e4e7;
+  --text-primary: #18181b;
+  --text-secondary: #71717a;
+  --text-tertiary: #a1a1aa;
+  --radius-panel: 0.75rem;
+  --radius-chip: 0.375rem;
+  --shadow-panel: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface-page: #0a0a0b;
+    --surface-panel: #141416;
+    --surface-sunken: #1c1c1f;
+    --border-default: #27272a;
+    --text-primary: #f4f4f5;
+    --text-secondary: #a1a1aa;
+    --text-tertiary: #71717a;
+    --shadow-panel: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  }
+}
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -27,7 +59,6 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #a1a1aa;
 }
-
 @media (prefers-color-scheme: dark) {
   ::-webkit-scrollbar-thumb {
     background: #3f3f46;
@@ -41,19 +72,14 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: var(--surface-page);
+  color: var(--text-primary);
 }
 
-/* Premium glassmorphic cards with high contrast in both modes */
-.glass-panel {
-  background-color: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(228, 228, 231, 0.9);
-}
-
-@media (prefers-color-scheme: dark) {
-  .glass-panel {
-    background-color: rgba(24, 24, 27, 0.85);
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(63, 63, 70, 0.6);
-  }
+/* Flat panel — replaces .glass-panel (no blur, no translucency, one real border). */
+.panel {
+  background-color: var(--surface-panel);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-panel);
 }

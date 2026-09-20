@@ -41,6 +41,13 @@ export function useTestReviews(testId: string) {
   });
 }
 
+export function useTestCandidates(testId: string) {
+  return useQuery({
+    queryKey: ["tests", testId, "candidates"],
+    queryFn: () => api.getCandidates(testId),
+  });
+}
+
 export function useRepairPayload(testId: string) {
   return useQuery({
     queryKey: ["tests", testId, "repair"],

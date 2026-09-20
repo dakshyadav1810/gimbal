@@ -1,4 +1,5 @@
 import type {
+  CandidatesDoc,
   GroundedTest,
   RepairPayload,
   ReviewRecord,
@@ -17,7 +18,10 @@ export interface TestSummary {
 // dashboard's own client-side routes so the two don't collide (see DECISIONS.md #11/#12).
 async function req<T>(path: string, opts?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, opts);
-  if (!res.ok) throw new Error(`${path} -> ${res.status}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error?.message ?? `${path} -> ${res.status}`);
+  }
   return res.json();
 }
 
@@ -37,6 +41,14 @@ export const api = {
     req<ReviewRecord[]>(`/tests/${testId}/reviews`),
   getRepairPayload: (testId: string) =>
     req<RepairPayload>(`/tests/${testId}/repair`),
+  getCandidates: (testId: string) =>
+    req<CandidatesDoc | null>(`/tests/${testId}/candidates`),
+  updateSpec: (testId: string, spec: SpecIR) =>
+    req<{ testId: string; spec: SpecIR }>(`/tests/${testId}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(spec),
+    }),
 };
 
 export function wsUrl(path: string): string {
