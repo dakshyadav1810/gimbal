@@ -7,7 +7,8 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { Link } from "wouter";
-import { useReviews, useTests } from "../queries.js";
+import type { TestSummary } from "../api.js";
+import { useTests } from "../queries.js";
 
 function StatTile({
   label,
@@ -44,9 +45,21 @@ function StatTile({
   );
 }
 
+// Three states a person acts on: pass, needs review (nothing failed but something healed or abstained), fail.
+function LastRun({ lastRun }: { lastRun: TestSummary["lastRun"] }) {
+  if (!lastRun)
+    return <span className="text-[var(--text-tertiary)]">never run</span>;
+  const [label, cls] = {
+    running: ["RUNNING", "text-[var(--text-secondary)]"],
+    passed: ["PASS", "text-emerald-600 dark:text-emerald-400"],
+    failed: ["FAIL", "text-rose-600 dark:text-rose-400"],
+    review: ["NEEDS REVIEW", "text-amber-600 dark:text-amber-400"],
+  }[lastRun.outcome];
+  return <span className={`font-semibold ${cls}`}>{label}</span>;
+}
+
 export function TestListPage() {
   const { data: tests, isLoading: testsLoading } = useTests();
-  const { data: reviews, isLoading: reviewsLoading } = useReviews();
   const [search, setSearch] = useState("");
 
   const filteredTests = tests?.filter(
@@ -58,7 +71,7 @@ export function TestListPage() {
   const totalCount = tests?.length ?? 0;
   const groundedCount = tests?.filter((t) => t.grounded).length ?? 0;
   const ungroundedCount = totalCount - groundedCount;
-  const reviewCount = reviews?.length ?? 0;
+  const reviewCount = tests?.reduce((n, t) => n + t.openRepairs, 0) ?? 0;
 
   return (
     <main className="mx-auto max-w-7xl px-6 py-8">
@@ -85,9 +98,9 @@ export function TestListPage() {
           Icon={AlertTriangle}
         />
         <StatTile
-          label="Stale Steps"
+          label="Open Repairs"
           value={reviewCount}
-          sublabel="Require review / re-authoring"
+          sublabel="Heal proposals and steps waiting for a fix"
           tone="danger"
           Icon={AlertTriangle}
         />
@@ -110,7 +123,7 @@ export function TestListPage() {
       </section>
 
       <section>
-        {(testsLoading || reviewsLoading) && (
+        {testsLoading && (
           <div className="flex h-32 items-center justify-center gap-2 text-sm text-[var(--text-secondary)]">
             <Loader2 size={16} className="animate-spin" />
             Loading specs...
@@ -153,6 +166,14 @@ export function TestListPage() {
               <h4 className="mt-3 text-sm font-semibold text-[var(--text-primary)]">
                 {t.name}
               </h4>
+              <div className="mt-3 flex items-center gap-2 text-xs">
+                <LastRun lastRun={t.lastRun} />
+                {t.openRepairs > 0 && (
+                  <span className="rounded-md border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 font-medium text-amber-700 dark:text-amber-400">
+                    {t.openRepairs} to review
+                  </span>
+                )}
+              </div>
             </Link>
           ))}
         </div>

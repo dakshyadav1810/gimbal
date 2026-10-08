@@ -30,15 +30,8 @@ export function useRun(runId: string) {
   });
 }
 
-export function useReviews() {
-  return useQuery({ queryKey: ["reviews"], queryFn: api.listReviews });
-}
-
-export function useTestReviews(testId: string) {
-  return useQuery({
-    queryKey: ["tests", testId, "reviews"],
-    queryFn: () => api.listTestReviews(testId),
-  });
+export function useRepairs() {
+  return useQuery({ queryKey: ["repairs"], queryFn: api.listRepairs });
 }
 
 export function useTestCandidates(testId: string) {

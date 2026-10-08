@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "url": "http://127.0.0.1:30999/",
-  "capturedAt": "2026-10-08T22:12:54.242Z",
+  "capturedAt": "2026-10-08T22:15:09.207Z",
   "viewport": {
     "width": 1280,
     "height": 720
@@ -15,19 +15,13 @@
       "role": "input",
       "name": "Email Address",
       "region": null,
-      "path": [
-        "body",
-        "html"
-      ]
+      "path": ["body", "html"]
     },
     {
       "role": "button",
       "name": "Log In",
       "region": null,
-      "path": [
-        "body",
-        "html"
-      ]
+      "path": ["body", "html"]
     }
   ]
 }

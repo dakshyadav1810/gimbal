@@ -33,7 +33,7 @@ export function Nav() {
           </Link>
           <nav className="flex items-center gap-1">
             <NavLink href="/tests" label="Tests" />
-            <NavLink href="/reviews" label="Review Queue" />
+            <NavLink href="/repairs" label="Repairs" />
           </nav>
         </div>
       </div>

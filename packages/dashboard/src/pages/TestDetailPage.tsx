@@ -4,12 +4,17 @@ import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { api } from "../api.js";
 import { JsonEditor } from "../components/JsonEditor.js";
-import { useRuns, useTest } from "../queries.js";
+import { useRepairs, useRuns, useTest } from "../queries.js";
 
 export function TestDetailPage({ testId }: { testId: string }) {
   const { data: test, isLoading, isError } = useTest(testId);
   const { data: runs } = useRuns(testId);
   const latest = runs?.[0];
+  const { data: repairs } = useRepairs();
+  const open = (repairs ?? []).filter(
+    (r) =>
+      r.testId === testId && (r.status === "proposed" || r.status === "needed"),
+  );
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
   const [running, setRunning] = useState(false);
@@ -117,6 +122,19 @@ export function TestDetailPage({ testId }: { testId: string }) {
               </p>
             )}
           </section>
+
+          {open.length > 0 && (
+            <Link
+              href="/repairs"
+              className="panel mb-6 block border-amber-500/30 bg-amber-500/5 p-4 text-sm text-[var(--text-primary)]"
+            >
+              {open.length} repair{open.length > 1 ? "s" : ""} waiting for
+              review on this test. Steps:{" "}
+              <span className="font-mono text-xs">
+                {open.map((r) => r.stepId).join(", ")}
+              </span>
+            </Link>
+          )}
 
           <section className="panel overflow-hidden">
             <div className="flex items-center justify-between border-b border-[var(--border-default)] px-4 py-2.5">

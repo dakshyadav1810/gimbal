@@ -16,3 +16,8 @@
 - 2.3: `gimbal doctor` checks the embedding model by looking for its cache directory only; it does not verify the pinned revision. Offline (`HF_HUB_OFFLINE`) handling is untested.
 - 2.7: `--workers` (parallel runs) deliberately deferred. No example GitHub Actions workflow yet (Phase 8.5).
 - 2.1: the skill has not been tried with a fresh agent (manual gate in the plan).
+- 1.7 result (45-cell fixture bench, 2026-10-09, mutations that break the stored selector): false positives 23 -> 3, located 10 -> 9, abstained 1 -> 16. Precision is fixed by the heal ambiguity rule; **recovery is weak (9 of 27 same-element cells)**. `wrapper-insert` recovers 0 of 9: the added wrapper changes the target's structure/context path while its siblings keep theirs, so those signals penalise the right element. Needs signal rebalancing, tuned on a train split and reported on held-out (plan 4.4). Numbers in `packages/bench/results/`.
+- Bench: 3 remaining false positives are all `removed` (a different button above the 0.05 margin). `label-synonym` never needs a heal because a durable selector survives, so it says nothing about semantic recovery; a mutation that changes both label and attributes is needed.
+- 3.2: the test detail page only links to open repairs; per-step "original target vs current target + evidence" is not shown there yet. Run detail still shows the old per-step resolution panel.
+- 3.4: semantic assertion detail is not built (Phase 5 is not started).
+- 3: dashboard pages were type-checked and built but not visually verified in a browser yet; do that with the demo (Phase 6).

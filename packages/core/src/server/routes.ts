@@ -3,6 +3,7 @@ import {
   type GetPageResponse,
   MaintainRequest,
   type PageSnapshot,
+  type RunReport,
   RunRequest,
 } from "@gimbal/shared";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
@@ -27,6 +28,13 @@ function describeError(e: unknown): string {
   if (msg.includes("unresolved var"))
     return `${msg}. Fix: declare the variable in flow.vars.`;
   return msg;
+}
+
+// pass / fail / review: a person should look at "review" but nothing in it failed.
+function runOutcome(r: RunReport): "running" | "passed" | "failed" | "review" {
+  if (r.status === "running") return "running";
+  if (r.steps.some((s) => s.status === "failed")) return "failed";
+  return r.status === "failed" || r.needsReview ? "review" : "passed";
 }
 
 function apiError(code: string, message: string) {
@@ -83,7 +91,30 @@ function registerApiRoutes(app: FastifyInstance, c: Container, hub: WsHub) {
     }
   });
 
-  app.get("/tests", async () => c.store.list());
+  // Each entry carries what the list view needs to show trust at a glance: how the last run went and
+  // how many repairs are waiting for a person.
+  app.get("/tests", async () =>
+    Promise.all(
+      (await c.store.list()).map(async (t) => {
+        const lastSummary = c.cache.listRuns(t.testId)[0];
+        const last = lastSummary && c.cache.getRun(lastSummary.runId);
+        const open = (await c.repairs.list(t.testId)).filter(
+          (r) => r.status === "proposed" || r.status === "needed",
+        ).length;
+        return {
+          ...t,
+          lastRun: last
+            ? {
+                runId: last.runId,
+                outcome: runOutcome(last),
+                finishedAt: last.finishedAt,
+              }
+            : null,
+          openRepairs: open,
+        };
+      }),
+    ),
+  );
 
   // Hand-edit path for the dashboard's spec editor (PLAN-002 Phase A) — same validation as initial
   // authoring. Only rewrites spec.json; a previously-grounded test keeps its (now possibly stale)
@@ -217,21 +248,6 @@ function registerApiRoutes(app: FastifyInstance, c: Container, hub: WsHub) {
   app.post(
     "/repairs/:id/reject",
     decide((id, body) => rejectRepair(c.repairs, id, body.reason)),
-  );
-
-  // Transitional views for the dashboard's old review queue; replaced by the Repairs page (Phase 3).
-  const openAsReviews = async (testId?: string) =>
-    (testId ? await c.repairs.list(testId) : await c.repairs.listAll())
-      .filter((r) => r.status === "needed" || r.status === "proposed")
-      .map((r) => ({
-        testId: r.testId,
-        stepId: r.stepId,
-        url: "",
-        candidatesJson: "[]",
-      }));
-  app.get("/reviews", async () => openAsReviews());
-  app.get("/tests/:id/reviews", async (req) =>
-    openAsReviews((req.params as { id: string }).id),
   );
 
   // --- runs ---

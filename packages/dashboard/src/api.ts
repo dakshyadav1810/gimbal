@@ -1,8 +1,8 @@
 import type {
   CandidatesDoc,
   GroundedTest,
+  Repair,
   RepairPayload,
-  ReviewRecord,
   RunReport,
   RunSummary,
   SpecIR,
@@ -12,6 +12,12 @@ export interface TestSummary {
   testId: string;
   name: string;
   grounded: boolean;
+  lastRun: {
+    runId: string;
+    outcome: "running" | "passed" | "failed" | "review";
+    finishedAt: string;
+  } | null;
+  openRepairs: number;
 }
 
 // All REST routes live under /api — the bare paths (/tests, /reviews, ...) are reserved for the
@@ -25,6 +31,12 @@ async function req<T>(path: string, opts?: RequestInit): Promise<T> {
   return res.json();
 }
 
+const post = (body: unknown): RequestInit => ({
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify(body),
+});
+
 export const api = {
   listTests: () => req<TestSummary[]>("/tests"),
   getTest: (id: string) => req<GroundedTest | SpecIR>(`/tests/${id}`),
@@ -36,9 +48,10 @@ export const api = {
     }),
   getReport: (runId: string) => req<RunReport>(`/runs/${runId}`),
   listRuns: (testId: string) => req<RunSummary[]>(`/tests/${testId}/runs`),
-  listReviews: () => req<ReviewRecord[]>("/reviews"),
-  listTestReviews: (testId: string) =>
-    req<ReviewRecord[]>(`/tests/${testId}/reviews`),
+  listRepairs: () => req<Repair[]>("/repairs"),
+  acceptRepair: (id: string) => req<Repair>(`/repairs/${id}/accept`, post({})),
+  rejectRepair: (id: string, reason?: string) =>
+    req<Repair>(`/repairs/${id}/reject`, post({ reason })),
   getRepairContext: (testId: string) =>
     req<RepairPayload>(`/tests/${testId}/repair-context`),
   getCandidates: (testId: string) =>
