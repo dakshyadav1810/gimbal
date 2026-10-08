@@ -1,6 +1,6 @@
 {
   "name": "@gimbal/shared",
-  "version": "0.1.0",
+  "version": "0.1.0-alpha.0",
   "description": "Shared Zod schemas for Gimbal",
   "license": "BUSL-1.1",
   "repository": {
@@ -22,7 +22,8 @@
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts --clean",
     "dev": "tsup src/index.ts --format esm --dts --watch",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepack": "node ../../scripts/copy-license.mjs"
   },
   "dependencies": {
     "zod": "^3.24.1"
@@ -31,5 +32,8 @@
     "tsup": "^8.3.5",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

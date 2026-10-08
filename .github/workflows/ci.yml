@@ -1,0 +1,31 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm license:check
+      - run: pnpm lint
+      - run: pnpm build
+      - run: pnpm -r exec tsc --noEmit
+      - run: npx playwright install --with-deps chromium
+      - run: pnpm test
+      - name: Demo A (init, heal, verify, accept, rerun, JUnit)
+        run: pnpm --filter @gimbal/bench demo
+      - name: Healing benchmark smoke
+        run: pnpm --filter @gimbal/bench smoke

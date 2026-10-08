@@ -1,6 +1,6 @@
 {
   "name": "gimbal",
-  "version": "0.1.0",
+  "version": "0.1.0-alpha.0",
   "description": "Deterministic-first end-to-end testing for modern web applications",
   "license": "BUSL-1.1",
   "repository": {
@@ -17,14 +17,15 @@
   "publishConfig": {
     "access": "public"
   },
-  "files": ["dist", "skills", "README.md"],
+  "files": ["dist", "skills", "README.md", "LICENSE"],
   "bin": {
     "gimbal": "./dist/index.js"
   },
   "scripts": {
     "build": "tsup src/index.ts --format esm --clean --sourcemap",
     "dev": "tsx src/index.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "prepack": "node ../../scripts/copy-license.mjs"
   },
   "dependencies": {
     "@gimbal/core": "workspace:*",
@@ -44,5 +45,8 @@
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }
