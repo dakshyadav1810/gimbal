@@ -86,7 +86,8 @@ export async function runEvaluation(): Promise<{
   // resolver logic change) and is a harmless no-op under vitest, where this doesn't occur.
   await page.addInitScript(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (window as any).__name = (window as any).__name || ((fn: unknown) => fn);
+    const w = window as unknown as { __name?: unknown };
+    w.__name = w.__name || ((fn: unknown) => fn);
   });
 
   const results: EvaluationResult[] = [];

@@ -47,6 +47,7 @@ export function RunDetailPage({
     return () => ws.close();
   }, [runId, finishedReport]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll whenever a log line is added
   useEffect(() => {
     logRef.current?.scrollTo({
       top: logRef.current.scrollHeight,
@@ -105,7 +106,10 @@ export function RunDetailPage({
                 Waiting for logs...
               </div>
             ) : (
-              log.map((line, i) => <div key={i}>{line}</div>)
+              log.map((line, i) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: append-only log lines have no id
+                <div key={i}>{line}</div>
+              ))
             )}
           </div>
         </section>

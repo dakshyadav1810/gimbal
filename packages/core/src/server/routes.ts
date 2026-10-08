@@ -1,7 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { MaintainRequest, RunRequest } from "@gimbal/shared";
-import type { FastifyInstance } from "fastify";
-import { exploreUiState } from "../authoring/telemetry.js";
+import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import {
+  type ExploreUiRequest,
+  exploreUiState,
+} from "../authoring/telemetry.js";
 import { summarizeUngrounded } from "../grounding/summarize.js";
 import { RepairError, acceptRepair, rejectRepair } from "../repairs/decide.js";
 import type { Container } from "./container.js";
@@ -155,7 +158,13 @@ function registerApiRoutes(app: FastifyInstance, c: Container, hub: WsHub) {
 
   const decide =
     (fn: (id: string, body: { reason?: string }) => Promise<unknown>) =>
-    async (req: any, reply: any) => {
+    async (
+      req: FastifyRequest<{
+        Params: { id: string };
+        Body: { reason?: string } | null;
+      }>,
+      reply: FastifyReply,
+    ) => {
       try {
         return await fn(req.params.id, req.body ?? {});
       } catch (e) {
@@ -235,8 +244,8 @@ function registerApiRoutes(app: FastifyInstance, c: Container, hub: WsHub) {
     try {
       const body = req.body as {
         url: string;
-        action: any;
-        target?: any;
+        action: ExploreUiRequest["action"];
+        target?: ExploreUiRequest["target"];
         value?: string;
       };
       return await exploreUiState(c.config, c.resolver, body);

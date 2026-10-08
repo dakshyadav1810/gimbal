@@ -67,15 +67,20 @@ export async function locate(
     };
   }
 
-  const seed = step.target?.resolution?.cachedSelector;
-  const seedFrame = step.target?.resolution?.winner?.frame;
-  if (seed && (await isUniqueVisible(locatorFor(page, seed, seedFrame)))) {
+  const seedResolution = step.target?.resolution;
+  const seed = seedResolution?.cachedSelector;
+  const seedFrame = seedResolution?.winner?.frame;
+  if (
+    seed &&
+    seedResolution &&
+    (await isUniqueVisible(locatorFor(page, seed, seedFrame)))
+  ) {
     cache.putSelector({
       testId,
       stepId: step.id,
       domHash,
       cachedSelector: seed,
-      band: step.target!.resolution!.band,
+      band: seedResolution.band,
     });
     return {
       locator: locatorFor(page, seed, seedFrame),

@@ -247,7 +247,7 @@ describe("extractInteractiveElementsInPage", () => {
     expect(titleEl.label).toBe("Save changes");
 
     document.body.innerHTML = "";
-    setup(`<button>  Click me  </button>`);
+    setup("<button>  Click me  </button>");
     const [textEl] = extractInteractiveElementsInPage();
     expect(textEl.label).toBe("Click me");
   });

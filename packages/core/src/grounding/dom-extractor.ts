@@ -60,7 +60,8 @@ export function extractInteractiveElementsInPage(): RawDomElement[] {
       return el.textContent?.trim() ?? "";
     }
     const clone = el.cloneNode(true) as HTMLElement;
-    clone.querySelectorAll('[aria-hidden="true"]').forEach((n) => n.remove());
+    for (const n of Array.from(clone.querySelectorAll('[aria-hidden="true"]')))
+      n.remove();
     return clone.textContent?.trim() ?? "";
   };
 
@@ -115,9 +116,10 @@ export function extractInteractiveElementsInPage(): RawDomElement[] {
     const parentLabel = el.closest("label");
     if (parentLabel) {
       const clone = parentLabel.cloneNode(true) as HTMLElement;
-      clone
-        .querySelectorAll("input, select, textarea, button")
-        .forEach((sub) => sub.remove());
+      for (const sub of Array.from(
+        clone.querySelectorAll("input, select, textarea, button"),
+      ))
+        sub.remove();
       const labelText = clone.textContent?.trim();
       if (labelText) return labelText;
     }
@@ -200,7 +202,7 @@ export function extractInteractiveElementsInPage(): RawDomElement[] {
       node =
         element.parentElement ||
         (element.parentNode?.nodeType === Node.DOCUMENT_FRAGMENT_NODE
-          ? (element.parentNode as any).host
+          ? (element.parentNode as ShadowRoot).host
           : null);
     }
     return `/${parts.join("/")}`;
@@ -211,7 +213,7 @@ export function extractInteractiveElementsInPage(): RawDomElement[] {
     let node: Node | null =
       el.parentElement ||
       (el.parentNode?.nodeType === Node.DOCUMENT_FRAGMENT_NODE
-        ? (el.parentNode as any).host
+        ? (el.parentNode as ShadowRoot).host
         : null);
     let depth = 0;
     while (node && depth < 5 && node.nodeType === Node.ELEMENT_NODE) {
@@ -225,7 +227,7 @@ export function extractInteractiveElementsInPage(): RawDomElement[] {
       node =
         element.parentElement ||
         (element.parentNode?.nodeType === Node.DOCUMENT_FRAGMENT_NODE
-          ? (element.parentNode as any).host
+          ? (element.parentNode as ShadowRoot).host
           : null);
       depth++;
     }
@@ -478,10 +480,8 @@ export function extractInteractiveElementsInPage(): RawDomElement[] {
       return false;
     }
     if (
-      Boolean(
-        el.closest?.(
-          '[style*="display:none"], [style*="display: none"], [style*="visibility:hidden"], [style*="visibility: hidden"]',
-        ),
+      el.closest?.(
+        '[style*="display:none"], [style*="display: none"], [style*="visibility:hidden"], [style*="visibility: hidden"]',
       )
     ) {
       return false;
@@ -545,7 +545,7 @@ export function extractInteractiveElementsInPage(): RawDomElement[] {
     const parentXpath = el.parentElement
       ? xpathFor(el.parentElement)
       : el.parentNode?.nodeType === Node.DOCUMENT_FRAGMENT_NODE
-        ? xpathFor((el.parentNode as any).host)
+        ? xpathFor((el.parentNode as ShadowRoot).host as HTMLElement)
         : null;
 
     return {

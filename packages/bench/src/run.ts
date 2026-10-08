@@ -146,13 +146,16 @@ try {
         } catch (e) {
           console.error(`  ${flowId}: ${(e as Error).message.slice(0, 160)}`);
         }
-        (tally[m.name] ??= {
-          "correct-repair": 0,
-          "incorrect-repair": 0,
-          "correct-abstention": 0,
-          "missed-repair": 0,
-          error: 0,
-        })[outcome]++;
+        if (!tally[m.name]) {
+          tally[m.name] = {
+            "correct-repair": 0,
+            "incorrect-repair": 0,
+            "correct-abstention": 0,
+            "missed-repair": 0,
+            error: 0,
+          };
+        }
+        tally[m.name][outcome]++;
       }
     }
   }

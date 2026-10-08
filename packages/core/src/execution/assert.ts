@@ -1,6 +1,10 @@
 import type { Assertion, ExpectedOutcome, Tier1Target } from "@gimbal/shared";
 import type { Page } from "playwright";
 
+type AriaRole = Parameters<Page["getByRole"]>[0];
+// Tier1Target.role is validated by the shared schema; Playwright just types it as its own union.
+const ariaRole = (role: string) => role as AriaRole;
+
 export interface AssertOutcome {
   ok: boolean;
   reason?: string;
@@ -19,7 +23,7 @@ async function evaluateElementPresence(
   expectVisible: boolean,
 ): Promise<AssertOutcome> {
   if (!page) return ok(false);
-  const locator = page.getByRole(target.role as any, { name: target.label });
+  const locator = page.getByRole(ariaRole(target.role), { name: target.label });
   const count = await locator.count().catch(() => 0);
   if (count > 1) {
     return {
@@ -41,7 +45,7 @@ async function getTargetBoundingBox(
   target: Tier1Target | undefined,
 ): Promise<{ x: number; y: number; width: number; height: number } | null> {
   if (!page || !target) return null;
-  const locator = page.getByRole(target.role as any, { name: target.label });
+  const locator = page.getByRole(ariaRole(target.role), { name: target.label });
   return await locator.boundingBox().catch(() => null);
 }
 
@@ -82,7 +86,7 @@ export async function evaluateAssertion(
     }
     case "value": {
       const locator = a.target
-        ? ctx.page?.getByRole(a.target.role as any, { name: a.target.label })
+        ? ctx.page?.getByRole(ariaRole(a.target.role), { name: a.target.label })
         : ctx.page?.locator(":focus");
       const val = await locator?.inputValue().catch(() => "");
       return ok(val === interpolate(a.expected, ctx.vars));
@@ -99,7 +103,7 @@ export async function evaluateAssertion(
       return ok(deepEqual(ctx.dbRow, a.expected));
     case "ariaSnapshot": {
       const locator = a.target
-        ? ctx.page?.getByRole(a.target.role as any, { name: a.target.label })
+        ? ctx.page?.getByRole(ariaRole(a.target.role), { name: a.target.label })
         : ctx.page?.locator("body");
       const actual = await locator?.ariaSnapshot().catch(() => null);
       return ok(actual?.trim() === a.expected.trim());
@@ -163,7 +167,7 @@ export async function evaluateAssertion(
               subject.y >= reference.y &&
               subject.right <= reference.right &&
               subject.bottom <= reference.bottom,
-            `subject is not inside reference bounding box`,
+            "subject is not inside reference bounding box",
           );
         case "isAlignedHorizontally":
           return ok(
@@ -173,7 +177,7 @@ export async function evaluateAssertion(
                   subject.height / 2 -
                   (reference.y + reference.height / 2),
               ) <= 5,
-            `subject is not horizontally aligned with reference`,
+            "subject is not horizontally aligned with reference",
           );
         case "isAlignedVertically":
           return ok(
@@ -183,7 +187,7 @@ export async function evaluateAssertion(
                   subject.width / 2 -
                   (reference.x + reference.width / 2),
               ) <= 5,
-            `subject is not vertically aligned with reference`,
+            "subject is not vertically aligned with reference",
           );
       }
     }
@@ -209,7 +213,7 @@ export async function evaluateExpectedOutcome(
     }
     case "field_contains": {
       const locator = o.target
-        ? ctx.page.getByRole(o.target.role as any, { name: o.target.label })
+        ? ctx.page.getByRole(ariaRole(o.target.role), { name: o.target.label })
         : ctx.page.locator(":focus");
       const val = await locator.inputValue().catch(() => "");
       return ok(val.includes(interpolate(o.value, ctx.vars)));
@@ -221,7 +225,9 @@ function ok(b: boolean, reason = "assertion returned false"): AssertOutcome {
   return b ? { ok: true } : { ok: false, reason };
 }
 function getPath(obj: unknown, path: string): unknown {
-  return path.split(".").reduce((o, k) => (o as any)?.[k], obj);
+  return path
+    .split(".")
+    .reduce((o, k) => (o as Record<string, unknown> | undefined)?.[k], obj);
 }
 
 // JSON.stringify equality false-fails on key reordering (object key insertion order is not a

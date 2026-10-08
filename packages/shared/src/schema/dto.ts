@@ -72,7 +72,7 @@ export interface RepairPayload {
   testCase: GroundedTest;
   kdg?: unknown;
 }
-export const RepairPayload: z.ZodType<RepairPayload, z.ZodTypeDef, any> =
+export const RepairPayload: z.ZodType<RepairPayload, z.ZodTypeDef, unknown> =
   z.object({
     specIR: SpecIR,
     testCase: GroundedTest,

@@ -8,7 +8,7 @@ export class WsHub {
 
   subscribe(key: string, socket: Socket): void {
     if (!this.subs.has(key)) this.subs.set(key, new Set());
-    this.subs.get(key)!.add(socket);
+    this.subs.get(key)?.add(socket);
   }
 
   unsubscribe(key: string, socket: Socket): void {

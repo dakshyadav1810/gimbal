@@ -24,7 +24,7 @@ export const MUTATIONS: Mutation[] = [
   {
     name: "label-synonym",
     truth: "same",
-    script: `el.textContent = t.synonym;`,
+    script: "el.textContent = t.synonym;",
   },
   {
     name: "duplicate-added",
@@ -34,6 +34,6 @@ export const MUTATIONS: Mutation[] = [
   {
     name: "removed",
     truth: "removed",
-    script: `el.remove();`,
+    script: "el.remove();",
   },
 ];

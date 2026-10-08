@@ -49,7 +49,10 @@ export async function acceptRepair(
   }
   await store.saveGrounded(repair.testId, test);
   cache.clearSelectorsForTest(test.flow.id);
-  return (await repairs.decide(repair.testId, repairId, "accepted"))!;
+  const done = await repairs.decide(repair.testId, repairId, "accepted");
+  if (!done)
+    throw new RepairError("not_found", `repair ${repairId} disappeared`);
+  return done;
 }
 
 export async function rejectRepair(
@@ -65,5 +68,13 @@ export async function rejectRepair(
       "invalid_state",
       `repair is already ${repair.status}`,
     );
-  return (await repairs.decide(repair.testId, repairId, "rejected", reason))!;
+  const done = await repairs.decide(
+    repair.testId,
+    repairId,
+    "rejected",
+    reason,
+  );
+  if (!done)
+    throw new RepairError("not_found", `repair ${repairId} disappeared`);
+  return done;
 }

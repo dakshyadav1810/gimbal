@@ -56,8 +56,8 @@ function isRoleCompatible(target: Tier1Target, cand: DomCandidate): boolean {
     // A button target must NOT match non-button inputs (text, password, email, etc.)
     if (candTag === "input") {
       const isButtonInput =
-        Boolean(candType) &&
-        ["button", "submit", "reset", "image"].includes(candType!);
+        candType !== undefined &&
+        ["button", "submit", "reset", "image"].includes(candType);
       const hasButtonRole = cRole === "button";
       if (!isButtonInput && !hasButtonRole) {
         return false;

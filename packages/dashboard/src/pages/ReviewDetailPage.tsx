@@ -17,6 +17,7 @@ export function ReviewDetailPage({
   const review = reviews?.find((r) => r.stepId === stepId);
   const [copied, setCopied] = useState(false);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset when the viewed step changes
   useEffect(() => {
     setCopied(false);
   }, [testId, stepId]);

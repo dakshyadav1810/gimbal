@@ -3,7 +3,7 @@ import type {
   GroundedTest,
   GroundedUiStep,
 } from "@gimbal/shared";
-import type { Page } from "playwright";
+import type { Locator, Page } from "playwright";
 import type { CacheStore } from "../cache/index.js";
 import type { HealingService } from "../healing/index.js";
 import { type LocateResult, locate } from "./locate.js";
@@ -116,8 +116,11 @@ export async function locateWithStabilityGate(
   if (!result.locator || !result.selector) return none;
 
   // Auto-scroll gate: scroll element into view before measuring bounding box stability and hit testing
-  if (typeof (result.locator as any).scrollIntoViewIfNeeded === "function") {
-    await (result.locator as any).scrollIntoViewIfNeeded().catch(() => {});
+  if (
+    typeof (result.locator as Partial<Locator>).scrollIntoViewIfNeeded ===
+    "function"
+  ) {
+    await result.locator.scrollIntoViewIfNeeded().catch(() => {});
   }
 
   const sel = result.selector;
