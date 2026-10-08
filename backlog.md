@@ -20,4 +20,4 @@
 - Bench: 3 remaining false positives are all `removed` (a different button above the 0.05 margin). `label-synonym` never needs a heal because a durable selector survives, so it says nothing about semantic recovery; a mutation that changes both label and attributes is needed.
 - 3.2: the test detail page only links to open repairs; per-step "original target vs current target + evidence" is not shown there yet. Run detail still shows the old per-step resolution panel.
 - 3.4: semantic assertion detail is not built (Phase 5 is not started).
-- 3: dashboard pages were type-checked and built but not visually verified in a browser yet; do that with the demo (Phase 6).
+- 3: Repairs page and test list verified in a browser against the demo (accept works); other pages were not re-checked visually.

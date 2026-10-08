@@ -164,6 +164,12 @@ try {
     "the proposal was verified against the step's own outcome",
   );
 
+  if (process.env.DEMO_HOLD) {
+    // For screenshots: leave the app and core running with the proposal open.
+    console.log(`\nHolding with an open proposal. Dashboard: ${core.base}/repairs  App: ${appUrl}/login`);
+    await new Promise(() => {});
+  }
+
   const list = await cli(dir, "repair", "list");
   check(list.out.includes("Continue"), "gimbal repair list shows it", list.out);
 
