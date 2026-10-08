@@ -46,7 +46,7 @@ async function record(
     `✗ target not found: button "${proposal.before.label}"`,
     `↻ re-resolving  semantics ${ev.signals.semantics.toFixed(2)}  context ${ev.signals.context.toFixed(2)}  structure ${ev.signals.structure.toFixed(2)}`,
     `  chosen: ${proposal.after.role} "${proposal.after.label}"  confidence ${ev.confidence.toFixed(2)} (${ev.band}), runner-up "${ev.runnerUp?.label}" at ${ev.runnerUp?.score.toFixed(2)}`,
-    `✓ outcome verified (${proposal.verification.level}): the step's own assertion passed`,
+    `✓ outcome verified: the step's own assertion passed`,
     `⚑ repair proposed   gimbal repair show ${proposal.id.slice(0, 8)}`,
     `REVIEW  Log in`,
     ``,

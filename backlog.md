@@ -21,3 +21,15 @@
 - 3.2: the test detail page only links to open repairs; per-step "original target vs current target + evidence" is not shown there yet. Run detail still shows the old per-step resolution panel.
 - 3.4: semantic assertion detail is not built (Phase 5 is not started).
 - 3: Repairs page and test list verified in a browser against the demo (accept works); other pages were not re-checked visually.
+
+## Not done in this pass (needs you, or deliberately skipped)
+
+- **Phase 0 / publication gate (yours):** consent from the original author, the licence wording (open questions 12.1–12.3: consultancies, change date, copyright holder), `gitleaks`, remotes. `LICENSE` text is untouched; only the per-package copies were synced to it.
+- **8.1 history rewrite, 8.6 Verdaccio dry run, 8.7 publish:** not run. Rewriting history and publishing are irreversible and external.
+- **8.4** dependency advisory review (`npm audit --omit=dev`) and `THIRD_PARTY_NOTICES` not done.
+- **Phase 5 (semantic output assertions), 4.3, 6.4 (chatbot demo), 3.4:** skipped as the plan's first cut. No semantic assertion exists in this alpha, and the docs do not mention it.
+- **6.5** a manual run with a real agent (fresh Claude Code, then a second MCP client) has not been done; the skill is untested with one.
+- **4.5** latency report (cold start, first ground, cached run per step vs plain Playwright) is not written. The bench only reports whole-run time.
+- **docs/evolution.md** not written.
+- **Benchmark honesty:** Gimbal matches a plain role+name locator on these fixtures and does not beat it. Recovery of unlisted synonyms and translations is 0–3 of 22 by design. Improving that needs a stronger (e.g. multilingual) pinned embedding model evaluated on a train/held-out split; do not claim it before then.
+- The `tests/` subfolder of `.gimbal/` stays tracked on purpose; everything else under `.gimbal/` is ignored by `gimbal init`.

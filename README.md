@@ -19,12 +19,14 @@ A login page changes its button from "Sign in" to "Continue", wraps the form in 
 — the app changes —
 
 ✗ target not found: button "Sign in"
-↻ re-resolving  semantics 1.00  context 0.77  structure 0.35
+↻ re-resolving  semantics 1.00  context 0.70  structure 0.35
   chosen: button "Continue"  confidence 0.77 (high), runner-up "Create account" at 0.66
 ✓ outcome verified: the step's own assertion passed
 ⚑ repair proposed   gimbal repair show b78ac1a2
 REVIEW  Log in
 ```
+
+![The Repairs page showing Sign in replaced by Continue, with confidence, signals and verification](docs/assets/repairs-light.png)
 
 The Repairs page in the dashboard shows the before and after, the evidence and the verification, with **Accept** and **Reject**. Accepting writes the new selector into `grounded.json`, which you commit.
 

@@ -1,0 +1,16 @@
+$ gimbal test
+✓ grounded  Log in (3 steps)
+✓ run passed
+
+— the app changes: "Sign in" → "Continue", the form is wrapped, class names are renamed —
+
+$ gimbal test
+✗ target not found: button "Sign in"
+↻ re-resolving  semantics 1.00  context 0.70  structure 0.35
+  chosen: button "Continue"  confidence 0.77 (high), runner-up "Create account" at 0.66
+✓ outcome verified: the step's own assertion passed
+⚑ repair proposed   gimbal repair show 75f89692
+REVIEW  Log in
+
+$ echo $?
+2

@@ -95,7 +95,8 @@ export async function runtimeHeal(
       after: {
         selector: result.cachedSelector,
         label: healedCandidate?.label,
-        role: healedCandidate?.role,
+        // plain <button>/<a> carry no explicit role; the step's target role is what it satisfied
+        role: healedCandidate?.role ?? spec?.role,
         region: healedCandidate?.region ?? null,
         contextPath: healedCandidate?.anchors?.contextPath,
         frame: healedCandidate?.frame,
