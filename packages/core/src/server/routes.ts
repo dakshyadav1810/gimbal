@@ -137,9 +137,7 @@ function registerApiRoutes(app: FastifyInstance, c: Container, hub: WsHub) {
   app.post("/tests/:id/maintain", async (req) => {
     const { id } = req.params as { id: string };
     const { stepIds, spec } = MaintainRequest.parse(req.body);
-    const result = await c.healing.maintain(id, stepIds, spec);
-    await c.store.saveGrounded(id, result.after);
-    return result;
+    return c.healing.maintain(id, stepIds, spec);
   });
 
   // --- reviews ---

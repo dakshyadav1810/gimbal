@@ -1,14 +1,8 @@
-venv/
-__pycache__/
-.pytest_cache/
 **/node_modules/
 **/dist/
 .turbo/
 .gimbal/
 packages/core/static/*
 !packages/core/static/.gitkeep
-packages/cli/.axiom/
 *.log
 .DS_Store
-/packages/dashboard/.next
-/bun.lock

@@ -40,6 +40,7 @@ function config(): GimbalConfig {
     maxScrollPasses: 3,
     screenshotsDir: "/tmp/screenshots",
     embeddingModel: "x",
+    embeddingRevision: "x",
     bands: { high: 0.7, medium: 0.5 },
     timeouts: {
       actionMs: 15000,

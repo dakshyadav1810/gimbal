@@ -486,8 +486,31 @@ export function extractInteractiveElementsInPage(): RawDomElement[] {
       : [el];
 
     const attributes: Record<string, string> = {};
-    for (const attr of Array.from(el.attributes))
-      attributes[attr.name] = attr.value;
+    // Allow-list: artifacts are committed, so never copy `value`/`checked`/free-form data-* (D4).
+    // The resolver only reads id/name/type; the rest is identity-ish metadata.
+    for (const attr of Array.from(el.attributes)) {
+      const n = attr.name.toLowerCase();
+      if (
+        n === "value" ||
+        !(
+          n === "id" ||
+          n === "name" ||
+          n === "type" ||
+          n === "role" ||
+          n === "data-testid" ||
+          n === "placeholder" ||
+          n === "title" ||
+          n === "alt" ||
+          n === "for" ||
+          n === "href" ||
+          (n.startsWith("aria-") && n !== "aria-valuenow" && n !== "aria-valuetext")
+        )
+      )
+        continue;
+      // Drop query/hash from hrefs: they routinely carry tokens and ids.
+      attributes[attr.name] =
+        n === "href" ? attr.value.split(/[?#]/)[0] : attr.value;
+    }
 
     const parentXpath = el.parentElement
       ? xpathFor(el.parentElement)

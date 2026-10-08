@@ -29,6 +29,7 @@ const SHORT_CONFIG: GimbalConfig = {
     fixturesDir: "/tmp/fixtures",
   screenshotsDir: "/tmp",
   embeddingModel: "x",
+  embeddingRevision: "x",
   bands: { high: 0.7, medium: 0.5 },
   // Give enough time for tests that succeed, but short enough that the
   // timeout test completes quickly.

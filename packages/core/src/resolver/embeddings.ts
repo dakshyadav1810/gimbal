@@ -10,12 +10,17 @@ export interface EmbeddingModel {
 export class TransformersEmbeddingModel implements EmbeddingModel {
   private pipe: unknown | null = null;
 
-  constructor(private modelId: string) {}
+  constructor(
+    private modelId: string,
+    private revision?: string,
+  ) {}
 
   private async load() {
     if (this.pipe) return this.pipe;
     const { pipeline } = await import("@huggingface/transformers");
-    this.pipe = await pipeline("feature-extraction", this.modelId);
+    this.pipe = await pipeline("feature-extraction", this.modelId, {
+      revision: this.revision,
+    });
     return this.pipe;
   }
 

@@ -67,6 +67,7 @@ describe("openDbSession", () => {
 
   it("close ends the pool", async () => {
     const session = openDbSession(config({ url: "postgres://test" }))!;
+    await session.beginFixture();
     await session.close();
     expect(endMock).toHaveBeenCalled();
   });

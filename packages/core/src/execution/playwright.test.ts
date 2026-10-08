@@ -12,6 +12,7 @@ function config(overrides: Partial<GimbalConfig> = {}): GimbalConfig {
     fixturesDir: "/tmp/fixtures",
     screenshotsDir: "/tmp",
     embeddingModel: "x",
+    embeddingRevision: "x",
     bands: { high: 0.7, medium: 0.5 },
     timeouts: {
       actionMs: 5000,

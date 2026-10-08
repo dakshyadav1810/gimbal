@@ -21,8 +21,11 @@ export function buildContainer(config: GimbalConfig) {
   const cache = new SqliteCacheStore(db);
 
   const embedder = new CachedEmbedder(
-    new TransformersEmbeddingModel(config.embeddingModel),
-    config.embeddingModel,
+    new TransformersEmbeddingModel(
+      config.embeddingModel,
+      config.embeddingRevision,
+    ),
+    `${config.embeddingModel}@${config.embeddingRevision}`,
     cache,
   );
   const resolver = new MultiSignalResolver(embedder, config.bands);

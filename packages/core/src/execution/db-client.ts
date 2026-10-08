@@ -1,5 +1,5 @@
 import type { GimbalConfig } from "@gimbal/shared";
-import pg from "pg";
+import type pgTypes from "pg";
 
 export interface DbSession {
   query(query: string): Promise<unknown>;
@@ -19,12 +19,26 @@ export interface DbSession {
 export function openDbSession(config: GimbalConfig): DbSession | null {
   if (!config.db.url) return null;
 
-  const pool = new pg.Pool({ connectionString: config.db.url });
-  let client: pg.PoolClient | null = null;
+  // pg is an optional peer dependency: load it only when a db fixture is actually used.
+  let pool: pgTypes.Pool | null = null;
+  let client: pgTypes.PoolClient | null = null;
+  const getPool = async () => {
+    if (pool) return pool;
+    let pg: typeof pgTypes;
+    try {
+      pg = (await import("pg")).default;
+    } catch {
+      throw new Error(
+        "db.url is set but the 'pg' package is not installed. Run: npm install pg",
+      );
+    }
+    pool = new pg.Pool({ connectionString: config.db.url });
+    return pool;
+  };
 
   return {
     async beginFixture() {
-      client = await pool.connect();
+      client = await (await getPool()).connect();
       await client.query("BEGIN");
     },
     async query(query: string) {
@@ -40,7 +54,7 @@ export function openDbSession(config: GimbalConfig): DbSession | null {
       }
     },
     async close() {
-      await pool.end();
+      await pool?.end();
     },
   };
 }

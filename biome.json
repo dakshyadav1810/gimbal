@@ -5,9 +5,7 @@
       ".turbo",
       "**/dist",
       "**/static",
-      "node_modules",
-      "packages/core-python-reference",
-      "packages/_retired"
+      "node_modules"
     ]
   },
   "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2 },

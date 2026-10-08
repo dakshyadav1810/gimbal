@@ -14,10 +14,34 @@ import { registerRoutes } from "./routes.js";
 import { WsHub } from "./ws-hub.js";
 import { registerWsRoutes } from "./ws-routes.js";
 
+const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+function isLocalHost(hostHeader: string | undefined): boolean {
+  if (!hostHeader) return false;
+  const host = hostHeader.replace(/:\d+$/, "").toLowerCase();
+  return LOCAL_HOSTS.has(host);
+}
+
 export async function buildApp(config: GimbalConfig, container: Container) {
   const app = Fastify({ logger: true }).withTypeProvider<ZodTypeProvider>();
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
+
+  // Local-only server: reject DNS-rebinding (foreign Host) and cross-site state changes (foreign
+  // Origin). /author/explore navigates arbitrary URLs, so a web page must not be able to drive it.
+  app.addHook("onRequest", async (req, reply) => {
+    const deny = (message: string) =>
+      reply.code(403).send({ error: { code: "forbidden", message } });
+    if (!isLocalHost(req.headers.host)) return deny("unrecognised Host header");
+    const origin = req.headers.origin;
+    if (origin && req.method !== "GET" && req.method !== "HEAD") {
+      let originHost: string | undefined;
+      try {
+        originHost = new URL(origin).host;
+      } catch {}
+      if (!isLocalHost(originHost)) return deny("cross-origin request refused");
+    }
+  });
 
   await app.register(fastifyWebsocket);
   await app.register(fastifyStatic, {

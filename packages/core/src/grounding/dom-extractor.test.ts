@@ -94,6 +94,16 @@ describe("extractInteractiveElementsInPage", () => {
     expect(found.map((e) => e.tag).sort()).toEqual(["a", "button"]);
   });
 
+  it("does not copy value/free-form attributes or href query strings into attributes", () => {
+    setup(`<input id="pw" type="password" value="hunter2" data-token="abc" class="x"><a href="/p?token=s3cret#h">go</a>`);
+    const found = extractInteractiveElementsInPage();
+    const input = found.find((e) => e.tag === "input");
+    const link = found.find((e) => e.tag === "a");
+    expect(input?.attributes).toEqual({ id: "pw", type: "password" });
+    expect(JSON.stringify(found)).not.toContain("hunter2");
+    expect(link?.attributes.href).toBe("/p");
+  });
+
   it("escapes a React useId()-shaped id (containing ':') in cssSelector instead of producing invalid CSS", () => {
     setup(`<button id=":r1:-form-item">Submit</button>`);
     const [el] = extractInteractiveElementsInPage();
@@ -364,7 +374,7 @@ describe("extractInteractiveElementsInPage", () => {
     expect(found.find((e) => e.attributes.id === "i0")?.siblingIndex).toBe(0);
   });
 
-  it("captures every attribute verbatim into `attributes`, including data-testid", () => {
+  it("captures allow-listed attributes (incl. data-testid) and drops free-form data-*", () => {
     setup(
       `<button id="x" data-testid="save-btn" role="button" data-foo="bar">Save</button>`,
     );
@@ -373,8 +383,8 @@ describe("extractInteractiveElementsInPage", () => {
       id: "x",
       "data-testid": "save-btn",
       role: "button",
-      "data-foo": "bar",
     });
+    expect(el.attributes["data-foo"]).toBeUndefined();
     expect(el.testId).toBe("save-btn");
     expect(el.role).toBe("button");
   });

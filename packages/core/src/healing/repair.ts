@@ -31,5 +31,11 @@ export async function maintain(
   const before = await store.loadGrounded(testId);
   const spec = await authoring.submit(patchedSpec);
   const outcome = await grounding.ground(spec, {});
+  // Persist everything: the patched spec is the durable repair; without it the next run
+  // re-reads the old spec.json and the repair is lost (D1).
+  await store.saveSpec(spec, testId);
+  await store.saveGrounded(testId, outcome.grounded);
+  if (outcome.candidates) await store.saveCandidates(testId, outcome.candidates);
+  if (outcome.ariaSnapshot) await store.saveAriaSnapshot(testId, outcome.ariaSnapshot);
   return { testId, before, after: outcome.grounded };
 }
