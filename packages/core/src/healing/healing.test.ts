@@ -273,7 +273,7 @@ describe("maintain", () => {
       context: vi.fn(),
     } as AuthoringService;
     const grounding = {
-      ground: vi.fn().mockResolvedValue({ candidates: {}, grounded: after }),
+      ground: vi.fn().mockResolvedValue({ candidates: { steps: [] }, grounded: after }),
       reground: vi.fn(),
     } as unknown as GroundingService;
 

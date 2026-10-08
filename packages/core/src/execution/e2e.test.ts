@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { type GimbalConfig, SpecIR } from "@gimbal/shared";
 import fastify from "fastify";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { buildContainer } from "../server/container.js";
 
 const PORT = 30999;
@@ -233,5 +233,37 @@ describe("Gimbal Full E2E Pipeline", () => {
     expect(report.steps[0].status).not.toBe("passed");
     const heals = (await container.repairs.list("wrong-heal")).filter((r) => r.kind === "heal");
     expect(heals).toEqual([]);
+  }, 30000);
+
+  it("re-grounds only the patched step and replays the rest from stored selectors", async () => {
+    pageHtml = `<html><body>
+      <label for="email-input">Email Address</label><input type="text" id="email-input" value="">
+      <button id="login-button" onclick="window.location.href='/dashboard'">Log In</button>
+    </body></html>`;
+    const mk = (loginLabel: string) =>
+      SpecIR.parse({
+        version: "1.0",
+        flow: { id: "scoped", name: "s", intent: "s", startUrl: `http://127.0.0.1:${PORT}/`, vars: {} },
+        steps: [
+          { id: "a", kind: "ui", action: "type", value: "x@y.z", intent: "email",
+            target: { label: "Email Address", role: "textbox", semantics: ["email"], actions: ["type"], intent: "email" } },
+          { id: "b", kind: "ui", action: "click", intent: "login",
+            target: { label: loginLabel, role: "button", semantics: ["log in"], actions: ["click"], intent: "login" } },
+          { id: "c", kind: "ui", action: "wait", intent: "dash", assertions: [{ type: "textContains", expected: "Welcome to Dashboard" }] },
+        ],
+      });
+    const full = await container.grounding.ground(mk("Log In"), {});
+    const spy = vi.spyOn(container.resolver, "resolve");
+    const scoped = await container.grounding.ground(mk("Log in button"), {
+      only: ["b"],
+      previous: full.grounded,
+    });
+    expect(scoped.fellBackToFull).toBeUndefined();
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(scoped.candidates.steps.map((s) => s.stepId)).toEqual(["b"]);
+    expect((scoped.grounded.steps[0] as any).target.resolution.cachedSelector).toBe(
+      (full.grounded.steps[0] as any).target.resolution.cachedSelector,
+    );
+    spy.mockRestore();
   }, 30000);
 });

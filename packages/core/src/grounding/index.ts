@@ -38,6 +38,9 @@ export interface GroundingOutcome {
   candidates: CandidatesDoc;
   grounded: GroundedTest;
   stoppedAt?: string;
+  // Set when a scoped re-ground (opts.only) could not replay to the target state and re-resolved
+  // every step instead.
+  fellBackToFull?: string;
   // Verification/debugging oracle (Phase 4b) — the final page's ARIA tree, not a resolver input.
   ariaSnapshot: string;
 }
@@ -50,15 +53,42 @@ export interface StepResolution {
 }
 
 export interface GroundingService {
+  /**
+   * With `only` + `previous`, steps outside `only` keep their previous grounding: they are replayed
+   * with their stored selector to reach the right page state and only the listed steps go through
+   * the resolver. Falls back to a full ground if the replay breaks.
+   */
   ground(
     spec: SpecIR,
-    opts: { vars?: Record<string, string> },
+    opts: {
+      vars?: Record<string, string>;
+      only?: string[];
+      previous?: GroundedTest;
+    },
   ): Promise<GroundingOutcome>;
   reground(
     test: GroundedTest,
     stepId: string,
     page: Page,
   ): Promise<StepResolution>;
+}
+
+// True when the spec step is unchanged from the one a previous grounding was built from.
+function sameAuthoring(step: SpecIR["steps"][number], prev: GroundedStep): boolean {
+  if (step.kind !== "ui" || prev.kind !== "ui") return false;
+  const { resolution: _r, ...prevTarget } = prev.target ?? ({} as never);
+  const { effect: _e, target: _t, ...prevRest } = prev;
+  const { target: _st, ...stepRest } = step;
+  const canon = (v: unknown): string =>
+    JSON.stringify(v, (_k, x) =>
+      x && typeof x === "object" && !Array.isArray(x)
+        ? Object.fromEntries(Object.entries(x).sort(([a], [b]) => a.localeCompare(b)))
+        : x,
+    );
+  return (
+    canon(stepRest) === canon(prevRest) &&
+    canon(step.target) === canon(prevTarget)
+  );
 }
 
 function isNonTargetStep(step: SpecIR["steps"][number]): boolean {
@@ -84,8 +114,16 @@ export class PlaywrightGroundingService implements GroundingService {
 
   async ground(
     spec: SpecIR,
-    opts: { vars?: Record<string, string> },
+    opts: {
+      vars?: Record<string, string>;
+      only?: string[];
+      previous?: GroundedTest;
+    },
   ): Promise<GroundingOutcome> {
+    const only = opts.only?.length && opts.previous ? new Set(opts.only) : null;
+    const prevById = new Map(
+      (only ? opts.previous?.steps : [])?.map((s) => [s.id, s]) ?? [],
+    );
     const vars = { ...spec.flow.vars, ...(opts.vars ?? {}) };
     const hydrationTimeouts = hydrationTimeoutsFrom(this.config);
     const session = await openSession(this.config);
@@ -131,6 +169,38 @@ export class PlaywrightGroundingService implements GroundingService {
         if (!step.target) {
           groundedSteps.push(step);
           continue;
+        }
+
+        // Scoped re-ground: an untouched step keeps its grounding; replay it to reach the next state.
+        const prev = only && !only.has(step.id) ? prevById.get(step.id) : undefined;
+        if (
+          prev?.kind === "ui" &&
+          prev.target?.resolution?.cachedSelector &&
+          sameAuthoring(step, prev)
+        ) {
+          try {
+            const urlBefore = session.page.url();
+            await act(
+              session.page,
+              step,
+              prev.target.resolution.cachedSelector,
+              vars,
+              undefined,
+              hydrationTimeouts,
+            );
+            await awaitNavigationIfExpected(step, session.page, urlBefore);
+            await waitForPendingUiToClear(session.page);
+            await waitForPageHydration(session.page, undefined, hydrationTimeouts);
+            groundedSteps.push(prev);
+            continue;
+          } catch (e) {
+            await session.close();
+            const full = await this.ground(spec, { vars: opts.vars });
+            return {
+              ...full,
+              fellBackToFull: `replaying ${step.id} with its stored selector failed: ${e}`,
+            };
+          }
         }
 
         // Grounding otherwise has NO retry loop — one extraction, one resolve, and it either

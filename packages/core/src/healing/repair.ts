@@ -7,6 +7,8 @@ export interface RepairResult {
   testId: string;
   before: GroundedTest;
   after: GroundedTest;
+  // Present when the scoped re-ground had to redo every step; says why.
+  fellBackToFull?: string;
 }
 
 export async function buildRepairPayload(
@@ -25,17 +27,37 @@ export async function maintain(
   grounding: GroundingService,
   store: ArtifactStore,
   testId: string,
-  _stepIds: string[],
+  stepIds: string[],
   patchedSpec: SpecIR,
 ): Promise<RepairResult> {
   const before = await store.loadGrounded(testId);
   const spec = await authoring.submit(patchedSpec);
-  const outcome = await grounding.ground(spec, {});
+  // Only the patched steps need the resolver; everything else replays from its stored selector.
+  const outcome = await grounding.ground(spec, {
+    only: stepIds,
+    previous: before,
+  });
   // Persist everything: the patched spec is the durable repair; without it the next run
   // re-reads the old spec.json and the repair is lost (D1).
   await store.saveSpec(spec, testId);
   await store.saveGrounded(testId, outcome.grounded);
-  if (outcome.candidates) await store.saveCandidates(testId, outcome.candidates);
+  if (outcome.candidates) {
+    // A scoped ground only resolved the patched steps; keep the earlier candidates for the rest.
+    const old = await store.loadCandidates(testId);
+    const have = new Set(outcome.candidates.steps.map((s) => s.stepId));
+    const kept = (old?.steps ?? []).filter(
+      (s) => !have.has(s.stepId) && spec.steps.some((x) => x.id === s.stepId),
+    );
+    await store.saveCandidates(testId, {
+      ...outcome.candidates,
+      steps: [...outcome.candidates.steps, ...kept],
+    });
+  }
   if (outcome.ariaSnapshot) await store.saveAriaSnapshot(testId, outcome.ariaSnapshot);
-  return { testId, before, after: outcome.grounded };
+  return {
+    testId,
+    before,
+    after: outcome.grounded,
+    ...(outcome.fellBackToFull ? { fellBackToFull: outcome.fellBackToFull } : {}),
+  };
 }
