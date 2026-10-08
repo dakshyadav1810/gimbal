@@ -287,7 +287,10 @@ describe("maintain", () => {
     );
 
     expect(authoring.submit).toHaveBeenCalledWith(patchedSpec);
-    expect(grounding.ground).toHaveBeenCalledWith(patchedSpec, {});
+    expect(grounding.ground).toHaveBeenCalledWith(patchedSpec, {
+      only: ["s1"],
+      previous: expect.anything(),
+    });
     expect(result).toEqual({ testId: "t1", before, after });
     expect(store.saveSpec).toHaveBeenCalledWith(patchedSpec, "t1");
     expect(store.saveGrounded).toHaveBeenCalledWith("t1", after);
