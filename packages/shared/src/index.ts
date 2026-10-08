@@ -8,3 +8,4 @@ export * from "./schema/groundedTest.js";
 export * from "./schema/config.js";
 export * from "./schema/dto.js";
 export * from "./schema/ws.js";
+export * from "./schema/repair.js";

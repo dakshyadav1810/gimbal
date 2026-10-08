@@ -4,3 +4,4 @@
 - 1.2: add an end-to-end test that a typed password never reaches `candidates.json`; check ARIA snapshot and other artifacts for typed values; redact URL query/hash in persisted artifacts (run urls, network logs).
 - 1.11: embedding config is flat (`embeddingModel` + `embeddingRevision`) rather than the plan's nested `{model, revision}`; revision hash pinned from the HF API on 2026-10-09. Add a doctor check for model availability offline.
 - Known-gap resolver sandbox cases (modal duplicate buttons, popup, virtualized list, file input, product-card CTA) still fail by design.
+- Bench baseline (login-submit, 2026-10-09): resolver clicks a wrong element on `duplicate-added` and `removed` (2 of 5 mutations are false positives). Targets for 1.4 (outcome verification) and 1.7 (ambiguity policy).

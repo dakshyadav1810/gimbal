@@ -78,6 +78,17 @@ export async function locate(
     };
   }
 
+  // A proposal from an earlier run: reuse it even when cache.db was wiped, so the same heal isn't
+  // recomputed (and possibly decided differently) on every fresh machine.
+  const proposed = await healing.findProposal(storeTestId, step.id);
+  if (proposed && (await isUniqueVisible(page.locator(proposed)))) {
+    return {
+      locator: page.locator(proposed),
+      selector: proposed,
+      source: "resolver",
+    };
+  }
+
   const outcome = await healing.runtimeHeal(
     test,
     step.id,

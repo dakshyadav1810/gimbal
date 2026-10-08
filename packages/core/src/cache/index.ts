@@ -22,14 +22,6 @@ export interface HealAuditEntry {
   at: string;
 }
 
-export interface ReviewRecord {
-  testId: string;
-  stepId: string;
-  url: string;
-  screenshotPath?: string;
-  candidatesJson?: string;
-}
-
 export interface CacheStore {
   getSelector(
     testId: string,
@@ -46,9 +38,6 @@ export interface CacheStore {
   getRun(runId: string): RunReport | null;
   listRuns(testId: string): RunSummary[];
   appendHeal(entry: HealAuditEntry): void;
-  enqueueReview(rec: ReviewRecord): void;
-  resolveReview(testId: string, stepId: string): void;
-  openReviews(testId?: string): ReviewRecord[];
 }
 
 export class SqliteCacheStore implements CacheStore {
@@ -263,58 +252,5 @@ export class SqliteCacheStore implements CacheStore {
         reason: entry.reason ?? null,
       })
       .run();
-  }
-
-  enqueueReview(rec: ReviewRecord): void {
-    this.db
-      .insert(schema.reviewQueue)
-      .values({
-        testId: rec.testId,
-        stepId: rec.stepId,
-        url: rec.url,
-        screenshotPath: rec.screenshotPath ?? null,
-        candidatesJson: rec.candidatesJson ?? null,
-        open: true,
-      })
-      .run();
-  }
-
-  resolveReview(testId: string, stepId: string): void {
-    this.db
-      .update(schema.reviewQueue)
-      .set({ open: false })
-      .where(
-        and(
-          eq(schema.reviewQueue.testId, testId),
-          eq(schema.reviewQueue.stepId, stepId),
-        ),
-      )
-      .run();
-  }
-
-  openReviews(testId?: string): ReviewRecord[] {
-    const rows = testId
-      ? this.db
-          .select()
-          .from(schema.reviewQueue)
-          .where(
-            and(
-              eq(schema.reviewQueue.testId, testId),
-              eq(schema.reviewQueue.open, true),
-            ),
-          )
-          .all()
-      : this.db
-          .select()
-          .from(schema.reviewQueue)
-          .where(eq(schema.reviewQueue.open, true))
-          .all();
-    return rows.map((r) => ({
-      testId: r.testId,
-      stepId: r.stepId,
-      url: r.url,
-      screenshotPath: r.screenshotPath ?? undefined,
-      candidatesJson: r.candidatesJson ?? undefined,
-    }));
   }
 }

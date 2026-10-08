@@ -27,10 +27,6 @@ export function migrate(db: DrizzleDb): void {
       test_id TEXT NOT NULL, step_id TEXT NOT NULL, event TEXT NOT NULL,
       from_sel TEXT, to_sel TEXT, band TEXT, reason TEXT, at TEXT NOT NULL
     );
-    CREATE TABLE IF NOT EXISTS review_queue (
-      test_id TEXT NOT NULL, step_id TEXT NOT NULL, url TEXT NOT NULL,
-      screenshot_path TEXT, candidates_json TEXT, open INTEGER NOT NULL DEFAULT 1
-    );
   `);
 
   // step_results predates failure_reason/failure_message; CREATE TABLE IF NOT EXISTS above is a

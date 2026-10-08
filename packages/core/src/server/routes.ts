@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { MaintainRequest, RunRequest } from "@gimbal/shared";
+import { RepairError, acceptRepair, rejectRepair } from "../repairs/decide.js";
 import type { FastifyInstance } from "fastify";
 import { exploreUiState } from "../authoring/telemetry.js";
 import { summarizeUngrounded } from "../grounding/summarize.js";
@@ -118,9 +119,9 @@ function registerApiRoutes(app: FastifyInstance, c: Container, hub: WsHub) {
     return c.cache.listRuns(id);
   });
 
-  app.get("/tests/:id/reviews", async (req) => {
+  app.get("/tests/:id/repairs", async (req) => {
     const { id } = req.params as { id: string };
-    return c.cache.openReviews(id);
+    return c.repairs.list(id);
   });
 
   app.get("/tests/:id/candidates", async (req) => {
@@ -140,8 +141,39 @@ function registerApiRoutes(app: FastifyInstance, c: Container, hub: WsHub) {
     return c.healing.maintain(id, stepIds, spec);
   });
 
-  // --- reviews ---
-  app.get("/reviews", async () => c.cache.openReviews());
+  // --- repairs ---
+  app.get("/repairs", async (req) => {
+    const { status, testId } = req.query as { status?: string; testId?: string };
+    const all = testId ? await c.repairs.list(testId) : await c.repairs.listAll();
+    return status ? all.filter((r) => r.status === status) : all;
+  });
+
+  const decide =
+    (fn: (id: string, body: { reason?: string }) => Promise<unknown>) =>
+    async (req: any, reply: any) => {
+      try {
+        return await fn(req.params.id, req.body ?? {});
+      } catch (e) {
+        if (!(e instanceof RepairError)) throw e;
+        reply.code(e.code === "not_found" ? 404 : 409);
+        return apiError(e.code, e.message);
+      }
+    };
+  app.post(
+    "/repairs/:id/accept",
+    decide((id) => acceptRepair(c.repairs, c.store, c.cache, id)),
+  );
+  app.post(
+    "/repairs/:id/reject",
+    decide((id, body) => rejectRepair(c.repairs, id, body.reason)),
+  );
+
+  // Transitional view for the dashboard's old review queue; replaced by the Repairs page (Phase 3).
+  app.get("/reviews", async () =>
+    (await c.repairs.listAll())
+      .filter((r) => r.status === "needed" || r.status === "proposed")
+      .map((r) => ({ testId: r.testId, stepId: r.stepId, url: "", candidatesJson: "[]" })),
+  );
 
   // --- runs ---
   app.post("/runs", async (req, reply) => {

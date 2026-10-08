@@ -1,0 +1,12 @@
+<!doctype html><html><head><title>Checkout</title></head><body>
+<main><h1>Your cart</h1>
+<section class="summary"><p>2 items, total $48.00</p>
+<input id="coupon" type="text" placeholder="Coupon code">
+<button id="apply" class="btn">Apply coupon</button>
+<button id="wrap" class="btn">Add gift wrap</button>
+<button id="order" class="btn primary">Place order</button></section></main>
+<script>
+gt("checkout-order", document.getElementById("order"));
+gt("checkout-coupon", document.getElementById("apply"));
+gt("checkout-wrap", document.getElementById("wrap"));
+</script></body></html>

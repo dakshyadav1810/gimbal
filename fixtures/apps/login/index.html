@@ -1,0 +1,14 @@
+<!doctype html><html><head><title>Login</title></head><body>
+<main><h1>Welcome back</h1>
+<form class="card" onsubmit="return false">
+<label for="email">Email</label><input id="email" type="text">
+<label for="pw">Password</label><input id="pw" type="password">
+<button id="submit" class="btn primary">Sign in</button>
+<a id="forgot" href="#" class="link">Forgot password?</a>
+<button id="create" class="btn secondary">Create account</button>
+</form></main>
+<script>
+gt("login-submit", document.getElementById("submit"));
+gt("login-forgot", document.getElementById("forgot"));
+gt("login-create", document.getElementById("create"));
+</script></body></html>

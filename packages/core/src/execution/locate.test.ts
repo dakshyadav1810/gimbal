@@ -65,15 +65,13 @@ function fakeCache(overrides: Partial<CacheStore> = {}): CacheStore {
     getRun: vi.fn(),
     listRuns: vi.fn(),
     appendHeal: vi.fn(),
-    enqueueReview: vi.fn(),
-    resolveReview: vi.fn(),
-    openReviews: vi.fn(),
     ...overrides,
   } as CacheStore;
 }
 
 function fakeHealing(overrides: Partial<HealingService> = {}): HealingService {
   return {
+    findProposal: vi.fn().mockResolvedValue(null),
     runtimeHeal: vi
       .fn()
       .mockResolvedValue({ status: "stale", reason: "x", topCandidates: [] }),
@@ -167,6 +165,7 @@ describe("locate", () => {
     const cache = fakeCache();
     const page = fakePage({});
     const healing = fakeHealing({
+      findProposal: vi.fn().mockResolvedValue(null),
       runtimeHeal: vi.fn().mockResolvedValue({
         status: "healed",
         cachedSelector: "#healed",
@@ -193,6 +192,7 @@ describe("locate", () => {
     const cache = fakeCache();
     const page = fakePage({});
     const healing = fakeHealing({
+      findProposal: vi.fn().mockResolvedValue(null),
       runtimeHeal: vi.fn().mockResolvedValue({
         status: "stale",
         reason: "no match",

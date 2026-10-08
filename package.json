@@ -13,7 +13,8 @@
     "test": "turbo run test",
     "lint": "biome check .",
     "format": "biome format --write .",
-    "pack:cli": "pnpm build && pnpm --filter gimbal pack"
+    "pack:cli": "pnpm build && pnpm --filter gimbal pack",
+    "bench:smoke": "pnpm --filter @gimbal/core build && pnpm --filter @gimbal/bench smoke"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
@@ -24,6 +25,7 @@
     "packages/shared",
     "packages/core",
     "packages/cli",
-    "packages/dashboard"
+    "packages/dashboard",
+    "packages/bench"
   ]
 }

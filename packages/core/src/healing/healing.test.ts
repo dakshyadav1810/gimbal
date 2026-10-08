@@ -10,9 +10,12 @@ import type { AuthoringService } from "../authoring/index.js";
 import type { CacheStore } from "../cache/index.js";
 import type { GroundingService, StepResolution } from "../grounding/index.js";
 import type { ArtifactStore } from "../storage/index.js";
+import { mkdtempSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { RepairStore } from "../repairs/store.js";
 import { audit } from "./audit.js";
 import { buildRepairPayload, maintain } from "./repair.js";
-import { enqueue } from "./review.js";
 import { runtimeHeal } from "./runtime.js";
 
 function fakeCache(overrides: Partial<CacheStore> = {}): CacheStore {
@@ -26,12 +29,12 @@ function fakeCache(overrides: Partial<CacheStore> = {}): CacheStore {
     getRun: vi.fn(),
     listRuns: vi.fn(),
     appendHeal: vi.fn(),
-    enqueueReview: vi.fn(),
-    resolveReview: vi.fn(),
-    openReviews: vi.fn(),
     ...overrides,
   } as CacheStore;
 }
+
+const tmpRepairs = () =>
+  new RepairStore(mkdtempSync(path.join(os.tmpdir(), "gimbal-repairs-")));
 
 function groundedTest(): GroundedTest {
   return {
@@ -57,31 +60,18 @@ describe("audit", () => {
   });
 });
 
-describe("enqueue (review)", () => {
-  it("serializes the top candidates as JSON onto the review record", () => {
-    const cache = fakeCache();
-    const candidates = [{ id: "c1" } as Candidate];
-    enqueue(cache, "t1", "s1", "https://app.test/x", candidates);
-    expect(cache.enqueueReview).toHaveBeenCalledWith({
-      testId: "t1",
-      stepId: "s1",
-      url: "https://app.test/x",
-      candidatesJson: JSON.stringify(candidates),
-    });
-  });
-});
-
 describe("runtimeHeal", () => {
   const page = {} as Page;
 
   it("caches the new selector and records a 'healed' audit event when reground clears medium/high band", async () => {
     const cache = fakeCache();
+    const repairs = tmpRepairs();
     const grounding = {
       ground: vi.fn(),
       reground: vi.fn().mockResolvedValue({
         band: "high",
         cachedSelector: "#healed",
-        resolution: { candidates: [] } as unknown as Resolution,
+        resolution: { candidates: [], confidence: 0.9 } as unknown as Resolution,
         domHash: "hash1",
       } satisfies StepResolution),
     } as GroundingService;
@@ -94,6 +84,7 @@ describe("runtimeHeal", () => {
       page,
       "#old",
       "store-test-1",
+      repairs,
     );
 
     expect(outcome).toMatchObject({
@@ -121,11 +112,19 @@ describe("runtimeHeal", () => {
         toSel: "#healed",
       }),
     );
-    expect(cache.enqueueReview).not.toHaveBeenCalled();
+    const [proposal] = await repairs.list("store-test-1");
+    expect(proposal).toMatchObject({
+      kind: "heal",
+      status: "proposed",
+      stepId: "s1",
+      before: { selector: "#old" },
+      after: { selector: "#healed" },
+    });
   });
 
-  it("enqueues a review and records a 'stale' audit event when reground can't clear low band", async () => {
+  it("records a needed repair and a 'stale' audit event when reground can't clear low band", async () => {
     const cache = fakeCache();
+    const repairs = tmpRepairs();
     const topCandidates = Array.from(
       { length: 8 },
       (_, i) => ({ id: `c${i}` }) as Candidate,
@@ -149,20 +148,19 @@ describe("runtimeHeal", () => {
       pageWithUrl,
       "#old",
       "store-test-1",
+      repairs,
     );
 
     expect(outcome.status).toBe("stale");
     expect(cache.putSelector).not.toHaveBeenCalled();
-    // enqueue only keeps the top 5 candidates, not all resolution.candidates; keyed by the
-    // storage-layer testId (not test.flow.id) so it matches how the review queue is looked up.
-    expect(cache.enqueueReview).toHaveBeenCalledWith(
-      expect.objectContaining({
-        testId: "store-test-1",
-        stepId: "s1",
-        url: "https://app.test/current",
-        candidatesJson: JSON.stringify(topCandidates.slice(0, 5)),
-      }),
-    );
+    // an abstention is recorded as a "needed" repair, keyed by the storage-layer testId
+    const [needed] = await repairs.list("store-test-1");
+    expect(needed).toMatchObject({
+      kind: "needed",
+      status: "needed",
+      stepId: "s1",
+      before: { selector: "#old" },
+    });
     expect(cache.appendHeal).toHaveBeenCalledWith(
       expect.objectContaining({ testId: "store-test-1", event: "stale" }),
     );
@@ -170,6 +168,7 @@ describe("runtimeHeal", () => {
 
   it("treats a non-low band with no cachedSelector the same as low band (falls to stale)", async () => {
     const cache = fakeCache();
+    const repairs = tmpRepairs();
     const grounding = {
       ground: vi.fn(),
       reground: vi.fn().mockResolvedValue({
@@ -189,6 +188,7 @@ describe("runtimeHeal", () => {
       pageWithUrl,
       null,
       "store-test-1",
+      repairs,
     );
     expect(outcome.status).toBe("stale");
   });

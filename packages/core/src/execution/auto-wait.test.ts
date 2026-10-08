@@ -86,9 +86,6 @@ function fakeCache(): CacheStore {
     getRun: vi.fn(),
     listRuns: vi.fn(),
     appendHeal: vi.fn(),
-    enqueueReview: vi.fn(),
-    resolveReview: vi.fn(),
-    openReviews: vi.fn(),
     startRun: vi.fn(),
     failRun: vi.fn(),
   } as unknown as CacheStore;

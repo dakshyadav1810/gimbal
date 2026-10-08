@@ -48,12 +48,3 @@ export const healAudit = sqliteTable("heal_audit", {
   reason: text("reason"),
   at: text("at").notNull(),
 });
-
-export const reviewQueue = sqliteTable("review_queue", {
-  testId: text("test_id").notNull(),
-  stepId: text("step_id").notNull(),
-  url: text("url").notNull(),
-  screenshotPath: text("screenshot_path"),
-  candidatesJson: text("candidates_json"),
-  open: integer("open", { mode: "boolean" }).notNull().default(true),
-});

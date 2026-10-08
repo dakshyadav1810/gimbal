@@ -3,6 +3,7 @@ import type { Page } from "playwright";
 import type { AuthoringService } from "../authoring/index.js";
 import type { CacheStore } from "../cache/index.js";
 import type { GroundingService } from "../grounding/index.js";
+import type { RepairStore } from "../repairs/store.js";
 import type { ArtifactStore } from "../storage/index.js";
 import { type RepairResult, buildRepairPayload, maintain } from "./repair.js";
 import { type HealOutcome, runtimeHeal } from "./runtime.js";
@@ -18,6 +19,8 @@ export interface HealingService {
     previousSelector: string | null,
     storeTestId: string,
   ): Promise<HealOutcome>;
+  /** A still-open proposed selector for this step, reused when the cache has been cleared. */
+  findProposal(storeTestId: string, stepId: string): Promise<string | null>;
   buildRepairPayload(testId: string): Promise<RepairPayload>;
   /** patchedSpec is required — the agent always supplies the fix. No provider fallback. */
   maintain(
@@ -33,6 +36,7 @@ export class CoreHealingService implements HealingService {
     private cache: CacheStore,
     private authoring: AuthoringService,
     private store: ArtifactStore,
+    private repairs: RepairStore,
   ) {}
 
   runtimeHeal(
@@ -50,7 +54,15 @@ export class CoreHealingService implements HealingService {
       page,
       previousSelector,
       storeTestId,
+      this.repairs,
     );
+  }
+
+  async findProposal(storeTestId: string, stepId: string) {
+    const open = (await this.repairs.list(storeTestId)).filter(
+      (r) => r.stepId === stepId && r.status === "proposed" && r.after,
+    );
+    return open.at(-1)?.after?.selector ?? null;
   }
 
   buildRepairPayload(testId: string): Promise<RepairPayload> {

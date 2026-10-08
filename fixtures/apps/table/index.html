@@ -1,0 +1,12 @@
+<!doctype html><html><head><title>Team</title></head><body>
+<main><h1>Team members</h1>
+<button id="export" class="btn">Export CSV</button>
+<table><thead><tr><th>Name</th><th>Role</th><th></th></tr></thead><tbody>
+<tr><td>Alice</td><td>Admin</td><td><button id="edit-a" class="btn">Edit Alice</button></td></tr>
+<tr><td>Bob</td><td>Editor</td><td><button id="edit-b" class="btn">Edit Bob</button></td></tr>
+</tbody></table></main>
+<script>
+gt("table-export", document.getElementById("export"));
+gt("table-edit-alice", document.getElementById("edit-a"));
+gt("table-edit-bob", document.getElementById("edit-b"));
+</script></body></html>

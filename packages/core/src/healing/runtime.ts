@@ -1,10 +1,10 @@
-import type { Band, Candidate, GroundedTest } from "@gimbal/shared";
+import type { Band, Candidate, GroundedTest, RepairLocation } from "@gimbal/shared";
 import type { Page } from "playwright";
 import type { CacheStore } from "../cache/index.js";
 import { accept } from "../grounding/gate.js";
 import type { GroundingService } from "../grounding/index.js";
 import { audit } from "./audit.js";
-import { enqueue } from "./review.js";
+import type { RepairStore } from "../repairs/store.js";
 
 export type HealOutcome =
   | {
@@ -25,6 +25,7 @@ export async function runtimeHeal(
   page: Page,
   previousSelector: string | null,
   storeTestId: string,
+  repairs: RepairStore,
 ): Promise<HealOutcome> {
   const result = await grounding.reground(test, stepId, page);
 
@@ -39,7 +40,27 @@ export async function runtimeHeal(
   const crossContainerDrift =
     Boolean(originalRegion === "modal" && healedCandidate && healedCandidate.region !== "modal");
 
-  if (accept(result.band) && result.cachedSelector && !crossContainerDrift) {
+  // A selector the reviewer already rejected for this step must not come back as a fresh proposal.
+  const rejected = (await repairs.list(storeTestId)).some(
+    (r) =>
+      r.stepId === stepId &&
+      r.status === "rejected" &&
+      r.after?.selector === result.cachedSelector,
+  );
+  const before: RepairLocation = {
+    selector: previousSelector ?? "",
+    label: originalWinner?.label,
+    role: originalWinner?.role,
+    region: originalRegion ?? null,
+    contextPath: originalWinner?.anchors?.contextPath,
+  };
+
+  if (
+    accept(result.band) &&
+    result.cachedSelector &&
+    !crossContainerDrift &&
+    !rejected
+  ) {
     // resolution_cache stays keyed by flow.id (see locate.ts) — only the review queue and audit
     // log, which are looked up by the storage-layer id elsewhere (verdict.ts), use storeTestId.
     cache.putSelector({
@@ -54,6 +75,32 @@ export async function runtimeHeal(
       to: result.cachedSelector,
       band: result.band,
     });
+    const runnerUp = result.resolution.candidates.find(
+      (c) => c.id !== result.resolution.selected,
+    );
+    await repairs.add({
+      testId: storeTestId,
+      stepId,
+      kind: "heal",
+      status: "proposed",
+      before,
+      after: {
+        selector: result.cachedSelector,
+        label: healedCandidate?.label,
+        role: healedCandidate?.role,
+        region: healedCandidate?.region ?? null,
+        contextPath: healedCandidate?.anchors?.contextPath,
+        frame: healedCandidate?.frame,
+      },
+      evidence: {
+        confidence: result.resolution.confidence,
+        band: result.band,
+        signals: { ...(healedCandidate?.signals ?? {}) },
+        runnerUp: runnerUp
+          ? { label: runnerUp.label, score: runnerUp.score }
+          : undefined,
+      },
+    });
     return {
       status: "healed",
       cachedSelector: result.cachedSelector,
@@ -64,10 +111,19 @@ export async function runtimeHeal(
 
   const staleReason = crossContainerDrift
     ? "cross-container boundary drift: candidate outside original modal"
-    : "no candidate reached medium confidence";
+    : rejected
+      ? "best candidate was previously rejected by a reviewer"
+      : "no candidate reached medium confidence";
 
   const topCandidates = result.resolution.candidates.slice(0, 5);
-  enqueue(cache, storeTestId, stepId, page.url(), topCandidates);
+  await repairs.add({
+    testId: storeTestId,
+    stepId,
+    kind: "needed",
+    status: "needed",
+    before,
+    reason: staleReason,
+  });
   audit(cache, storeTestId, stepId, "stale", {
     from: previousSelector,
     reason: staleReason,

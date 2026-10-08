@@ -6,6 +6,7 @@ import { SqliteCacheStore } from "../cache/index.js";
 import { migrate } from "../cache/migrate.js";
 import { PlaywrightTestRunner } from "../execution/dispatcher.js";
 import { PlaywrightGroundingService } from "../grounding/index.js";
+import { RepairStore } from "../repairs/store.js";
 import { CoreHealingService } from "../healing/index.js";
 import {
   CachedEmbedder,
@@ -34,7 +35,14 @@ export function buildContainer(config: GimbalConfig) {
   const grounding = new PlaywrightGroundingService(resolver, config);
   const kdg = new EmptyKdgContextProvider();
   const authoring = new CoreAuthoringService(kdg);
-  const healing = new CoreHealingService(grounding, cache, authoring, store);
+  const repairs = new RepairStore(config.artifactsDir);
+  const healing = new CoreHealingService(
+    grounding,
+    cache,
+    authoring,
+    store,
+    repairs,
+  );
   const runner = new PlaywrightTestRunner(config, cache, healing);
 
   return {
@@ -45,6 +53,7 @@ export function buildContainer(config: GimbalConfig) {
     grounding,
     authoring,
     healing,
+    repairs,
     runner,
     kdg,
   };

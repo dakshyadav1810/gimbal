@@ -3,3 +3,4 @@ packages:
   - "packages/core"
   - "packages/cli"
   - "packages/dashboard"
+  - "packages/bench"

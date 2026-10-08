@@ -18,3 +18,6 @@ export function ariaSnapshotPath(
 ): string {
   return path.join(testDir(artifactsDir, testId), "aria-snapshot.txt");
 }
+export function repairsPath(artifactsDir: string, testId: string): string {
+  return path.join(testDir(artifactsDir, testId), "repairs.json");
+}
