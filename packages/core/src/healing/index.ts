@@ -1,13 +1,13 @@
 import type { GroundedTest, RepairPayload, SpecIR } from "@gimbal/shared";
+import type { Repair } from "@gimbal/shared";
 import type { Page } from "playwright";
 import type { AuthoringService } from "../authoring/index.js";
 import type { CacheStore } from "../cache/index.js";
 import type { GroundingService } from "../grounding/index.js";
 import type { RepairStore } from "../repairs/store.js";
 import type { ArtifactStore } from "../storage/index.js";
-import { type RepairResult, buildRepairPayload, maintain } from "./repair.js";
-import type { Repair } from "@gimbal/shared";
 import { audit } from "./audit.js";
+import { type RepairResult, buildRepairPayload, maintain } from "./repair.js";
 import { type HealOutcome, runtimeHeal } from "./runtime.js";
 
 export type Healed = Extract<HealOutcome, { status: "healed" }>;
@@ -101,7 +101,12 @@ export class CoreHealingService implements HealingService {
     await this.repairs.add({ ...heal.proposal, verification });
   }
 
-  rejectHeal(storeTestId: string, stepId: string, heal: Healed, detail: string) {
+  rejectHeal(
+    storeTestId: string,
+    stepId: string,
+    heal: Healed,
+    detail: string,
+  ) {
     audit(this.cache, storeTestId, stepId, "heal_rejected", {
       from: heal.from,
       to: heal.cachedSelector,

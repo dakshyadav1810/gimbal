@@ -1,5 +1,3 @@
-import { useState } from "react";
-import { Link } from "wouter";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -7,6 +5,8 @@ import {
   Loader2,
   Search,
 } from "lucide-react";
+import { useState } from "react";
+import { Link } from "wouter";
 import { useReviews, useTests } from "../queries.js";
 
 function StatTile({
@@ -131,7 +131,11 @@ export function TestListPage() {
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filteredTests?.map((t) => (
-            <Link key={t.testId} href={`/tests/${t.testId}`} className="panel block p-5">
+            <Link
+              key={t.testId}
+              href={`/tests/${t.testId}`}
+              className="panel block p-5"
+            >
               <div className="flex items-center justify-between gap-3">
                 <span className="truncate font-mono text-xs font-medium text-[var(--text-tertiary)]">
                   {t.testId}

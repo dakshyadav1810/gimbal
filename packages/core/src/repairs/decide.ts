@@ -21,7 +21,8 @@ export async function acceptRepair(
   repairId: string,
 ): Promise<Repair> {
   const repair = await repairs.find(repairId);
-  if (!repair) throw new RepairError("not_found", `repair ${repairId} not found`);
+  if (!repair)
+    throw new RepairError("not_found", `repair ${repairId} not found`);
   if (repair.status !== "proposed" || !repair.after)
     throw new RepairError(
       "invalid_state",
@@ -30,7 +31,10 @@ export async function acceptRepair(
   const test = await store.loadGrounded(repair.testId);
   const step = test.steps.find((s) => s.id === repair.stepId);
   if (step?.kind !== "ui" || !step.target?.resolution)
-    throw new RepairError("invalid_state", `step ${repair.stepId} has no grounded target to update`);
+    throw new RepairError(
+      "invalid_state",
+      `step ${repair.stepId} has no grounded target to update`,
+    );
   const res = step.target.resolution;
   res.cachedSelector = repair.after.selector;
   if (res.winner) {
@@ -54,8 +58,12 @@ export async function rejectRepair(
   reason?: string,
 ): Promise<Repair> {
   const repair = await repairs.find(repairId);
-  if (!repair) throw new RepairError("not_found", `repair ${repairId} not found`);
+  if (!repair)
+    throw new RepairError("not_found", `repair ${repairId} not found`);
   if (repair.status !== "proposed" && repair.status !== "needed")
-    throw new RepairError("invalid_state", `repair is already ${repair.status}`);
+    throw new RepairError(
+      "invalid_state",
+      `repair is already ${repair.status}`,
+    );
   return (await repairs.decide(repair.testId, repairId, "rejected", reason))!;
 }

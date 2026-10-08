@@ -9,11 +9,22 @@ import { MUTATIONS } from "./mutations.js";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repo = path.resolve(here, "../../..");
 const fixtures = path.join(repo, "fixtures");
-const targets = JSON.parse(fs.readFileSync(path.join(fixtures, "apps/targets.json"), "utf8"));
+const targets = JSON.parse(
+  fs.readFileSync(path.join(fixtures, "apps/targets.json"), "utf8"),
+);
 
-type Outcome = "correct-repair" | "incorrect-repair" | "correct-abstention" | "missed-repair" | "error";
+type Outcome =
+  | "correct-repair"
+  | "incorrect-repair"
+  | "correct-abstention"
+  | "missed-repair"
+  | "error";
 
-async function startCore(): Promise<{ proc: ChildProcess; base: string; dir: string }> {
+async function startCore(): Promise<{
+  proc: ChildProcess;
+  base: string;
+  dir: string;
+}> {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "gimbal-bench-"));
   const port = 24000 + Math.floor(Math.random() * 3000);
   fs.writeFileSync(
@@ -27,7 +38,10 @@ async function startCore(): Promise<{ proc: ChildProcess; base: string; dir: str
       timeouts: { actionMs: 2500, navMs: 10000 },
     }),
   );
-  const proc = spawn("node", [path.join(repo, "packages/core/dist/main.js")], { cwd: dir, stdio: "ignore" });
+  const proc = spawn("node", [path.join(repo, "packages/core/dist/main.js")], {
+    cwd: dir,
+    stdio: "ignore",
+  });
   const base = `http://127.0.0.1:${port}`;
   for (let i = 0; i < 60; i++) {
     try {
@@ -47,13 +61,21 @@ async function api(base: string, method: string, url: string, body?: unknown) {
     body: method === "GET" ? undefined : JSON.stringify(body ?? {}),
   });
   const json = await res.json().catch(() => null);
-  if (!res.ok) throw new Error(`${method} ${url} -> ${res.status} ${JSON.stringify(json)}`);
+  if (!res.ok)
+    throw new Error(
+      `${method} ${url} -> ${res.status} ${JSON.stringify(json)}`,
+    );
   return json as any;
 }
 
 function classify(truth: string, hits: string[], id: string): Outcome {
   const acted = hits.length > 0;
-  if (truth === "same") return hits.length === 1 && hits[0] === id ? "correct-repair" : acted ? "incorrect-repair" : "missed-repair";
+  if (truth === "same")
+    return hits.length === 1 && hits[0] === id
+      ? "correct-repair"
+      : acted
+        ? "incorrect-repair"
+        : "missed-repair";
   return acted ? "incorrect-repair" : "correct-abstention";
 }
 
@@ -85,9 +107,21 @@ try {
               kind: "ui",
               action: "click",
               intent: `click ${t.label}`,
-              target: { label: t.label, role: t.role, semantics: t.semantics, actions: ["click"], intent: `click ${t.label}` },
+              target: {
+                label: t.label,
+                role: t.role,
+                semantics: t.semantics,
+                actions: ["click"],
+                intent: `click ${t.label}`,
+              },
             },
-            { id: "s2", kind: "ui", action: "wait", intent: "page still open", assertions: [{ type: "urlContains", expected: "target=" }] },
+            {
+              id: "s2",
+              kind: "ui",
+              action: "wait",
+              intent: "page still open",
+              assertions: [{ type: "urlContains", expected: "target=" }],
+            },
           ],
         };
         let outcome: Outcome = "error";
@@ -97,9 +131,13 @@ try {
           await api(core.base, "POST", `/api/tests/${testId}/ground`);
           fx.takeHits();
           fx.setMutation(m.name);
-          const { runId } = await api(core.base, "POST", "/api/runs", { testId });
+          const { runId } = await api(core.base, "POST", "/api/runs", {
+            testId,
+          });
           for (let i = 0; i < 120; i++) {
-            const r = await api(core.base, "GET", `/api/runs/${runId}`).catch(() => null); // 404 until the run is stored
+            const r = await api(core.base, "GET", `/api/runs/${runId}`).catch(
+              () => null,
+            ); // 404 until the run is stored
             if (r && r.status !== "running") break;
             await new Promise((r) => setTimeout(r, 500));
           }
@@ -108,7 +146,13 @@ try {
         } catch (e) {
           console.error(`  ${flowId}: ${(e as Error).message.slice(0, 160)}`);
         }
-        (tally[m.name] ??= { "correct-repair": 0, "incorrect-repair": 0, "correct-abstention": 0, "missed-repair": 0, error: 0 })[outcome]++;
+        (tally[m.name] ??= {
+          "correct-repair": 0,
+          "incorrect-repair": 0,
+          "correct-abstention": 0,
+          "missed-repair": 0,
+          error: 0,
+        })[outcome]++;
       }
     }
   }
@@ -119,14 +163,20 @@ try {
 }
 
 const pad = (s: string | number, n: number) => String(s).padEnd(n);
-console.log(`\n${pad("mutation", 18)}${pad("located", 9)}${pad("FP", 5)}${pad("abstain", 9)}${pad("missed", 8)}error`);
+console.log(
+  `\n${pad("mutation", 18)}${pad("located", 9)}${pad("FP", 5)}${pad("abstain", 9)}${pad("missed", 8)}error`,
+);
 let fp = 0;
 let located = 0;
 let total = 0;
 for (const [name, r] of Object.entries(tally)) {
-  console.log(`${pad(name, 18)}${pad(r["correct-repair"], 9)}${pad(r["incorrect-repair"], 5)}${pad(r["correct-abstention"], 9)}${pad(r["missed-repair"], 8)}${r.error}`);
+  console.log(
+    `${pad(name, 18)}${pad(r["correct-repair"], 9)}${pad(r["incorrect-repair"], 5)}${pad(r["correct-abstention"], 9)}${pad(r["missed-repair"], 8)}${r.error}`,
+  );
   fp += r["incorrect-repair"];
   located += r["correct-repair"];
   total += Object.values(r).reduce((a, b) => a + b, 0);
 }
-console.log(`\ncells=${total} located=${located} false-positives=${fp} (${((Date.now() - t0) / 1000).toFixed(0)}s)`);
+console.log(
+  `\ncells=${total} located=${located} false-positives=${fp} (${((Date.now() - t0) / 1000).toFixed(0)}s)`,
+);

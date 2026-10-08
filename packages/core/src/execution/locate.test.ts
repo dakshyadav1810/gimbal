@@ -1,3 +1,4 @@
+import type { GimbalConfig } from "@gimbal/shared";
 import type { Band, GroundedTest, GroundedUiStep } from "@gimbal/shared";
 import type { Locator, Page } from "playwright";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -69,6 +70,11 @@ function fakeCache(overrides: Partial<CacheStore> = {}): CacheStore {
   } as CacheStore;
 }
 
+const testConfig = {
+  maxScrollPasses: 3,
+  healing: { mode: "propose" },
+} as unknown as GimbalConfig;
+
 function fakeHealing(overrides: Partial<HealingService> = {}): HealingService {
   return {
     findProposal: vi.fn().mockResolvedValue(null),
@@ -102,7 +108,7 @@ describe("locate", () => {
       cache,
       fakeHealing(),
       "store-test-1",
-      { maxScrollPasses: 3, healing: { mode: "propose" } } as unknown as import("@gimbal/shared").GimbalConfig,
+      testConfig,
     );
     expect(result.source).toBe("cached");
     expect(result.locator).not.toBeNull();
@@ -147,7 +153,7 @@ describe("locate", () => {
       cache,
       fakeHealing(),
       "store-test-1",
-      { maxScrollPasses: 3, healing: { mode: "propose" } } as unknown as import("@gimbal/shared").GimbalConfig,
+      testConfig,
     );
     expect(result.source).toBe("cached");
     expect(cache.putSelector).toHaveBeenCalledWith(
@@ -180,7 +186,7 @@ describe("locate", () => {
       cache,
       healing,
       "store-test-1",
-      { maxScrollPasses: 3, healing: { mode: "propose" } } as unknown as import("@gimbal/shared").GimbalConfig,
+      testConfig,
     );
     expect(healing.runtimeHeal).toHaveBeenCalled();
     expect(result.source).toBe("resolver");
@@ -206,7 +212,7 @@ describe("locate", () => {
       cache,
       healing,
       "store-test-1",
-      { maxScrollPasses: 3, healing: { mode: "propose" } } as unknown as import("@gimbal/shared").GimbalConfig,
+      testConfig,
     );
     expect(result.source).toBe("none");
     expect(result.locator).toBeNull();

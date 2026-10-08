@@ -14,7 +14,10 @@ export class RepairStore {
 
   async list(testId: string): Promise<Repair[]> {
     try {
-      const raw = await fs.readFile(repairsPath(this.artifactsDir, testId), "utf8");
+      const raw = await fs.readFile(
+        repairsPath(this.artifactsDir, testId),
+        "utf8",
+      );
       return RepairsDoc.parse(JSON.parse(raw)).repairs;
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code === "ENOENT") return [];
@@ -29,7 +32,9 @@ export class RepairStore {
     } catch {
       return [];
     }
-    const all = await Promise.all(ids.map((id) => this.list(id).catch(() => [])));
+    const all = await Promise.all(
+      ids.map((id) => this.list(id).catch(() => [])),
+    );
     return all.flat().sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
@@ -38,16 +43,25 @@ export class RepairStore {
   }
 
   // Applies `fn` to the test's repairs under a lock and writes the result.
-  mutate<T>(testId: string, fn: (repairs: Repair[]) => { repairs: Repair[]; result: T }): Promise<T> {
+  mutate<T>(
+    testId: string,
+    fn: (repairs: Repair[]) => { repairs: Repair[]; result: T },
+  ): Promise<T> {
     const prev = this.queues.get(testId) ?? Promise.resolve();
     const next = prev.then(async () => {
       const { repairs, result } = fn(await this.list(testId));
       await fs.mkdir(testDir(this.artifactsDir, testId), { recursive: true });
       const doc = RepairsDoc.parse({ version: "1.0", repairs });
-      await fs.writeFile(repairsPath(this.artifactsDir, testId), JSON.stringify(doc, null, 2));
+      await fs.writeFile(
+        repairsPath(this.artifactsDir, testId),
+        JSON.stringify(doc, null, 2),
+      );
       return result;
     });
-    this.queues.set(testId, next.catch(() => {}));
+    this.queues.set(
+      testId,
+      next.catch(() => {}),
+    );
     return next;
   }
 
@@ -56,9 +70,13 @@ export class RepairStore {
   add(rec: NewRepair): Promise<Repair> {
     return this.mutate(rec.testId, (repairs) => {
       const open = (r: Repair) =>
-        r.stepId === rec.stepId && (r.status === "proposed" || r.status === "needed");
+        r.stepId === rec.stepId &&
+        (r.status === "proposed" || r.status === "needed");
       const same = repairs.find(
-        (r) => open(r) && r.kind === rec.kind && r.after?.selector === rec.after?.selector,
+        (r) =>
+          open(r) &&
+          r.kind === rec.kind &&
+          r.after?.selector === rec.after?.selector,
       );
       if (same) return { repairs, result: same };
       const now = new Date().toISOString();
@@ -71,7 +89,12 @@ export class RepairStore {
     });
   }
 
-  decide(testId: string, repairId: string, status: "accepted" | "rejected", reason?: string): Promise<Repair | null> {
+  decide(
+    testId: string,
+    repairId: string,
+    status: "accepted" | "rejected",
+    reason?: string,
+  ): Promise<Repair | null> {
     return this.mutate(testId, (repairs) => {
       const idx = repairs.findIndex((r) => r.id === repairId);
       if (idx < 0) return { repairs, result: null };

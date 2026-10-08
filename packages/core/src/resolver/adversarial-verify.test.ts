@@ -1,7 +1,7 @@
-import { chromium, type Browser } from "playwright";
+import type { GimbalConfig, GroundedTest, Tier1Target } from "@gimbal/shared";
+import { type Browser, chromium } from "playwright";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { buildContainer } from "../server/container.js";
-import type { GimbalConfig, GroundedTest, Tier1Target } from "@gimbal/shared";
 
 const config: GimbalConfig = {
   port: 1,
@@ -15,7 +15,12 @@ const config: GimbalConfig = {
   embeddingRevision: "751bff37182d3f1213fa05d7196b954e230abad9",
   healing: { mode: "propose" },
   bands: { high: 0.7, medium: 0.5 },
-  timeouts: { actionMs: 5000, navMs: 10000, hydrationNetworkIdleMs: 2000, hydrationQuietWindowMs: 150 },
+  timeouts: {
+    actionMs: 5000,
+    navMs: 10000,
+    hydrationNetworkIdleMs: 2000,
+    hydrationQuietWindowMs: 150,
+  },
   db: { readOnly: true },
   maxScrollPasses: 3,
   determinism: {},
@@ -158,12 +163,12 @@ describe("Adversarial verification of the getNearbyText + modifier-tiebreak fixe
       intent: "add the mechanical keyboard to the cart",
     });
     // nearbyText IS correctly per-card (verifies the getNearbyText fix didn't regress this pattern)...
-    expect(res.candidates.find((c) => c.id === "btn-add-2")?.nearbyText).toContain(
-      "Mechanical Keyboard",
-    );
-    expect(res.candidates.find((c) => c.id === "btn-add-1")?.nearbyText).toContain(
-      "Wireless Mouse",
-    );
+    expect(
+      res.candidates.find((c) => c.id === "btn-add-2")?.nearbyText,
+    ).toContain("Mechanical Keyboard");
+    expect(
+      res.candidates.find((c) => c.id === "btn-add-1")?.nearbyText,
+    ).toContain("Wireless Mouse");
     // ...but the resolver still can't confidently pick between them — genuinely ambiguous today.
     expect(res.winnerId).toBeNull();
     expect(res.band).toBe("medium");

@@ -1,4 +1,8 @@
-import type { GimbalConfig, GroundedTest, GroundedUiStep } from "@gimbal/shared";
+import type {
+  GimbalConfig,
+  GroundedTest,
+  GroundedUiStep,
+} from "@gimbal/shared";
 import type { Locator, Page } from "playwright";
 import type { CacheStore } from "../cache/index.js";
 import { extractCandidatesWithScroll } from "../grounding/candidate.js";

@@ -54,7 +54,13 @@ describe("accept / reject", () => {
     const store = new FsArtifactStore(d);
     const repairs = new RepairStore(d);
     const grounded = {
-      flow: { id: "flow-1", name: "f", intent: "i", startUrl: "http://localhost/", vars: {} },
+      flow: {
+        id: "flow-1",
+        name: "f",
+        intent: "i",
+        startUrl: "http://localhost/",
+        vars: {},
+      },
       groundedUrl: "http://localhost/",
       groundedAt: new Date().toISOString(),
       version: "1.0",
@@ -116,6 +122,8 @@ describe("accept / reject", () => {
     const { store, repairs, cache } = await setup();
     const r = await repairs.add(heal("#new"));
     await rejectRepair(repairs, r.id);
-    await expect(acceptRepair(repairs, store, cache, r.id)).rejects.toThrow(/only proposed/);
+    await expect(acceptRepair(repairs, store, cache, r.id)).rejects.toThrow(
+      /only proposed/,
+    );
   });
 });

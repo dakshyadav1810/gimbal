@@ -6,8 +6,8 @@ import { SqliteCacheStore } from "../cache/index.js";
 import { migrate } from "../cache/migrate.js";
 import { PlaywrightTestRunner } from "../execution/dispatcher.js";
 import { PlaywrightGroundingService } from "../grounding/index.js";
-import { RepairStore } from "../repairs/store.js";
 import { CoreHealingService } from "../healing/index.js";
+import { RepairStore } from "../repairs/store.js";
 import {
   CachedEmbedder,
   TransformersEmbeddingModel,

@@ -1,8 +1,14 @@
-import type { GimbalConfig, GroundedTest, Step, StepKind, StepResult } from "@gimbal/shared";
+import type {
+  GimbalConfig,
+  GroundedTest,
+  Step,
+  StepKind,
+  StepResult,
+} from "@gimbal/shared";
 import type { BrowserContext, Page } from "playwright";
 import type { CacheStore } from "../cache/index.js";
-import type { CachedEmbedder } from "../resolver/embeddings.js";
 import type { HealingService } from "../healing/index.js";
+import type { CachedEmbedder } from "../resolver/embeddings.js";
 
 export interface RunContext {
   test: GroundedTest;

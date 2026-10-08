@@ -3,7 +3,9 @@ import type { Page } from "playwright";
 import { describe, expect, it, vi } from "vitest";
 import { hydrationTimeoutsFrom, waitForPageHydration } from "./hydration.js";
 
-function config(overrides: Partial<GimbalConfig["timeouts"]> = {}): GimbalConfig {
+function config(
+  overrides: Partial<GimbalConfig["timeouts"]> = {},
+): GimbalConfig {
   return {
     timeouts: {
       actionMs: 15000,
@@ -18,7 +20,9 @@ function config(overrides: Partial<GimbalConfig["timeouts"]> = {}): GimbalConfig
 describe("hydrationTimeoutsFrom", () => {
   it("derives networkIdleMs/quietWindowMs from config.timeouts", () => {
     expect(
-      hydrationTimeoutsFrom(config({ hydrationNetworkIdleMs: 9000, hydrationQuietWindowMs: 400 })),
+      hydrationTimeoutsFrom(
+        config({ hydrationNetworkIdleMs: 9000, hydrationQuietWindowMs: 400 }),
+      ),
     ).toEqual({ networkIdleMs: 9000, quietWindowMs: 400 });
   });
 });

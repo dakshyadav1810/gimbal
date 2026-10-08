@@ -124,7 +124,13 @@ describe("lintSpec — unchecked click", () => {
   const base = (steps: unknown[]) =>
     SpecIR.parse({
       version: "1.0",
-      flow: { id: "f", name: "f", intent: "i", startUrl: "http://localhost/", vars: {} },
+      flow: {
+        id: "f",
+        name: "f",
+        intent: "i",
+        startUrl: "http://localhost/",
+        vars: {},
+      },
       steps,
     });
   const click = (id: string, extra = {}) => ({
@@ -132,13 +138,30 @@ describe("lintSpec — unchecked click", () => {
     kind: "ui",
     action: "click",
     intent: "go",
-    target: { label: "Go", role: "button", semantics: ["go"], actions: ["click"], intent: "go" },
+    target: {
+      label: "Go",
+      role: "button",
+      semantics: ["go"],
+      actions: ["click"],
+      intent: "go",
+    },
     ...extra,
   });
-  const wait = { id: "w", kind: "ui", action: "wait", intent: "w", assertions: [{ type: "textContains", expected: "ok" }] };
+  const wait = {
+    id: "w",
+    kind: "ui",
+    action: "wait",
+    intent: "w",
+    assertions: [{ type: "textContains", expected: "ok" }],
+  };
 
   it("warns when nothing checks the click", () => {
-    const r = lintSpec(base([click("b", { assertions: [{ type: "textContains", expected: "ok" }] }), click("a")]));
+    const r = lintSpec(
+      base([
+        click("b", { assertions: [{ type: "textContains", expected: "ok" }] }),
+        click("a"),
+      ]),
+    );
     expect(r.warnings.some((w) => w.includes("step a"))).toBe(true);
     expect(r.warnings.some((w) => w.includes("step b"))).toBe(false);
   });

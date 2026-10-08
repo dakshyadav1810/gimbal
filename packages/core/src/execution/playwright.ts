@@ -25,8 +25,7 @@ export async function openSession(
   const browser = await ENGINES[config.browser].launch({
     headless: config.headless,
   });
-  const { fixedTime, harPath, harMode, storageStatePath } =
-    config.determinism;
+  const { fixedTime, harPath, harMode, storageStatePath } = config.determinism;
   const context = await browser.newContext(
     storageStatePath ? { storageState: storageStatePath } : {},
   );

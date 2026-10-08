@@ -95,7 +95,9 @@ describe("extractInteractiveElementsInPage", () => {
   });
 
   it("does not copy value/free-form attributes or href query strings into attributes", () => {
-    setup(`<input id="pw" type="password" value="hunter2" data-token="abc" class="x"><a href="/p?token=s3cret#h">go</a>`);
+    setup(
+      `<input id="pw" type="password" value="hunter2" data-token="abc" class="x"><a href="/p?token=s3cret#h">go</a>`,
+    );
     const found = extractInteractiveElementsInPage();
     const input = found.find((e) => e.tag === "input");
     const link = found.find((e) => e.tag === "a");
@@ -263,7 +265,9 @@ describe("extractInteractiveElementsInPage", () => {
     const visibleBtn = document.getElementById("visible-btn") as HTMLElement;
     const hiddenBtn = document.getElementById("hidden-style") as HTMLElement;
     const zeroBtn = document.getElementById("zero-size") as HTMLElement;
-    const ariaHiddenBtn = document.getElementById("aria-hidden-btn") as HTMLElement;
+    const ariaHiddenBtn = document.getElementById(
+      "aria-hidden-btn",
+    ) as HTMLElement;
     const drawerBtn = document.getElementById("drawer-btn") as HTMLElement;
 
     stubRect(visibleBtn, { width: 100, height: 20 });
@@ -274,9 +278,13 @@ describe("extractInteractiveElementsInPage", () => {
 
     const found = extractInteractiveElementsInPage();
     expect(found.find((e) => e.attributes.id === "visible-btn")).toBeDefined();
-    expect(found.find((e) => e.attributes.id === "hidden-style")).toBeUndefined();
+    expect(
+      found.find((e) => e.attributes.id === "hidden-style"),
+    ).toBeUndefined();
     expect(found.find((e) => e.attributes.id === "zero-size")).toBeUndefined();
-    expect(found.find((e) => e.attributes.id === "aria-hidden-btn")).toBeUndefined();
+    expect(
+      found.find((e) => e.attributes.id === "aria-hidden-btn"),
+    ).toBeUndefined();
     expect(found.find((e) => e.attributes.id === "drawer-btn")).toBeUndefined();
   });
 
@@ -559,8 +567,10 @@ describe("extractInteractiveElementsInPage", () => {
     expect(found[0].cssSelector).not.toBe("input[type='password']");
     expect(found[1].cssSelector).not.toBe("input[type='password']");
     // They should use unique placeholder selectors
-    expect(found[0].cssSelector).toBe("input[placeholder=\"Enter\\ password\"]");
-    expect(found[1].cssSelector).toBe("input[placeholder=\"Confirm\\ password\"]");
+    expect(found[0].cssSelector).toBe('input[placeholder="Enter\\ password"]');
+    expect(found[1].cssSelector).toBe(
+      'input[placeholder="Confirm\\ password"]',
+    );
   });
 
   it("falls back to unique positional xpath when multiple identical inputs lack distinguishing attributes", () => {
@@ -579,4 +589,3 @@ describe("extractInteractiveElementsInPage", () => {
     expect(found[0].cssSelector).not.toBe(found[1].cssSelector);
   });
 });
-

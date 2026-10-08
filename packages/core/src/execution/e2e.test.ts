@@ -57,7 +57,12 @@ describe("Gimbal Full E2E Pipeline", () => {
       embeddingRevision: "751bff37182d3f1213fa05d7196b954e230abad9",
       healing: { mode: "propose" },
       bands: { high: 0.7, medium: 0.5 },
-      timeouts: { actionMs: 5000, navMs: 10000, hydrationNetworkIdleMs: 2000, hydrationQuietWindowMs: 150 },
+      timeouts: {
+        actionMs: 5000,
+        navMs: 10000,
+        hydrationNetworkIdleMs: 2000,
+        hydrationQuietWindowMs: 150,
+      },
       db: { readOnly: true },
     };
     container = buildContainer(config);
@@ -229,9 +234,13 @@ describe("Gimbal Full E2E Pipeline", () => {
     pageHtml = `<html><body>
       <button id="help" onclick="window.location.href='/nowhere'">Log In Help</button>
     </body></html>`;
-    const report = await container.runner.run(grounded, { testId: "wrong-heal" });
+    const report = await container.runner.run(grounded, {
+      testId: "wrong-heal",
+    });
     expect(report.steps[0].status).not.toBe("passed");
-    const heals = (await container.repairs.list("wrong-heal")).filter((r) => r.kind === "heal");
+    const heals = (await container.repairs.list("wrong-heal")).filter(
+      (r) => r.kind === "heal",
+    );
     expect(heals).toEqual([]);
   }, 30000);
 
@@ -243,13 +252,50 @@ describe("Gimbal Full E2E Pipeline", () => {
     const mk = (loginLabel: string) =>
       SpecIR.parse({
         version: "1.0",
-        flow: { id: "scoped", name: "s", intent: "s", startUrl: `http://127.0.0.1:${PORT}/`, vars: {} },
+        flow: {
+          id: "scoped",
+          name: "s",
+          intent: "s",
+          startUrl: `http://127.0.0.1:${PORT}/`,
+          vars: {},
+        },
         steps: [
-          { id: "a", kind: "ui", action: "type", value: "x@y.z", intent: "email",
-            target: { label: "Email Address", role: "textbox", semantics: ["email"], actions: ["type"], intent: "email" } },
-          { id: "b", kind: "ui", action: "click", intent: "login",
-            target: { label: loginLabel, role: "button", semantics: ["log in"], actions: ["click"], intent: "login" } },
-          { id: "c", kind: "ui", action: "wait", intent: "dash", assertions: [{ type: "textContains", expected: "Welcome to Dashboard" }] },
+          {
+            id: "a",
+            kind: "ui",
+            action: "type",
+            value: "x@y.z",
+            intent: "email",
+            target: {
+              label: "Email Address",
+              role: "textbox",
+              semantics: ["email"],
+              actions: ["type"],
+              intent: "email",
+            },
+          },
+          {
+            id: "b",
+            kind: "ui",
+            action: "click",
+            intent: "login",
+            target: {
+              label: loginLabel,
+              role: "button",
+              semantics: ["log in"],
+              actions: ["click"],
+              intent: "login",
+            },
+          },
+          {
+            id: "c",
+            kind: "ui",
+            action: "wait",
+            intent: "dash",
+            assertions: [
+              { type: "textContains", expected: "Welcome to Dashboard" },
+            ],
+          },
         ],
       });
     const full = await container.grounding.ground(mk("Log In"), {});
@@ -261,9 +307,9 @@ describe("Gimbal Full E2E Pipeline", () => {
     expect(scoped.fellBackToFull).toBeUndefined();
     expect(spy).toHaveBeenCalledTimes(1);
     expect(scoped.candidates.steps.map((s) => s.stepId)).toEqual(["b"]);
-    expect((scoped.grounded.steps[0] as any).target.resolution.cachedSelector).toBe(
-      (full.grounded.steps[0] as any).target.resolution.cachedSelector,
-    );
+    expect(
+      (scoped.grounded.steps[0] as any).target.resolution.cachedSelector,
+    ).toBe((full.grounded.steps[0] as any).target.resolution.cachedSelector);
     spy.mockRestore();
   }, 30000);
 });

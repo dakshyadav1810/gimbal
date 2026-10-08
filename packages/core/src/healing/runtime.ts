@@ -1,10 +1,15 @@
-import type { Band, Candidate, GroundedTest, RepairLocation } from "@gimbal/shared";
+import type {
+  Band,
+  Candidate,
+  GroundedTest,
+  RepairLocation,
+} from "@gimbal/shared";
 import type { Page } from "playwright";
 import type { CacheStore } from "../cache/index.js";
 import { accept } from "../grounding/gate.js";
 import type { GroundingService } from "../grounding/index.js";
-import { audit } from "./audit.js";
 import type { NewRepair, RepairStore } from "../repairs/store.js";
+import { audit } from "./audit.js";
 
 export type HealOutcome =
   | {
@@ -41,8 +46,11 @@ export async function runtimeHeal(
   const healedCandidate = result.resolution.candidates.find(
     (c) => c.id === result.resolution.selected,
   );
-  const crossContainerDrift =
-    Boolean(originalRegion === "modal" && healedCandidate && healedCandidate.region !== "modal");
+  const crossContainerDrift = Boolean(
+    originalRegion === "modal" &&
+      healedCandidate &&
+      healedCandidate.region !== "modal",
+  );
 
   // A selector the reviewer already rejected for this step must not come back as a fresh proposal.
   const rejected = (await repairs.list(storeTestId)).some(

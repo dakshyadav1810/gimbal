@@ -12,7 +12,9 @@ export const GimbalConfig = z.object({
   embeddingModel: z.string().default("Xenova/all-MiniLM-L6-v2"),
   // Pinned model commit: resolver scores must be reproducible across machines and over time, so the
   // weights are never fetched from a moving branch.
-  embeddingRevision: z.string().default("751bff37182d3f1213fa05d7196b954e230abad9"),
+  embeddingRevision: z
+    .string()
+    .default("751bff37182d3f1213fa05d7196b954e230abad9"),
   bands: z
     .object({ high: Score.default(0.7), medium: Score.default(0.5) })
     .refine((b) => b.high > b.medium, {

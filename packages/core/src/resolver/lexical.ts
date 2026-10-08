@@ -15,11 +15,17 @@ import type { DomCandidate } from "./base.js";
 // tokens a superset match drags in ("confirm" isn't in the target label), giving the more
 // precisely-matching candidate ("new_password", fewer extra tokens) a strictly higher score.
 function labelWords(label: string): Set<string> {
-  return new Set(label.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean));
+  return new Set(
+    label
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter(Boolean),
+  );
 }
 
 function nameIdTokens(cand: DomCandidate): Set<string> {
-  const raw = `${cand.attributes?.id ?? ""} ${cand.attributes?.name ?? ""}`.toLowerCase();
+  const raw =
+    `${cand.attributes?.id ?? ""} ${cand.attributes?.name ?? ""}`.toLowerCase();
   return new Set(raw.split(/[^a-z0-9]+/).filter(Boolean));
 }
 
@@ -33,7 +39,10 @@ function jaccard(a: Set<string>, b: Set<string>): number {
 
 // Reward-only input for structure.ts — 0 when the label is a single word (nothing to compare
 // beyond the shared role/type, which other terms already cover) or the candidate has no id/name.
-export function nameIdLabelSimilarity(label: string, cand: DomCandidate): number {
+export function nameIdLabelSimilarity(
+  label: string,
+  cand: DomCandidate,
+): number {
   const words = labelWords(label);
   if (words.size < 2) return 0;
   return jaccard(words, nameIdTokens(cand));

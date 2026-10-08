@@ -9,13 +9,13 @@ import type { DomCandidate } from "../../resolver/base.js";
 import { act } from "../act.js";
 import { evaluateAssertion, evaluateExpectedOutcome } from "../assert.js";
 import { locateWithStabilityGate } from "../auto-wait.js";
+import { hydrationTimeoutsFrom, waitForPageHydration } from "../hydration.js";
 import {
   type RunContext,
   type StepAdapter,
   checkPrecondition,
 } from "../types.js";
 import { verifyHeal } from "../verify.js";
-import { hydrationTimeoutsFrom, waitForPageHydration } from "../hydration.js";
 
 const logger = pino({ name: "ui-adapter" });
 
@@ -166,7 +166,13 @@ export class UiAdapter implements StepAdapter {
         hydrationTimeouts,
       );
     } catch (e) {
-      if (heal) ctx.healing.rejectHeal(ctx.testId, step.id, heal, `action failed: ${e}`);
+      if (heal)
+        ctx.healing.rejectHeal(
+          ctx.testId,
+          step.id,
+          heal,
+          `action failed: ${e}`,
+        );
       const screenshot = await captureScreenshot(ctx, step.id);
       const note = adoptPopupIfOpened();
       return maybeInvert(

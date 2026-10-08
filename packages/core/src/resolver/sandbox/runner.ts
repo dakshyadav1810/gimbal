@@ -1,11 +1,11 @@
+import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import fs from "node:fs/promises";
-import fastify from "fastify";
 import type { GimbalConfig, GroundedTest } from "@gimbal/shared";
+import fastify from "fastify";
+import { type Browser, type Page, chromium } from "playwright";
 import { buildContainer } from "../../server/container.js";
 import { sandboxCases } from "./cases.js";
-import { chromium, type Browser, type Page } from "playwright";
 
 export interface EvaluationResult {
   caseId: string;
@@ -63,7 +63,12 @@ export async function runEvaluation(): Promise<{
     embeddingRevision: "751bff37182d3f1213fa05d7196b954e230abad9",
     healing: { mode: "propose" },
     bands: { high: 0.7, medium: 0.5 },
-    timeouts: { actionMs: 5000, navMs: 10000, hydrationNetworkIdleMs: 2000, hydrationQuietWindowMs: 150 },
+    timeouts: {
+      actionMs: 5000,
+      navMs: 10000,
+      hydrationNetworkIdleMs: 2000,
+      hydrationQuietWindowMs: 150,
+    },
     db: { readOnly: true },
   };
 
@@ -169,9 +174,7 @@ export async function runEvaluation(): Promise<{
   console.log(
     "| Case ID | Scenario Name | Selected Winner ID | Expected Winner ID | Band | Expected Band | Score | Status |",
   );
-  console.log(
-    "| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |",
-  );
+  console.log("| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |");
   for (const r of results) {
     console.log(
       `| ${r.caseId} | ${r.name} | \`${r.selectedWinnerId ?? "none"}\` | \`${r.expectedWinnerId ?? "none"}\` | \`${r.band}\` | \`${r.expectedBand}\` | ${(r.score * 100).toFixed(0)}% | ${r.passed ? "✅ PASS" : "❌ FAIL"}${r.isKnownGap ? " (known-gap)" : ""} |`,

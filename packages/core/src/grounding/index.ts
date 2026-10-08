@@ -74,7 +74,10 @@ export interface GroundingService {
 }
 
 // True when the spec step is unchanged from the one a previous grounding was built from.
-function sameAuthoring(step: SpecIR["steps"][number], prev: GroundedStep): boolean {
+function sameAuthoring(
+  step: SpecIR["steps"][number],
+  prev: GroundedStep,
+): boolean {
   if (step.kind !== "ui" || prev.kind !== "ui") return false;
   const { resolution: _r, ...prevTarget } = prev.target ?? ({} as never);
   const { effect: _e, target: _t, ...prevRest } = prev;
@@ -82,7 +85,9 @@ function sameAuthoring(step: SpecIR["steps"][number], prev: GroundedStep): boole
   const canon = (v: unknown): string =>
     JSON.stringify(v, (_k, x) =>
       x && typeof x === "object" && !Array.isArray(x)
-        ? Object.fromEntries(Object.entries(x).sort(([a], [b]) => a.localeCompare(b)))
+        ? Object.fromEntries(
+            Object.entries(x).sort(([a], [b]) => a.localeCompare(b)),
+          )
         : x,
     );
   return (
@@ -139,7 +144,9 @@ export class PlaywrightGroundingService implements GroundingService {
     let ariaSnapshot = "";
 
     try {
-      await session.page.goto(spec.flow.startUrl, { waitUntil: "domcontentloaded" });
+      await session.page.goto(spec.flow.startUrl, {
+        waitUntil: "domcontentloaded",
+      });
       await waitForPageHydration(session.page, undefined, hydrationTimeouts);
 
       for (const step of spec.steps) {
@@ -172,7 +179,8 @@ export class PlaywrightGroundingService implements GroundingService {
         }
 
         // Scoped re-ground: an untouched step keeps its grounding; replay it to reach the next state.
-        const prev = only && !only.has(step.id) ? prevById.get(step.id) : undefined;
+        const prev =
+          only && !only.has(step.id) ? prevById.get(step.id) : undefined;
         if (
           prev?.kind === "ui" &&
           prev.target?.resolution?.cachedSelector &&
@@ -190,7 +198,11 @@ export class PlaywrightGroundingService implements GroundingService {
             );
             await awaitNavigationIfExpected(step, session.page, urlBefore);
             await waitForPendingUiToClear(session.page);
-            await waitForPageHydration(session.page, undefined, hydrationTimeouts);
+            await waitForPageHydration(
+              session.page,
+              undefined,
+              hydrationTimeouts,
+            );
             groundedSteps.push(prev);
             continue;
           } catch (e) {
@@ -243,7 +255,11 @@ export class PlaywrightGroundingService implements GroundingService {
           if (isWaitForSelector) {
             // Nothing to act on — the step's whole job was confirming the target resolved.
             await waitForPendingUiToClear(session.page);
-            await waitForPageHydration(session.page, undefined, hydrationTimeouts);
+            await waitForPageHydration(
+              session.page,
+              undefined,
+              hydrationTimeouts,
+            );
           } else {
             const urlBefore = session.page.url();
             await act(
@@ -259,7 +275,11 @@ export class PlaywrightGroundingService implements GroundingService {
             // step's candidate extraction would otherwise run against the pre-redirect DOM.
             await awaitNavigationIfExpected(step, session.page, urlBefore);
             await waitForPendingUiToClear(session.page);
-            await waitForPageHydration(session.page, undefined, hydrationTimeouts);
+            await waitForPageHydration(
+              session.page,
+              undefined,
+              hydrationTimeouts,
+            );
             // Remember what acting did, so a later runtime heal can be sanity-checked against it.
             const afterCands = await extractCandidatesWithScroll(
               session.page,

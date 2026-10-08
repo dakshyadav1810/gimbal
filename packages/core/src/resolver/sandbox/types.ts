@@ -1,4 +1,4 @@
-import type { Tier1Target, Band, Generalization } from "@gimbal/shared";
+import type { Band, Generalization, Tier1Target } from "@gimbal/shared";
 import type { Page } from "playwright";
 
 export interface SandboxCase {

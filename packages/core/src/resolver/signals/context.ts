@@ -46,4 +46,3 @@ export class ContextSignal implements SignalStrategy {
     return Math.min(1, score);
   }
 }
-

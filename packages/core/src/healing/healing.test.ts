@@ -1,3 +1,6 @@
+import { mkdtempSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import type {
   Candidate,
   GroundedTest,
@@ -9,11 +12,8 @@ import { describe, expect, it, vi } from "vitest";
 import type { AuthoringService } from "../authoring/index.js";
 import type { CacheStore } from "../cache/index.js";
 import type { GroundingService, StepResolution } from "../grounding/index.js";
-import type { ArtifactStore } from "../storage/index.js";
-import { mkdtempSync } from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { RepairStore } from "../repairs/store.js";
+import type { ArtifactStore } from "../storage/index.js";
 import { audit } from "./audit.js";
 import { CoreHealingService } from "./index.js";
 import { buildRepairPayload, maintain } from "./repair.js";
@@ -72,7 +72,10 @@ describe("runtimeHeal", () => {
       reground: vi.fn().mockResolvedValue({
         band: "high",
         cachedSelector: "#healed",
-        resolution: { candidates: [], confidence: 0.9 } as unknown as Resolution,
+        resolution: {
+          candidates: [],
+          confidence: 0.9,
+        } as unknown as Resolution,
         domHash: "hash1",
       } satisfies StepResolution),
     } as GroundingService;
@@ -140,7 +143,11 @@ describe("runtimeHeal", () => {
       expect.objectContaining({ testId: "test-1", cachedSelector: "#healed" }),
     );
     expect(cache.appendHeal).toHaveBeenCalledWith(
-      expect.objectContaining({ testId: "store-test-1", event: "healed", toSel: "#healed" }),
+      expect.objectContaining({
+        testId: "store-test-1",
+        event: "healed",
+        toSel: "#healed",
+      }),
     );
     const [saved] = await repairs.list("store-test-1");
     expect(saved.verification).toEqual({ level: "effect", result: "verified" });
@@ -273,7 +280,9 @@ describe("maintain", () => {
       context: vi.fn(),
     } as AuthoringService;
     const grounding = {
-      ground: vi.fn().mockResolvedValue({ candidates: { steps: [] }, grounded: after }),
+      ground: vi
+        .fn()
+        .mockResolvedValue({ candidates: { steps: [] }, grounded: after }),
       reground: vi.fn(),
     } as unknown as GroundingService;
 

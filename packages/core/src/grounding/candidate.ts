@@ -56,7 +56,10 @@ export async function extractCandidates(page: Page): Promise<DomCandidate[]> {
   for (let i = 0; i < frames.length; i++) {
     const frame = frames[i];
     const isMain = frame === page.mainFrame();
-    await extractFrom(frame, isMain ? undefined : { url: frame.url(), index: i });
+    await extractFrom(
+      frame,
+      isMain ? undefined : { url: frame.url(), index: i },
+    );
   }
 
   return out;

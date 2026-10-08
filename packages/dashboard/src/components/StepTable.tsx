@@ -82,7 +82,9 @@ export function StepTable({
                 )}
 
                 {s.note && (
-                  <p className="mt-2 text-xs text-[var(--text-tertiary)]">{s.note}</p>
+                  <p className="mt-2 text-xs text-[var(--text-tertiary)]">
+                    {s.note}
+                  </p>
                 )}
               </div>
 
@@ -93,7 +95,10 @@ export function StepTable({
                 </span>
                 {showScreenshots && s.screenshot && (
                   <div className="w-32 overflow-hidden rounded border border-[var(--border-default)]">
-                    <Screenshot path={s.screenshot} alt={`${s.stepId} screenshot`} />
+                    <Screenshot
+                      path={s.screenshot}
+                      alt={`${s.stepId} screenshot`}
+                    />
                   </div>
                 )}
               </div>
@@ -103,7 +108,9 @@ export function StepTable({
               <div className="mt-3 border-t border-[var(--border-default)] pt-3">
                 <button
                   type="button"
-                  onClick={() => setExpandedStepId(isExpanded ? null : s.stepId)}
+                  onClick={() =>
+                    setExpandedStepId(isExpanded ? null : s.stepId)
+                  }
                   className="flex items-center gap-1 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                 >
                   <ChevronRight

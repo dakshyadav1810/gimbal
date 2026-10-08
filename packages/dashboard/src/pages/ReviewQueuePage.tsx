@@ -12,7 +12,8 @@ export function ReviewQueuePage() {
           Review Queue
         </h1>
         <p className="mt-1 text-sm text-[var(--text-secondary)]">
-          Steps that failed deterministic runtime healing and require re-authoring
+          Steps that failed deterministic runtime healing and require
+          re-authoring
         </p>
       </section>
 

@@ -361,12 +361,33 @@ export function extractInteractiveElementsInPage(): RawDomElement[] {
   };
 
   const getNearbyText = (element: HTMLElement): string => {
-    const STOP_TAGS = ["form", "section", "tr", "li", "ul", "ol", "header", "footer", "article", "aside", "nav"];
+    const STOP_TAGS = [
+      "form",
+      "section",
+      "tr",
+      "li",
+      "ul",
+      "ol",
+      "header",
+      "footer",
+      "article",
+      "aside",
+      "nav",
+    ];
     // Common single-field/single-item wrapper keywords — without these, traversal climbs PAST the
     // correctly-scoped per-item container (e.g. a <div class="field"> wrapping one labeled input)
     // into a shared ancestor (e.g. the enclosing <form>), returning identical nearbyText for every
     // sibling field and destroying the exact differentiation this function exists to provide.
-    const STOP_KEYWORDS = ["row", "card", "section", "item", "field", "form-group", "input-group", "control"];
+    const STOP_KEYWORDS = [
+      "row",
+      "card",
+      "section",
+      "item",
+      "field",
+      "form-group",
+      "input-group",
+      "control",
+    ];
     let curr: HTMLElement | null = element;
     let depth = 0;
     while (curr && depth < 3) {
@@ -380,7 +401,10 @@ export function extractInteractiveElementsInPage(): RawDomElement[] {
 
         const tag = curr.tagName.toLowerCase();
         const id = curr.id ? curr.id.toLowerCase() : "";
-        const cls = typeof curr.className === "string" ? curr.className.toLowerCase() : "";
+        const cls =
+          typeof curr.className === "string"
+            ? curr.className.toLowerCase()
+            : "";
 
         // Stop traversing once we reach a row/card/section/field/form container — its own text is
         // the right scope; climbing further would blend in sibling items' text too.
@@ -418,8 +442,12 @@ export function extractInteractiveElementsInPage(): RawDomElement[] {
         if (cr.width === 0 || cr.height === 0) continue;
         const cx = cr.x + cr.width / 2;
         const cy = cr.y + cr.height / 2;
-        const isAbove = cr.y + cr.height <= rect.y + SEARCH_RADIUS && cr.y + cr.height > rect.y - SEARCH_RADIUS;
-        const isLeft = cr.x + cr.width <= rect.x + SEARCH_RADIUS && cr.x + cr.width > rect.x - SEARCH_RADIUS;
+        const isAbove =
+          cr.y + cr.height <= rect.y + SEARCH_RADIUS &&
+          cr.y + cr.height > rect.y - SEARCH_RADIUS;
+        const isLeft =
+          cr.x + cr.width <= rect.x + SEARCH_RADIUS &&
+          cr.x + cr.width > rect.x - SEARCH_RADIUS;
         if (!isAbove && !isLeft) continue;
         const dist = Math.sqrt((cx - elementCx) ** 2 + (cy - elementCy) ** 2);
         if (dist <= SEARCH_RADIUS * 2) {
@@ -503,7 +531,9 @@ export function extractInteractiveElementsInPage(): RawDomElement[] {
           n === "alt" ||
           n === "for" ||
           n === "href" ||
-          (n.startsWith("aria-") && n !== "aria-valuenow" && n !== "aria-valuetext")
+          (n.startsWith("aria-") &&
+            n !== "aria-valuenow" &&
+            n !== "aria-valuetext")
         )
       )
         continue;

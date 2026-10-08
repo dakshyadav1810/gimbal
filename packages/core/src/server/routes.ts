@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { MaintainRequest, RunRequest } from "@gimbal/shared";
-import { RepairError, acceptRepair, rejectRepair } from "../repairs/decide.js";
 import type { FastifyInstance } from "fastify";
 import { exploreUiState } from "../authoring/telemetry.js";
 import { summarizeUngrounded } from "../grounding/summarize.js";
+import { RepairError, acceptRepair, rejectRepair } from "../repairs/decide.js";
 import type { Container } from "./container.js";
 import type { WsHub } from "./ws-hub.js";
 
@@ -143,8 +143,13 @@ function registerApiRoutes(app: FastifyInstance, c: Container, hub: WsHub) {
 
   // --- repairs ---
   app.get("/repairs", async (req) => {
-    const { status, testId } = req.query as { status?: string; testId?: string };
-    const all = testId ? await c.repairs.list(testId) : await c.repairs.listAll();
+    const { status, testId } = req.query as {
+      status?: string;
+      testId?: string;
+    };
+    const all = testId
+      ? await c.repairs.list(testId)
+      : await c.repairs.listAll();
     return status ? all.filter((r) => r.status === status) : all;
   });
 
@@ -172,7 +177,12 @@ function registerApiRoutes(app: FastifyInstance, c: Container, hub: WsHub) {
   app.get("/reviews", async () =>
     (await c.repairs.listAll())
       .filter((r) => r.status === "needed" || r.status === "proposed")
-      .map((r) => ({ testId: r.testId, stepId: r.stepId, url: "", candidatesJson: "[]" })),
+      .map((r) => ({
+        testId: r.testId,
+        stepId: r.stepId,
+        url: "",
+        candidatesJson: "[]",
+      })),
   );
 
   // --- runs ---

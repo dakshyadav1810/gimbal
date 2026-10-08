@@ -1,8 +1,8 @@
 import { oneDark } from "@codemirror/theme-one-dark";
+import { useQueryClient } from "@tanstack/react-query";
 import CodeMirror from "@uiw/react-codemirror";
 import { Check, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { api } from "../api.js";
 
 // Dashboard chrome follows the OS's prefers-color-scheme via Tailwind's dark: classes (no manual

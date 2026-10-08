@@ -1,4 +1,9 @@
-import type { Band, Generalization, GimbalConfig, Tier1Target } from "@gimbal/shared";
+import type {
+  Band,
+  Generalization,
+  GimbalConfig,
+  Tier1Target,
+} from "@gimbal/shared";
 import type { DomCandidate } from "./base.js";
 import { uniqueBestNameIdMatch } from "./lexical.js";
 

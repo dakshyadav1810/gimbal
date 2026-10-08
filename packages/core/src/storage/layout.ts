@@ -12,10 +12,7 @@ export function candidatesPath(artifactsDir: string, testId: string): string {
 export function groundedPath(artifactsDir: string, testId: string): string {
   return path.join(testDir(artifactsDir, testId), "grounded.json");
 }
-export function ariaSnapshotPath(
-  artifactsDir: string,
-  testId: string,
-): string {
+export function ariaSnapshotPath(artifactsDir: string, testId: string): string {
   return path.join(testDir(artifactsDir, testId), "aria-snapshot.txt");
 }
 export function repairsPath(artifactsDir: string, testId: string): string {

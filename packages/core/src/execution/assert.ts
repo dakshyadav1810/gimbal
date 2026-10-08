@@ -55,8 +55,18 @@ export async function evaluateAssertion(
     dbRow?: unknown;
     vars: Record<string, string>;
     target?: Tier1Target;
-    subjectBoundingBox?: { x: number; y: number; width: number; height: number };
-    referenceBoundingBox?: { x: number; y: number; width: number; height: number };
+    subjectBoundingBox?: {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    };
+    referenceBoundingBox?: {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    };
   },
 ): Promise<AssertOutcome> {
   switch (a.type) {
@@ -159,7 +169,9 @@ export async function evaluateAssertion(
           return ok(
             Math.abs(subject.y - reference.y) <= 5 ||
               Math.abs(
-                subject.y + subject.height / 2 - (reference.y + reference.height / 2),
+                subject.y +
+                  subject.height / 2 -
+                  (reference.y + reference.height / 2),
               ) <= 5,
             `subject is not horizontally aligned with reference`,
           );
@@ -167,7 +179,9 @@ export async function evaluateAssertion(
           return ok(
             Math.abs(subject.x - reference.x) <= 5 ||
               Math.abs(
-                subject.x + subject.width / 2 - (reference.x + reference.width / 2),
+                subject.x +
+                  subject.width / 2 -
+                  (reference.x + reference.width / 2),
               ) <= 5,
             `subject is not vertically aligned with reference`,
           );

@@ -49,9 +49,7 @@ function isRoleCompatible(target: Tier1Target, cand: DomCandidate): boolean {
   if (tRole === "button") {
     // If target has typing or select actions, ignore button role constraint (handles dummy test helpers)
     if (
-      target.actions.some((a) =>
-        ["type", "keypress", "select"].includes(a),
-      )
+      target.actions.some((a) => ["type", "keypress", "select"].includes(a))
     ) {
       return true;
     }

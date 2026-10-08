@@ -16,7 +16,10 @@ window.__hit = (id) => fetch("/__hit?t=" + encodeURIComponent(id), { keepalive: 
 function gt(id, el) { window.__targets[id] = el; el.addEventListener("click", (e) => { e.preventDefault(); window.__hit(id); }); }
 </script>`;
 
-export async function startFixtureServer(root: string, targets: Record<string, any[]>): Promise<FixtureServer> {
+export async function startFixtureServer(
+  root: string,
+  targets: Record<string, any[]>,
+): Promise<FixtureServer> {
   let mutation: string | null = null;
   let seed = 1;
   let hits: string[] = [];

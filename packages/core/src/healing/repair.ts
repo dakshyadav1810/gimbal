@@ -53,11 +53,14 @@ export async function maintain(
       steps: [...outcome.candidates.steps, ...kept],
     });
   }
-  if (outcome.ariaSnapshot) await store.saveAriaSnapshot(testId, outcome.ariaSnapshot);
+  if (outcome.ariaSnapshot)
+    await store.saveAriaSnapshot(testId, outcome.ariaSnapshot);
   return {
     testId,
     before,
     after: outcome.grounded,
-    ...(outcome.fellBackToFull ? { fellBackToFull: outcome.fellBackToFull } : {}),
+    ...(outcome.fellBackToFull
+      ? { fellBackToFull: outcome.fellBackToFull }
+      : {}),
   };
 }

@@ -1,8 +1,12 @@
-import type { GimbalConfig, GroundedTest, GroundedUiStep } from "@gimbal/shared";
+import type {
+  GimbalConfig,
+  GroundedTest,
+  GroundedUiStep,
+} from "@gimbal/shared";
 import type { Page } from "playwright";
 import type { CacheStore } from "../cache/index.js";
 import type { HealingService } from "../healing/index.js";
-import { locate, type LocateResult } from "./locate.js";
+import { type LocateResult, locate } from "./locate.js";
 
 const POLL_MS = 100;
 const STABILITY_DELTA_PX = 1;
@@ -97,7 +101,15 @@ export async function locateWithStabilityGate(
   // ── Stage 1: poll until locate() succeeds ────────────────────────────────
   let result: LocateResult = none;
   while (Date.now() < deadline) {
-    result = await locate(test, step, page, cache, healing, storeTestId, config);
+    result = await locate(
+      test,
+      step,
+      page,
+      cache,
+      healing,
+      storeTestId,
+      config,
+    );
     if (result.locator !== null) break;
     await sleep(POLL_MS);
   }

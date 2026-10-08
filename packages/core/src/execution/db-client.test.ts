@@ -52,9 +52,7 @@ describe("openDbSession", () => {
     const session = openDbSession(config({ url: "postgres://test" }))!;
     await session.beginFixture();
     const row = await session.query("select * from users where id = 1");
-    expect(queryMock).toHaveBeenCalledWith(
-      "select * from users where id = 1",
-    );
+    expect(queryMock).toHaveBeenCalledWith("select * from users where id = 1");
     expect(row).toEqual({ id: 1 });
   });
 

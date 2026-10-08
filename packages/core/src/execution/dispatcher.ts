@@ -7,16 +7,16 @@ import type {
   WsMessage,
 } from "@gimbal/shared";
 import type { CacheStore } from "../cache/index.js";
-import type { CachedEmbedder } from "../resolver/embeddings.js";
 import type { HealingService } from "../healing/index.js";
+import type { CachedEmbedder } from "../resolver/embeddings.js";
 import { ApiAdapter } from "./adapters/api.js";
 import { DbAdapter } from "./adapters/db.js";
 import { UiAdapter } from "./adapters/ui.js";
 import { openDbSession } from "./db-client.js";
+import { hydrationTimeoutsFrom, waitForPageHydration } from "./hydration.js";
 import { openSession } from "./playwright.js";
 import type { RunContext, StepAdapter } from "./types.js";
 import { aggregate } from "./verdict.js";
-import { hydrationTimeoutsFrom, waitForPageHydration } from "./hydration.js";
 
 export interface TestRunner {
   run(

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { runEvaluation } from "./runner.js";
 import { sandboxCases } from "./cases.js";
+import { runEvaluation } from "./runner.js";
 
 // Known-gap case IDs documented in cases.ts (tags: ["known-gap", ...]). Each
 // records the CORRECT real-world expectedWinnerId/expectedBand for a
@@ -13,25 +13,19 @@ const KNOWN_GAP_CASE_IDS = sandboxCases
   .map((c) => c.id);
 
 describe("Resolver Sandbox Evaluation Suite", () => {
-  it(
-    "no regression on established (non-known-gap) cases",
-    async () => {
-      const { results, successExcludingKnownGaps } = await runEvaluation();
+  it("no regression on established (non-known-gap) cases", async () => {
+    const { results, successExcludingKnownGaps } = await runEvaluation();
 
-      for (const r of results) {
-        if (r.isKnownGap) continue;
-        expect(r.selectedWinnerId, `Case "${r.caseId}" winner mismatch`).toBe(
-          r.expectedWinnerId,
-        );
-        expect(r.band, `Case "${r.caseId}" band mismatch`).toBe(
-          r.expectedBand,
-        );
-      }
+    for (const r of results) {
+      if (r.isKnownGap) continue;
+      expect(r.selectedWinnerId, `Case "${r.caseId}" winner mismatch`).toBe(
+        r.expectedWinnerId,
+      );
+      expect(r.band, `Case "${r.caseId}" band mismatch`).toBe(r.expectedBand);
+    }
 
-      expect(successExcludingKnownGaps).toBe(true);
-    },
-    40000, // Give embedding downloads/Playwright launch ample timeout margin
-  );
+    expect(successExcludingKnownGaps).toBe(true);
+  }, 40000); // Give embedding downloads/Playwright launch ample timeout margin
 
   // Known-gap regression checklist. Each of these documents a capability gap
   // (see cases.ts for the full description + expected "correct" answer once

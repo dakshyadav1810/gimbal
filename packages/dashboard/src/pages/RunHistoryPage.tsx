@@ -60,7 +60,10 @@ export function RunHistoryPage({ testId }: { testId: string }) {
               </thead>
               <tbody className="divide-y divide-[var(--border-default)]">
                 {runs.map((r) => (
-                  <tr key={r.runId} className="hover:bg-[var(--surface-sunken)]">
+                  <tr
+                    key={r.runId}
+                    className="hover:bg-[var(--surface-sunken)]"
+                  >
                     <td className="px-5 py-3">
                       <Link
                         href={`/tests/${testId}/runs/${r.runId}`}

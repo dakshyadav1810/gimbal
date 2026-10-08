@@ -5,7 +5,8 @@ export const sandboxCases: SandboxCase[] = [
   {
     id: "exact-match",
     name: "Exact Match",
-    description: "Matches the target element exactly on label, role, and actions.",
+    description:
+      "Matches the target element exactly on label, role, and actions.",
     target: {
       label: "Submit Search",
       role: "button",
@@ -28,7 +29,8 @@ export const sandboxCases: SandboxCase[] = [
   {
     id: "semantic-drift-synonyms",
     name: "Semantic Drift (Synonyms)",
-    description: "Matches when target element's label changes to a close synonym.",
+    description:
+      "Matches when target element's label changes to a close synonym.",
     target: {
       label: "Sign In",
       role: "button",
@@ -51,7 +53,8 @@ export const sandboxCases: SandboxCase[] = [
   {
     id: "attribute-drift",
     name: "Attribute Drift",
-    description: "Matches when ID, class, and context change, but label remains the same.",
+    description:
+      "Matches when ID, class, and context change, but label remains the same.",
     target: {
       label: "Add to Cart",
       role: "button",
@@ -74,7 +77,8 @@ export const sandboxCases: SandboxCase[] = [
   {
     id: "affordance-gating",
     name: "Affordance Gating",
-    description: "Filters out non-interactive elements even if they have matching text.",
+    description:
+      "Filters out non-interactive elements even if they have matching text.",
     target: {
       label: "Save Draft",
       role: "button",
@@ -99,7 +103,8 @@ export const sandboxCases: SandboxCase[] = [
   {
     id: "index-tiebreak-same-parent",
     name: "Index Tie-Breaking (Same Parent)",
-    description: "Resolves duplicate elements sharing a parent using DOM/sibling index.",
+    description:
+      "Resolves duplicate elements sharing a parent using DOM/sibling index.",
     target: {
       label: "Remove",
       role: "button",
@@ -123,7 +128,8 @@ export const sandboxCases: SandboxCase[] = [
   {
     id: "anchor-preference-different-parents",
     name: "Anchor Preference (Durable Test ID)",
-    description: "Selects correct duplicate element using data-testid anchor when parents differ.",
+    description:
+      "Selects correct duplicate element using data-testid anchor when parents differ.",
     target: {
       label: "Remove",
       role: "button",
@@ -151,7 +157,8 @@ export const sandboxCases: SandboxCase[] = [
   {
     id: "context-drift-nearby-text",
     name: "Context Drift (Nearby Text)",
-    description: "Selects correct element using surrounding/nearby context text.",
+    description:
+      "Selects correct element using surrounding/nearby context text.",
     generalization: "any_matching",
     target: {
       label: "Save",
@@ -182,7 +189,8 @@ export const sandboxCases: SandboxCase[] = [
   {
     id: "stale-escalation-zero-candidates",
     name: "Stale Escalation",
-    description: "Escalates to low confidence / ungrounded when element is completely gone.",
+    description:
+      "Escalates to low confidence / ungrounded when element is completely gone.",
     target: {
       label: "Delete Account",
       role: "button",
@@ -207,7 +215,8 @@ export const sandboxCases: SandboxCase[] = [
   {
     id: "ecommerce-checkout-drift",
     name: "E-Commerce Checkout Form Drift",
-    description: "Evaluates form restructuring, CSS-in-JS utility class drift, and label synonym mapping.",
+    description:
+      "Evaluates form restructuring, CSS-in-JS utility class drift, and label synonym mapping.",
     generalization: "any_matching",
     target: {
       label: "Place Order",
@@ -249,7 +258,8 @@ export const sandboxCases: SandboxCase[] = [
   {
     id: "crm-grid-sibling-shuffle",
     name: "CRM Grid Sibling Shuffle",
-    description: "Resolves rows containing duplicate buttons by Jaccard nearbyText matching after a grid shuffle.",
+    description:
+      "Resolves rows containing duplicate buttons by Jaccard nearbyText matching after a grid shuffle.",
     generalization: "flexible",
     target: {
       label: "Edit",
@@ -299,7 +309,8 @@ export const sandboxCases: SandboxCase[] = [
   {
     id: "svg-icon-button",
     name: "SVG Icon Button Resolution",
-    description: "Propagates accessible names correctly from SVG aria-labels inside textless icon buttons.",
+    description:
+      "Propagates accessible names correctly from SVG aria-labels inside textless icon buttons.",
     target: {
       label: "Delete Account",
       role: "button",
@@ -327,7 +338,8 @@ export const sandboxCases: SandboxCase[] = [
   {
     id: "shadow-dom-piercing",
     name: "Shadow DOM Piercing",
-    description: "Pierce Shadow Roots of web components to find and resolve custom element targets.",
+    description:
+      "Pierce Shadow Roots of web components to find and resolve custom element targets.",
     target: {
       label: "Confirm Settings",
       role: "button",
@@ -361,7 +373,8 @@ export const sandboxCases: SandboxCase[] = [
   {
     id: "spa-tab-visibility",
     name: "SPA Tab Pane Visibility Gate",
-    description: "Verifies hidden elements on inactive tabs are ignored in favor of visible button targets.",
+    description:
+      "Verifies hidden elements on inactive tabs are ignored in favor of visible button targets.",
     target: {
       label: "Save Settings",
       role: "button",
@@ -580,7 +593,7 @@ export const sandboxCases: SandboxCase[] = [
     description:
       "Two password-type inputs with distinct labels ('New Password' vs 'Confirm Password'), " +
       "neither with a stable id. Verified against the real resolver: today it lands on medium " +
-      "confidence with no clear winner (the two near-identical `type=\"password\"` fields with " +
+      'confidence with no clear winner (the two near-identical `type="password"` fields with ' +
       "closely-related label semantics aren't confidently disambiguated) — recorded as the " +
       "honest baseline.",
     tags: ["react", "framework-noise"],
@@ -1071,7 +1084,7 @@ export const sandboxCases: SandboxCase[] = [
     id: "file-input-upload",
     name: "File Input Target",
     description:
-      "Target is an <input type=\"file\"> control. There is no upload/setFiles action kind anywhere " +
+      'Target is an <input type="file"> control. There is no upload/setFiles action kind anywhere ' +
       "in packages/core/src/execution (grep confirms no setInputFiles/upload handling), so even " +
       "once located, nothing in the execution layer knows how to act on it. This case records the " +
       "resolution-time expectation (the file input should still be located as a candidate) so " +
@@ -1310,7 +1323,7 @@ export const sandboxCases: SandboxCase[] = [
     id: "rtl-layout-spatial-label",
     name: "RTL Layout Floating Label",
     description:
-      "Resolves a floating-label input under a right-to-left (dir=\"rtl\") layout, stressing the spatial-proximity signal's geometric assumptions. " +
+      'Resolves a floating-label input under a right-to-left (dir="rtl") layout, stressing the spatial-proximity signal\'s geometric assumptions. ' +
       "Tagged known-gap for the same reason as floating-label-spatial: it depends on the " +
       "in-progress, untracked resolver/signals/spatial.ts. CORRECT answer is email-input-rtl at high " +
       "confidence (only 2 unambiguous fields); today's resolver actually lands on medium/no-winner, " +
@@ -1440,4 +1453,3 @@ export const sandboxCases: SandboxCase[] = [
     expectedBand: "high",
   },
 ];
-

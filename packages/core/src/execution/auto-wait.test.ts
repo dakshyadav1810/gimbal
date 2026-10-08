@@ -1,4 +1,8 @@
-import type { GimbalConfig, GroundedTest, GroundedUiStep } from "@gimbal/shared";
+import type {
+  GimbalConfig,
+  GroundedTest,
+  GroundedUiStep,
+} from "@gimbal/shared";
 import type { Page } from "playwright";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { CacheStore } from "../cache/index.js";
@@ -26,7 +30,7 @@ const SHORT_CONFIG: GimbalConfig = {
   headless: true,
   dbPath: ":memory:",
   artifactsDir: "/tmp",
-    fixturesDir: "/tmp/fixtures",
+  fixturesDir: "/tmp/fixtures",
   screenshotsDir: "/tmp",
   embeddingModel: "x",
   embeddingRevision: "x",
@@ -34,7 +38,12 @@ const SHORT_CONFIG: GimbalConfig = {
   bands: { high: 0.7, medium: 0.5 },
   // Give enough time for tests that succeed, but short enough that the
   // timeout test completes quickly.
-  timeouts: { actionMs: 2000, navMs: 5000, hydrationNetworkIdleMs: 2000, hydrationQuietWindowMs: 150 },
+  timeouts: {
+    actionMs: 2000,
+    navMs: 5000,
+    hydrationNetworkIdleMs: 2000,
+    hydrationQuietWindowMs: 150,
+  },
   db: { readOnly: true },
   maxScrollPasses: 3,
   determinism: {},
@@ -134,7 +143,13 @@ describe("locateWithStabilityGate", () => {
     const page = makePage([STABLE_BOX, STABLE_BOX, true]);
 
     const result = await locateWithStabilityGate(
-      fakeTest(), fakeStep(), page, fakeCache(), fakeHealing(), "tid", SHORT_CONFIG,
+      fakeTest(),
+      fakeStep(),
+      page,
+      fakeCache(),
+      fakeHealing(),
+      "tid",
+      SHORT_CONFIG,
     );
 
     expect(result.source).toBe("cached");
@@ -155,7 +170,13 @@ describe("locateWithStabilityGate", () => {
     const page = makePage([STABLE_BOX, STABLE_BOX, true]);
 
     const result = await locateWithStabilityGate(
-      fakeTest(), fakeStep(), page, fakeCache(), fakeHealing(), "tid", SHORT_CONFIG,
+      fakeTest(),
+      fakeStep(),
+      page,
+      fakeCache(),
+      fakeHealing(),
+      "tid",
+      SHORT_CONFIG,
     );
 
     expect(scrollFn).toHaveBeenCalled();
@@ -166,13 +187,28 @@ describe("locateWithStabilityGate", () => {
     let calls = 0;
     (locate as any).mockImplementation(() => {
       calls++;
-      if (calls < 4) return Promise.resolve({ locator: null, selector: null, source: "none" });
-      return Promise.resolve({ locator: fakeLocator(), selector: "#btn", source: "resolver" });
+      if (calls < 4)
+        return Promise.resolve({
+          locator: null,
+          selector: null,
+          source: "none",
+        });
+      return Promise.resolve({
+        locator: fakeLocator(),
+        selector: "#btn",
+        source: "resolver",
+      });
     });
     const page = makePage([STABLE_BOX, STABLE_BOX, true]);
 
     const result = await locateWithStabilityGate(
-      fakeTest(), fakeStep(), page, fakeCache(), fakeHealing(), "tid", SHORT_CONFIG,
+      fakeTest(),
+      fakeStep(),
+      page,
+      fakeCache(),
+      fakeHealing(),
+      "tid",
+      SHORT_CONFIG,
     );
 
     expect(calls).toBeGreaterThanOrEqual(4);
@@ -180,11 +216,21 @@ describe("locateWithStabilityGate", () => {
   });
 
   it("returns source 'none' when locate never resolves within the timeout budget", async () => {
-    (locate as any).mockResolvedValue({ locator: null, selector: null, source: "none" });
+    (locate as any).mockResolvedValue({
+      locator: null,
+      selector: null,
+      source: "none",
+    });
     const page = makePage([]);
 
     const result = await locateWithStabilityGate(
-      fakeTest(), fakeStep(), page, fakeCache(), fakeHealing(), "tid", TINY_CONFIG,
+      fakeTest(),
+      fakeStep(),
+      page,
+      fakeCache(),
+      fakeHealing(),
+      "tid",
+      TINY_CONFIG,
     );
 
     expect(result.source).toBe("none");
@@ -200,13 +246,21 @@ describe("locateWithStabilityGate", () => {
     // Boxes that move for two iterations then stabilise, then not-occluded
     const MOVED_BOX = { x: 10, y: 20, width: 105, height: 30 }; // width shifted
     const page = makePage([
-      STABLE_BOX, MOVED_BOX,   // iteration 1: unstable
-      STABLE_BOX, STABLE_BOX,  // iteration 2: stable
-      true,                     // stage 3: not occluded
+      STABLE_BOX,
+      MOVED_BOX, // iteration 1: unstable
+      STABLE_BOX,
+      STABLE_BOX, // iteration 2: stable
+      true, // stage 3: not occluded
     ]);
 
     const result = await locateWithStabilityGate(
-      fakeTest(), fakeStep(), page, fakeCache(), fakeHealing(), "tid", SHORT_CONFIG,
+      fakeTest(),
+      fakeStep(),
+      page,
+      fakeCache(),
+      fakeHealing(),
+      "tid",
+      SHORT_CONFIG,
     );
 
     expect(result.source).toBe("cached");
@@ -220,12 +274,21 @@ describe("locateWithStabilityGate", () => {
     });
     // Stage 2 stable immediately, stage 3 occluded twice then clear
     const page = makePage([
-      STABLE_BOX, STABLE_BOX, // stage 2 stable
-      false, false, true,      // stage 3: occluded × 2, then clear
+      STABLE_BOX,
+      STABLE_BOX, // stage 2 stable
+      false,
+      false,
+      true, // stage 3: occluded × 2, then clear
     ]);
 
     const result = await locateWithStabilityGate(
-      fakeTest(), fakeStep(), page, fakeCache(), fakeHealing(), "tid", SHORT_CONFIG,
+      fakeTest(),
+      fakeStep(),
+      page,
+      fakeCache(),
+      fakeHealing(),
+      "tid",
+      SHORT_CONFIG,
     );
 
     expect(result.source).toBe("cached");

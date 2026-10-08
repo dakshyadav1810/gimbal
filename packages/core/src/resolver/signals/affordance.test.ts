@@ -85,26 +85,50 @@ describe("AffordanceSignal", () => {
   it("maps explicit ARIA roles (textbox, searchbox, combobox, switch, link) correctly to actions", () => {
     // type action accepts role="searchbox" and role="textbox" even on non-input tags
     expect(
-      signal.score(target({ actions: ["type"] }), cand({ tag: "div", role: "searchbox" }), page),
+      signal.score(
+        target({ actions: ["type"] }),
+        cand({ tag: "div", role: "searchbox" }),
+        page,
+      ),
     ).toBe(1);
     expect(
-      signal.score(target({ actions: ["type"] }), cand({ tag: "span", role: "textbox" }), page),
+      signal.score(
+        target({ actions: ["type"] }),
+        cand({ tag: "span", role: "textbox" }),
+        page,
+      ),
     ).toBe(1);
 
     // click action accepts role="switch", "link", "checkbox", "radio"
     expect(
-      signal.score(target({ actions: ["click"] }), cand({ tag: "span", role: "switch" }), page),
+      signal.score(
+        target({ actions: ["click"] }),
+        cand({ tag: "span", role: "switch" }),
+        page,
+      ),
     ).toBe(1);
     expect(
-      signal.score(target({ actions: ["click"] }), cand({ tag: "div", role: "link" }), page),
+      signal.score(
+        target({ actions: ["click"] }),
+        cand({ tag: "div", role: "link" }),
+        page,
+      ),
     ).toBe(1);
 
     // select action accepts role="combobox", "listbox"
     expect(
-      signal.score(target({ actions: ["select"] }), cand({ tag: "div", role: "combobox" }), page),
+      signal.score(
+        target({ actions: ["select"] }),
+        cand({ tag: "div", role: "combobox" }),
+        page,
+      ),
     ).toBe(1);
     expect(
-      signal.score(target({ actions: ["select"] }), cand({ tag: "div", role: "listbox" }), page),
+      signal.score(
+        target({ actions: ["select"] }),
+        cand({ tag: "div", role: "listbox" }),
+        page,
+      ),
     ).toBe(1);
   });
 
@@ -112,10 +136,22 @@ describe("AffordanceSignal", () => {
     // button target rejects text/password inputs, textarea, select
     const btnTarget = target({ role: "button", actions: ["click"] });
     expect(
-      signal.score(btnTarget, cand({ tag: "input", attributes: { type: "text" }, role: undefined }), page),
+      signal.score(
+        btnTarget,
+        cand({ tag: "input", attributes: { type: "text" }, role: undefined }),
+        page,
+      ),
     ).toBe(0);
     expect(
-      signal.score(btnTarget, cand({ tag: "input", attributes: { type: "password" }, role: undefined }), page),
+      signal.score(
+        btnTarget,
+        cand({
+          tag: "input",
+          attributes: { type: "password" },
+          role: undefined,
+        }),
+        page,
+      ),
     ).toBe(0);
     expect(
       signal.score(btnTarget, cand({ tag: "textarea", role: undefined }), page),
@@ -129,7 +165,11 @@ describe("AffordanceSignal", () => {
       signal.score(btnTarget, cand({ tag: "button", role: "button" }), page),
     ).toBe(1);
     expect(
-      signal.score(btnTarget, cand({ tag: "input", attributes: { type: "submit" }, role: undefined }), page),
+      signal.score(
+        btnTarget,
+        cand({ tag: "input", attributes: { type: "submit" }, role: undefined }),
+        page,
+      ),
     ).toBe(1);
     expect(
       signal.score(btnTarget, cand({ tag: "div", role: "button" }), page),
@@ -144,12 +184,24 @@ describe("AffordanceSignal", () => {
       signal.score(txtTarget, cand({ tag: "select", role: "combobox" }), page),
     ).toBe(0);
     expect(
-      signal.score(txtTarget, cand({ tag: "input", attributes: { type: "checkbox" } }), page),
+      signal.score(
+        txtTarget,
+        cand({ tag: "input", attributes: { type: "checkbox" } }),
+        page,
+      ),
     ).toBe(0);
 
     // textbox target accepts text/password inputs, textarea, and span role="textbox"
     expect(
-      signal.score(txtTarget, cand({ tag: "input", attributes: { type: "password" }, role: "textbox" }), page),
+      signal.score(
+        txtTarget,
+        cand({
+          tag: "input",
+          attributes: { type: "password" },
+          role: "textbox",
+        }),
+        page,
+      ),
     ).toBe(1);
     expect(
       signal.score(txtTarget, cand({ tag: "textarea", role: "textbox" }), page),

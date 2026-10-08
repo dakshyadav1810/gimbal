@@ -1,17 +1,71 @@
 {
   "login": [
-    { "id": "login-submit", "label": "Sign in", "synonym": "Log in", "role": "button", "semantics": ["sign in", "log in", "submit"] },
-    { "id": "login-forgot", "label": "Forgot password?", "synonym": "Reset password", "role": "link", "semantics": ["forgot password", "reset"] },
-    { "id": "login-create", "label": "Create account", "synonym": "Register", "role": "button", "semantics": ["create account", "sign up", "register"] }
+    {
+      "id": "login-submit",
+      "label": "Sign in",
+      "synonym": "Log in",
+      "role": "button",
+      "semantics": ["sign in", "log in", "submit"]
+    },
+    {
+      "id": "login-forgot",
+      "label": "Forgot password?",
+      "synonym": "Reset password",
+      "role": "link",
+      "semantics": ["forgot password", "reset"]
+    },
+    {
+      "id": "login-create",
+      "label": "Create account",
+      "synonym": "Register",
+      "role": "button",
+      "semantics": ["create account", "sign up", "register"]
+    }
   ],
   "checkout": [
-    { "id": "checkout-order", "label": "Place order", "synonym": "Complete purchase", "role": "button", "semantics": ["place order", "buy", "purchase"] },
-    { "id": "checkout-coupon", "label": "Apply coupon", "synonym": "Redeem code", "role": "button", "semantics": ["apply coupon", "promo code"] },
-    { "id": "checkout-wrap", "label": "Add gift wrap", "synonym": "Gift wrapping", "role": "button", "semantics": ["gift wrap", "gift"] }
+    {
+      "id": "checkout-order",
+      "label": "Place order",
+      "synonym": "Complete purchase",
+      "role": "button",
+      "semantics": ["place order", "buy", "purchase"]
+    },
+    {
+      "id": "checkout-coupon",
+      "label": "Apply coupon",
+      "synonym": "Redeem code",
+      "role": "button",
+      "semantics": ["apply coupon", "promo code"]
+    },
+    {
+      "id": "checkout-wrap",
+      "label": "Add gift wrap",
+      "synonym": "Gift wrapping",
+      "role": "button",
+      "semantics": ["gift wrap", "gift"]
+    }
   ],
   "table": [
-    { "id": "table-export", "label": "Export CSV", "synonym": "Download CSV", "role": "button", "semantics": ["export csv", "download"] },
-    { "id": "table-edit-alice", "label": "Edit Alice", "synonym": "Modify Alice", "role": "button", "semantics": ["edit alice", "modify"] },
-    { "id": "table-edit-bob", "label": "Edit Bob", "synonym": "Modify Bob", "role": "button", "semantics": ["edit bob", "modify"] }
+    {
+      "id": "table-export",
+      "label": "Export CSV",
+      "synonym": "Download CSV",
+      "role": "button",
+      "semantics": ["export csv", "download"]
+    },
+    {
+      "id": "table-edit-alice",
+      "label": "Edit Alice",
+      "synonym": "Modify Alice",
+      "role": "button",
+      "semantics": ["edit alice", "modify"]
+    },
+    {
+      "id": "table-edit-bob",
+      "label": "Edit Bob",
+      "synonym": "Modify Bob",
+      "role": "button",
+      "semantics": ["edit bob", "modify"]
+    }
   ]
 }

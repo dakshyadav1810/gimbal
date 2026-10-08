@@ -27,7 +27,9 @@ function fakePage(opts: FakePageOptions = {}): Page {
   } = opts;
 
   const snapshotFn = () =>
-    ariaSnapshot instanceof Promise ? ariaSnapshot : Promise.resolve(ariaSnapshot);
+    ariaSnapshot instanceof Promise
+      ? ariaSnapshot
+      : Promise.resolve(ariaSnapshot);
 
   const focusedLocator = {
     inputValue: () =>
@@ -778,11 +780,13 @@ describe("geometric assertions", () => {
       getByRole: (role: string, opts: { name: string }) => {
         if (opts.name === "Save") {
           return {
-            boundingBox: () => Promise.resolve({ x: 250, y: 100, width: 80, height: 30 }),
+            boundingBox: () =>
+              Promise.resolve({ x: 250, y: 100, width: 80, height: 30 }),
           };
         }
         return {
-          boundingBox: () => Promise.resolve({ x: 100, y: 100, width: 80, height: 30 }),
+          boundingBox: () =>
+            Promise.resolve({ x: 100, y: 100, width: 80, height: 30 }),
         };
       },
     } as any;

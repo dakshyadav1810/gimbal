@@ -9,10 +9,10 @@ import {
   awaitNavigationIfExpected,
   waitForPendingUiToClear,
 } from "../execution/adapters/ui.js";
+import { hydrationTimeoutsFrom } from "../execution/hydration.js";
 import { openSession } from "../execution/playwright.js";
 import { extractCandidates } from "../grounding/candidate.js";
 import { durableSelector } from "../grounding/gate.js";
-import { hydrationTimeoutsFrom } from "../execution/hydration.js";
 import { waitForPageHydration } from "../grounding/index.js";
 import { normalize } from "../grounding/normalize.js";
 import type { DomCandidate } from "../resolver/base.js";
@@ -41,7 +41,7 @@ function candidateKey(c: DomCandidate): string {
 
 function candidateDescriptor(c: DomCandidate): string {
   const kind =
-    c.role === "dialog" || c.region === "modal" ? "modal" : c.role ?? c.tag;
+    c.role === "dialog" || c.region === "modal" ? "modal" : (c.role ?? c.tag);
   const name = c.label
     ? `'${c.label}'`
     : c.testId

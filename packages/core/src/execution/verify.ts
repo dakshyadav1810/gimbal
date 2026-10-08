@@ -1,8 +1,4 @@
-import type {
-  EffectFingerprint,
-  Repair,
-  UiStep,
-} from "@gimbal/shared";
+import type { EffectFingerprint, Repair, UiStep } from "@gimbal/shared";
 import type { DomCandidate } from "../resolver/base.js";
 
 const MAX_KEYS = 10;
@@ -10,7 +6,12 @@ const MAX_KEYS = 10;
 // Digits become "#" so badge counts, timestamps and generated ids don't make two runs of the same
 // UI look different.
 function norm(s: string): string {
-  return s.toLowerCase().replace(/\d+/g, "#").replace(/\s+/g, " ").trim().slice(0, 60);
+  return s
+    .toLowerCase()
+    .replace(/\d+/g, "#")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 60);
 }
 
 function normPath(url: string): string {
@@ -85,7 +86,10 @@ export function compareEffect(
   const exp = expected[seen];
   if (exp.length === 0) {
     // Nothing observable happened at grounding either: can't tell a right click from a wrong one.
-    return { result: "inconclusive", detail: "grounding observed no effect for this step" };
+    return {
+      result: "inconclusive",
+      detail: "grounding observed no effect for this step",
+    };
   }
   const score = jaccard(exp, actual[seen]);
   return score >= 0.5
@@ -109,7 +113,12 @@ export function verifyHeal(opts: {
 }): Verification {
   if (opts.step.expectedOutcome.length > 0 || opts.step.assertions.length > 0) {
     return opts.outcomeFailed
-      ? { level: "outcome", result: "mismatch", detail: "the step's expected outcome or assertion failed after the healed action" }
+      ? {
+          level: "outcome",
+          result: "mismatch",
+          detail:
+            "the step's expected outcome or assertion failed after the healed action",
+        }
       : { level: "outcome", result: "verified" };
   }
   if (opts.effect) {
@@ -122,5 +131,9 @@ export function verifyHeal(opts: {
     );
     return { level: "effect", ...compareEffect(opts.effect, actual) };
   }
-  return { level: "none", result: "inconclusive", detail: "no outcome or recorded effect to check against" };
+  return {
+    level: "none",
+    result: "inconclusive",
+    detail: "no outcome or recorded effect to check against",
+  };
 }
