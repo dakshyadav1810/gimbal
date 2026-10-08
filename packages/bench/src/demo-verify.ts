@@ -36,22 +36,22 @@ async function record(
   fs.mkdirSync(outDir, { recursive: true });
   const ev = proposal.evidence;
   const lines = [
-    `$ gimbal test`,
+    "$ gimbal test",
     `✓ grounded  Log in (${stepCount} steps)`,
-    `✓ run passed`,
-    ``,
+    "✓ run passed",
+    "",
     `— the app changes: "${proposal.before.label}" → "${proposal.after.label}", the form is wrapped, class names are renamed —`,
-    ``,
-    `$ gimbal test`,
+    "",
+    "$ gimbal test",
     `✗ target not found: button "${proposal.before.label}"`,
     `↻ re-resolving  semantics ${ev.signals.semantics.toFixed(2)}  context ${ev.signals.context.toFixed(2)}  structure ${ev.signals.structure.toFixed(2)}`,
     `  chosen: ${proposal.after.role} "${proposal.after.label}"  confidence ${ev.confidence.toFixed(2)} (${ev.band}), runner-up "${ev.runnerUp?.label}" at ${ev.runnerUp?.score.toFixed(2)}`,
     `✓ outcome verified: the step's own assertion passed`,
     `⚑ repair proposed   gimbal repair show ${proposal.id.slice(0, 8)}`,
-    `REVIEW  Log in`,
-    ``,
-    `$ echo $?`,
-    `2`,
+    "REVIEW  Log in",
+    "",
+    "$ echo $?",
+    "2",
   ];
   fs.writeFileSync(
     path.join(outDir, "demo-terminal.txt"),
