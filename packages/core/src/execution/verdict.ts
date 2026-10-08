@@ -15,7 +15,14 @@ export function aggregate(
   const hasFailed = results.some(
     (r) => r.status === "failed" || r.status === "stale",
   );
-  const needsReview = results.some((r) => r.status === "stale");
+  // Anything a person should look at: abstained steps, unverified heals, and heals that were used
+  // (each leaves a repair proposal to accept or reject).
+  const needsReview = results.some(
+    (r) =>
+      r.status === "stale" ||
+      r.status === "warning" ||
+      (r.status === "passed" && r.selection === "resolver"),
+  );
   return {
     runId,
     testId,

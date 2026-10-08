@@ -98,6 +98,20 @@ export class CoreClient {
       reason,
     });
   }
+  doctor() {
+    return this.req<{
+      chromium: { ok: boolean; detail: string };
+      embedding: {
+        ok: boolean;
+        model: string;
+        revision: string;
+        detail: string;
+      };
+    }>("GET", "/api/doctor");
+  }
+  warmModel() {
+    return this.req<unknown>("POST", "/api/doctor/warm-model");
+  }
   submitSpec(spec: SpecIR) {
     return this.req<{ testId: string; spec: SpecIR }>(
       "POST",

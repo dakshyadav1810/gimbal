@@ -56,6 +56,7 @@ export function buildContainer(config: GimbalConfig) {
     repairs,
     snapshots,
     runner,
+    embedder,
   };
 }
 export type Container = ReturnType<typeof buildContainer>;

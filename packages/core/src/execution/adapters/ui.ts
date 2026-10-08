@@ -122,6 +122,7 @@ export class UiAdapter implements StepAdapter {
           stepId: step.id,
           status: "stale",
           selection: "none",
+          note: "no trustworthy match for this target; see listRepairs (status needed). Fix: re-author the target and call submitRepair.",
           screenshot: await captureScreenshot(ctx, step.id),
           durationMs: Date.now() - start,
         };

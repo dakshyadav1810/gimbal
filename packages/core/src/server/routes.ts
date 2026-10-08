@@ -14,7 +14,20 @@ import { summarizeUngrounded } from "../grounding/summarize.js";
 import { RepairError, acceptRepair, rejectRepair } from "../repairs/decide.js";
 import { refreshSnapshot } from "../snapshots/refresh.js";
 import type { Container } from "./container.js";
+import { runDoctor } from "./doctor.js";
 import type { WsHub } from "./ws-hub.js";
+
+// Lint failures name the problem; say what to change as well.
+function describeError(e: unknown): string {
+  const msg = String(e).replace(/^Error: /, "");
+  if (msg.includes("no assertion or expectedOutcome"))
+    return `${msg}. Fix: add an assertion or expectedOutcome to at least one step.`;
+  if (msg.includes("requires a target"))
+    return `${msg}. Fix: give click/type/select steps a target {label, role, semantics}.`;
+  if (msg.includes("unresolved var"))
+    return `${msg}. Fix: declare the variable in flow.vars.`;
+  return msg;
+}
 
 function apiError(code: string, message: string) {
   return { error: { code, message } };
@@ -40,6 +53,22 @@ export async function registerRoutes(
 }
 
 function registerApiRoutes(app: FastifyInstance, c: Container, hub: WsHub) {
+  // --- environment checks (gimbal doctor) ---
+  app.get("/doctor", async () => runDoctor(c.config));
+  // Downloads the pinned embedding model now (first use otherwise pays for it mid-grounding).
+  app.post("/doctor/warm-model", async (_req, reply) => {
+    try {
+      await c.embedder.embed("warm up");
+      return runDoctor(c.config);
+    } catch (e) {
+      reply.code(502);
+      return apiError(
+        "internal",
+        `could not load ${c.config.embeddingModel}: ${String(e).slice(0, 200)}. Offline? Connect once to download it.`,
+      );
+    }
+  });
+
   // --- tests ---
   // The only way a spec is created: the connected agent has already authored it and submits the
   // finished SpecIR here. Core validates + stores; it never generates one itself.
@@ -50,7 +79,7 @@ function registerApiRoutes(app: FastifyInstance, c: Container, hub: WsHub) {
       return { testId, spec };
     } catch (e) {
       reply.code(400);
-      return apiError("validation", String(e));
+      return apiError("validation", `${describeError(e)}`);
     }
   });
 
@@ -105,9 +134,11 @@ function registerApiRoutes(app: FastifyInstance, c: Container, hub: WsHub) {
     await c.store.saveAriaSnapshot(id, outcome.ariaSnapshot);
     if (outcome.stoppedAt) {
       reply.code(200); // still 200: partial grounding is a valid, reviewable result
+      const ungrounded = summarizeUngrounded(outcome.candidates);
       return {
         ...outcome,
-        ungrounded: summarizeUngrounded(outcome.candidates),
+        ungrounded,
+        fix: `Step ${outcome.stoppedAt} was not grounded: ${ungrounded[0]?.reason ?? "no match"}. Fix: change that step's target (role, label, semantics) or add a precondition, then call authorTest again.`,
       };
     }
     return outcome;
@@ -211,7 +242,10 @@ function registerApiRoutes(app: FastifyInstance, c: Container, hub: WsHub) {
       test = await c.store.loadGrounded(testId);
     } catch {
       reply.code(409);
-      return apiError("ungrounded", `test ${testId} is not grounded yet`);
+      return apiError(
+        "ungrounded",
+        `test ${testId} is not grounded yet. Fix: call authorTest with testId ${testId}, or run \`gimbal ground ${testId}\`.`,
+      );
     }
     const r = test.resolver;
     if (

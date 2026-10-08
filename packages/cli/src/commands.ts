@@ -3,22 +3,34 @@ import open from "open";
 import { CoreClient } from "./client.js";
 import { baseUrl, loadConfig } from "./config.js";
 import { isCoreAlive, startCore, stopCore } from "./core-process.js";
+import { type Check, checkNode, checkUrl, formatReport } from "./doctor.js";
+import { MCP_ADD, MCP_JSON, initProject } from "./init.js";
 import { startMcp } from "./mcp/server.js";
+import { REPORTERS, type TestRun, exitCode, outcomeOf } from "./reporters.js";
 
 export function registerCommands(program: Command) {
   program
     .command("init")
-    .description("scaffold .gimbal/ + gimbal.config.json in the project")
-    .action(async () => {
-      const fs = await import("node:fs");
-      fs.mkdirSync(".gimbal/tests", { recursive: true });
-      if (!fs.existsSync("gimbal.config.json")) {
-        fs.writeFileSync(
-          "gimbal.config.json",
-          JSON.stringify({ port: 4319 }, null, 2),
-        );
-      }
-      console.log("initialized .gimbal/ and gimbal.config.json");
+    .option("--agent <name>", "also install the agent skill (claude)")
+    .description(
+      "set up .gimbal/ and gimbal.config.json here (safe to run again)",
+    )
+    .action(async (opts) => {
+      console.log("Gimbal init");
+      for (const line of initProject(process.cwd(), opts)) console.log(line);
+      console.log(
+        `\nConnect your coding agent:\n  ${MCP_ADD}\nor add this MCP server:\n${MCP_JSON}\n`,
+      );
+      await runDoctorCommand({});
+    });
+
+  program
+    .command("doctor")
+    .option("--url <url>", "address of the app to test")
+    .option("--download", "download the embedding model if it is missing")
+    .description("check that this machine is ready to run Gimbal")
+    .action(async (opts) => {
+      await runDoctorCommand(opts);
     });
 
   program
@@ -82,22 +94,46 @@ export function registerCommands(program: Command) {
   program
     .command("test")
     .argument("[testId]")
-    .description("run test / suite; print report")
-    .action(async (testId) => {
-      const client = new CoreClient(baseUrl(loadConfig()));
-      const ids = testId
-        ? [testId]
-        : (await client.listTests()).map((t) => t.testId);
-      let allPassed = true;
-      for (const id of ids) {
-        const { runId } = await client.runTest({ testId: id });
-        const report = await pollReport(client, runId);
-        console.log(
-          `${id}: ${report.status}${report.needsReview ? " (needs review)" : ""}`,
+    .option("--reporter <name>", "list | json | junit", "list")
+    .option("--bail", "stop after the first failing test")
+    .option("--strict", "treat 'needs review' as a failure")
+    .description(
+      "run a test or all tests. Exit code: 0 passed, 1 failed, 2 needs review (1 with --strict)",
+    )
+    .action(async (testId, opts) => {
+      const reporter = REPORTERS[opts.reporter as keyof typeof REPORTERS];
+      if (!reporter) {
+        console.error(
+          `unknown reporter ${opts.reporter}; use list, json or junit`,
         );
-        if (report.status !== "passed") allPassed = false;
+        process.exitCode = 1;
+        return;
       }
-      process.exitCode = allPassed ? 0 : 1;
+      const client = new CoreClient(baseUrl(loadConfig()));
+      const tests = await client.listTests();
+      const targets = testId ? tests.filter((t) => t.testId === testId) : tests;
+      if (testId && targets.length === 0) {
+        console.error(
+          `no test ${testId}; run \`gimbal repair list\` or list tests first`,
+        );
+        process.exitCode = 1;
+        return;
+      }
+      const runs: TestRun[] = [];
+      for (const t of targets) {
+        const started = Date.now();
+        const { runId } = await client.runTest({ testId: t.testId });
+        const report = await pollReport(client, runId);
+        runs.push({
+          testId: t.testId,
+          name: t.name,
+          report,
+          seconds: (Date.now() - started) / 1000,
+        });
+        if (opts.bail && outcomeOf(report) === "failed") break;
+      }
+      console.log(reporter(runs));
+      process.exitCode = exitCode(runs, Boolean(opts.strict));
     });
 
   const repair = program
@@ -238,4 +274,64 @@ async function pollReport(client: CoreClient, runId: string) {
 async function resolveCoreEntry(): Promise<string> {
   const { createRequire } = await import("node:module");
   return createRequire(import.meta.url).resolve("@gimbal/core");
+}
+
+async function runDoctorCommand(opts: { url?: string; download?: boolean }) {
+  const config = loadConfig();
+  const checks: Check[] = [checkNode()];
+
+  let alive = await isCoreAlive(config);
+  if (!alive) {
+    try {
+      await startCore(config, await resolveCoreEntry());
+      alive = true;
+    } catch (e) {
+      checks.push({
+        name: "Gimbal server",
+        ok: false,
+        detail: String(e).slice(0, 160),
+        fix: "run `gimbal start` and read the error it prints",
+      });
+    }
+  }
+  const client = new CoreClient(baseUrl(config));
+  let startUrl: string | undefined;
+  if (alive) {
+    checks.push({ name: "Gimbal server", ok: true });
+    if (opts.download) {
+      console.log("Downloading the embedding model (first time only)...");
+      await client.warmModel().catch((e) => console.log(String(e)));
+    }
+    try {
+      const env = await client.doctor();
+      checks.push({
+        name: "Chromium",
+        ok: env.chromium.ok,
+        detail: env.chromium.ok ? undefined : env.chromium.detail,
+        fix: "npx playwright install chromium",
+      });
+      checks.push({
+        name: `Embedding model (${env.embedding.model}, rev ${env.embedding.revision.slice(0, 8)})`,
+        ok: env.embedding.ok,
+        detail: env.embedding.ok ? undefined : env.embedding.detail,
+        fix: "connect once and run `gimbal doctor --download`, or set HF_HUB_OFFLINE=0",
+      });
+    } catch (e) {
+      checks.push({ name: "Environment", ok: false, detail: String(e) });
+    }
+    try {
+      const first = (await client.listTests())[0];
+      if (first) {
+        const t = await client.getTest(first.testId);
+        startUrl = t.flow.startUrl;
+      }
+    } catch {
+      // no tests yet; fall back to the configured app address
+    }
+  }
+  const target = opts.url ?? config.appUrl ?? startUrl;
+  if (target) checks.push(await checkUrl(target));
+
+  console.log(formatReport(checks));
+  if (checks.some((c) => !c.ok)) process.exitCode = 1;
 }

@@ -13,3 +13,6 @@
 - 2.5/Phase 7: the knowledge-graph docs (docs/lld/LLD-011-kdg.md, docs/specs/SPEC-006-kdg.md and mentions in README/ADRs/LLDs) still describe the removed feature; cleanup belongs to the docs phase.
 - 2.8: `/api/reviews` and `/api/tests/:id/reviews` are kept as derived views for the old dashboard page until Phase 3 replaces it with a Repairs page.
 - Bench harness: cells without a heal log a harmless ENOENT for repairs.json; check existence first.
+- 2.3: `gimbal doctor` checks the embedding model by looking for its cache directory only; it does not verify the pinned revision. Offline (`HF_HUB_OFFLINE`) handling is untested.
+- 2.7: `--workers` (parallel runs) deliberately deferred. No example GitHub Actions workflow yet (Phase 8.5).
+- 2.1: the skill has not been tried with a fresh agent (manual gate in the plan).

@@ -160,3 +160,27 @@ describe("global error handler", () => {
     expect(body.error.code).toBe("ungrounded");
   });
 });
+
+describe("actionable errors", () => {
+  it("tells the caller how to fix a validation failure", async () => {
+    const { app } = await makeApp();
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/tests",
+      payload: { version: "1.0" },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(res.json().error.message).toMatch(/Fix:|flow|steps/);
+  });
+
+  it("explains how to ground an ungrounded test", async () => {
+    const { app } = await makeApp();
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/runs",
+      payload: { testId: "nope" },
+    });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error.message).toContain("Fix: call authorTest");
+  });
+});

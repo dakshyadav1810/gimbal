@@ -16,6 +16,19 @@ import { registerWsRoutes } from "./ws-routes.js";
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
+// ZodError.message is a JSON dump of every issue; an agent needs the first field and what to do.
+function describeValidation(
+  err: Error & {
+    issues?: Array<{ path: Array<string | number>; message: string }>;
+  },
+): string {
+  const first = err.issues?.[0];
+  if (!first) return err.message;
+  const where = first.path.length ? first.path.join(".") : "request";
+  const more = (err.issues?.length ?? 1) - 1;
+  return `${where}: ${first.message}${more > 0 ? ` (and ${more} more)` : ""}. Fix: correct the field and submit again.`;
+}
+
 function isLocalHost(hostHeader: string | undefined): boolean {
   if (!hostHeader) return false;
   const host = hostHeader.replace(/:\d+$/, "").toLowerCase();
@@ -74,7 +87,7 @@ export async function buildApp(config: GimbalConfig, container: Container) {
       reply.code(err.statusCode ?? (isValidationError ? 400 : 500)).send({
         error: {
           code: isValidationError ? "validation" : "internal",
-          message: err.message,
+          message: isValidationError ? describeValidation(err) : err.message,
         },
       });
     },

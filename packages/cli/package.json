@@ -17,7 +17,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "files": ["dist", "README.md"],
+  "files": ["dist", "skills", "README.md"],
   "bin": {
     "gimbal": "./dist/index.js"
   },
