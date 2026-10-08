@@ -1,4 +1,4 @@
-import { type SpecIR, type UiStep, lintSpec } from "@gimbal/shared";
+import { SpecIR, type UiStep, lintSpec } from "@gimbal/shared";
 import { describe, expect, it } from "vitest";
 import { compileDsl } from "./compiler.js";
 import { decompileSpec } from "./decompiler.js";
