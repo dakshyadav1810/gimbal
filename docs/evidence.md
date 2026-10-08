@@ -31,7 +31,7 @@ What is measured here is one narrow thing: **when a page changes, does Gimbal fi
 
 Outcomes are per (target, mutation) case; intervals are 95% bootstrap over cases. Median Gimbal run time per case: 14.1s (p95 14.6s, includes browser start).
 
-Gimbal with the numbers above had its resolver tuned against the first three apps only. The held-out table is the one to read.
+The resolver was tuned against the first three apps only. The held-out table is the one to read.
 
 ### By mutation (all 154 cases)
 
