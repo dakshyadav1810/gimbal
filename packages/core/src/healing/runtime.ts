@@ -10,6 +10,7 @@ import { accept } from "../grounding/gate.js";
 import type { GroundingService } from "../grounding/index.js";
 import type { NewRepair, RepairStore } from "../repairs/store.js";
 import { healAmbiguity } from "../resolver/banding.js";
+import { lexicalSupport } from "../resolver/exact-name.js";
 import { audit } from "./audit.js";
 
 export type HealOutcome =
@@ -53,10 +54,12 @@ export async function runtimeHeal(
       healedCandidate.region !== "modal",
   );
 
-  const ambiguity = healAmbiguity(
-    result.resolution.candidates,
-    result.resolution.selected,
-  );
+  const spec = step?.kind === "ui" ? step.target : undefined;
+  const ambiguity =
+    healAmbiguity(result.resolution.candidates, result.resolution.selected) ??
+    (spec && healedCandidate && !lexicalSupport(spec, healedCandidate.label)
+      ? `"${healedCandidate.label}" shares no words with "${spec.label}" or its listed synonyms`
+      : null);
 
   // A selector the reviewer already rejected for this step must not come back as a fresh proposal.
   const rejected = (await repairs.list(storeTestId)).some(

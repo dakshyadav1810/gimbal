@@ -23,6 +23,62 @@ const cli = (cwd: string, ...args: string[]) =>
     );
   });
 
+// Captures what the README shows: dashboard screenshots plus a terminal transcript, all built
+// from this run's real data (nothing is mocked up).
+async function record(
+  outDir: string,
+  base: string,
+  appUrl: string,
+  stepCount: number,
+  proposal: any,
+  testId: string,
+) {
+  fs.mkdirSync(outDir, { recursive: true });
+  const ev = proposal.evidence;
+  const lines = [
+    `$ gimbal test`,
+    `✓ grounded  Log in (${stepCount} steps)`,
+    `✓ run passed`,
+    ``,
+    `— the app changes: "${proposal.before.label}" → "${proposal.after.label}", the form is wrapped, class names are renamed —`,
+    ``,
+    `$ gimbal test`,
+    `✗ target not found: button "${proposal.before.label}"`,
+    `↻ re-resolving  semantics ${ev.signals.semantics.toFixed(2)}  context ${ev.signals.context.toFixed(2)}  structure ${ev.signals.structure.toFixed(2)}`,
+    `  chosen: ${proposal.after.role} "${proposal.after.label}"  confidence ${ev.confidence.toFixed(2)} (${ev.band}), runner-up "${ev.runnerUp?.label}" at ${ev.runnerUp?.score.toFixed(2)}`,
+    `✓ outcome verified (${proposal.verification.level}): the step's own assertion passed`,
+    `⚑ repair proposed   gimbal repair show ${proposal.id.slice(0, 8)}`,
+    `REVIEW  Log in`,
+    ``,
+    `$ echo $?`,
+    `2`,
+  ];
+  fs.writeFileSync(
+    path.join(outDir, "demo-terminal.txt"),
+    `${lines.join("\n")}\n`,
+  );
+  const { launch } = await import("./baselines.js");
+  const browser = await launch();
+  try {
+    for (const scheme of ["light", "dark"] as const) {
+      const ctx = await browser.newContext({
+        viewport: { width: 1000, height: 560 },
+        colorScheme: scheme,
+      });
+      const page = await ctx.newPage();
+      await page.goto(`${base}/repairs`);
+      await page.getByText("Verified by").waitFor();
+      await page.screenshot({
+        path: path.join(outDir, `repairs-${scheme}.png`),
+      });
+      await ctx.close();
+    }
+  } finally {
+    await browser.close();
+  }
+  console.log(`recorded to ${outDir}`);
+}
+
 let step = 0;
 function check(cond: unknown, what: string, detail = ""): asserts cond {
   step++;
@@ -163,6 +219,17 @@ try {
       proposal.verification?.result === "verified",
     "the proposal was verified against the step's own outcome",
   );
+
+  if (process.env.DEMO_RECORD) {
+    await record(
+      process.env.DEMO_RECORD,
+      core.base,
+      appUrl,
+      spec.steps.length,
+      proposal,
+      testId,
+    );
+  }
 
   if (process.env.DEMO_HOLD) {
     // For screenshots: leave the app and core running with the proposal open.

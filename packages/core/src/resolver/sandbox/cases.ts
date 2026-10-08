@@ -592,10 +592,9 @@ export const sandboxCases: SandboxCase[] = [
     name: "React useId Duplicate Volatile-ID Inputs",
     description:
       "Two password-type inputs with distinct labels ('New Password' vs 'Confirm Password'), " +
-      "neither with a stable id. Verified against the real resolver: today it lands on medium " +
-      'confidence with no clear winner (the two near-identical `type="password"` fields with ' +
-      "closely-related label semantics aren't confidently disambiguated) — recorded as the " +
-      "honest baseline.",
+      "neither with a stable id. The input labelled exactly 'Confirm Password' is the answer; " +
+      "before the unique exact-name rule the resolver could not separate the two near-identical " +
+      '`type="password"` fields and lowered the band instead.',
     tags: ["react", "framework-noise"],
     difficulty: "dirty",
     target: {
@@ -619,8 +618,8 @@ export const sandboxCases: SandboxCase[] = [
         </form>
       </body></html>
     `,
-    expectedWinnerId: null,
-    expectedBand: "medium",
+    expectedWinnerId: ":rb:",
+    expectedBand: "high",
   },
   {
     id: "mixed-framework-attrs-microfrontend",
@@ -775,9 +774,8 @@ export const sandboxCases: SandboxCase[] = [
     name: "Two-Layer Stacked Modal",
     description:
       "Resolves a confirm button inside a modal that is itself opened on top of another modal. " +
-      "Verified against the real resolver: with a duplicate-ish label ('Delete Item' trigger vs " +
-      "'Confirm Delete' target) across the two layers it lands on medium confidence with no " +
-      "clear winner — recorded as the honest baseline.",
+      "The label is near a duplicate across the two layers ('Delete Item' trigger vs " +
+      "'Confirm Delete' target); the single button named exactly 'Confirm Delete' is the answer.",
     tags: ["modal"],
     target: {
       label: "Confirm Delete",
@@ -799,8 +797,8 @@ export const sandboxCases: SandboxCase[] = [
         </div>
       </body></html>
     `,
-    expectedWinnerId: null,
-    expectedBand: "medium",
+    expectedWinnerId: "confirm-delete-btn",
+    expectedBand: "high",
   },
   {
     id: "three-layer-modal",

@@ -6,7 +6,8 @@
   "scripts": {
     "smoke": "tsx src/run.ts --split train",
     "demo": "tsx src/demo-verify.ts",
-    "bench": "tsx src/run.ts --split all"
+    "bench": "tsx src/run.ts --split all",
+    "demo:record": "DEMO_RECORD=../../docs/assets tsx src/demo-verify.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

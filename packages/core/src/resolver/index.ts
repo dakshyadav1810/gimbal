@@ -2,6 +2,7 @@ import type { Candidate, GimbalConfig, Resolution } from "@gimbal/shared";
 import { selectBest } from "./banding.js";
 import type { DomCandidate, ResolverInput } from "./base.js";
 import type { CachedEmbedder } from "./embeddings.js";
+import { EXACT_NAME_BONUS, uniqueExactNameMatch } from "./exact-name.js";
 import { type WeightedScores, computeWeights, finalScore } from "./router.js";
 import { AffordanceSignal } from "./signals/affordance.js";
 import { ContextSignal } from "./signals/context.js";
@@ -66,15 +67,20 @@ export class MultiSignalResolver implements Resolver {
 
     const weights = computeWeights(page, rawScores);
 
-    const scored = survivors.map((c, i) => ({
-      candidate: c,
-      score: finalScore(rawScores[i], weights),
-    }));
+    const exact = uniqueExactNameMatch(target, survivors);
+    const scored = survivors.map((c, i) => {
+      const base = finalScore(rawScores[i], weights);
+      return {
+        candidate: c,
+        score: c === exact ? Math.min(1, base + EXACT_NAME_BONUS) : base,
+      };
+    });
     const { winner, band, ambiguous } = selectBest(
       scored,
       generalization,
       this.bands,
       target,
+      exact,
     );
 
     const candidatesOut: Candidate[] = survivors.map((c, i) => ({

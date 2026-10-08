@@ -17,7 +17,8 @@
     "bench:smoke": "pnpm --filter @gimbal/core build && pnpm --filter @gimbal/bench smoke",
     "demo:verify": "pnpm build && pnpm --filter @gimbal/bench demo",
     "bench": "pnpm --filter @gimbal/core build && pnpm --filter @gimbal/bench bench",
-    "license:check": "node scripts/copy-license.mjs --check"
+    "license:check": "node scripts/copy-license.mjs --check",
+    "demo:record": "pnpm build && pnpm --filter @gimbal/bench demo:record"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",

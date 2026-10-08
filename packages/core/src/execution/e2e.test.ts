@@ -109,7 +109,7 @@ describe("Gimbal Full E2E Pipeline", () => {
           target: {
             label: "Log In",
             role: "button",
-            semantics: ["log in", "submit"],
+            semantics: ["log in", "sign in", "submit"],
             actions: ["click"],
             intent: "click login",
           },

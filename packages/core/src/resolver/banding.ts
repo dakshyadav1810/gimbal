@@ -27,6 +27,9 @@ export function selectBest(
   generalization: Generalization,
   bands: GimbalConfig["bands"],
   target?: Tier1Target,
+  // The one element whose name and role equal the target's. When it is among the near-tied
+  // candidates it wins the tie-break outright; sibling order must not overrule an exact match.
+  preferred?: DomCandidate | null,
 ): { winner: Scored | null; band: Band; ambiguous: boolean } {
   if (scored.length === 0)
     return { winner: null, band: "low", ambiguous: false };
@@ -45,10 +48,10 @@ export function selectBest(
   let ambiguous = false;
 
   if (requiresMargin && runnerUp && top.score - runnerUp.score < margin) {
-    const tiebreakWinner = tiebreak(
-      sorted.filter((s) => top.score - s.score < margin),
-      target,
-    );
+    const tied = sorted.filter((s) => top.score - s.score < margin);
+    const tiebreakWinner =
+      tied.find((s) => preferred && s.candidate === preferred) ??
+      tiebreak(tied, target);
     if (tiebreakWinner) {
       return {
         winner: tiebreakWinner,
