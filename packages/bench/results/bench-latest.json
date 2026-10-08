@@ -1,15 +1,288 @@
 [
- {
-  "cell": "login-submit-wrapper-insert",
-  "app": "login",
-  "split": "train",
-  "mutation": "wrapper-insert",
-  "truth": "same",
-  "results": {
-   "Gimbal": "correct-repair",
-   "stored selector": "missed-repair",
-   "role + name": "correct-repair"
+  {
+    "cell": "login-forgot-duplicate-added",
+    "app": "login",
+    "split": "train",
+    "mutation": "duplicate-added",
+    "truth": "ambiguous",
+    "results": {
+      "Gimbal": "correct-abstention",
+      "stored selector": "correct-abstention",
+      "role + name": "correct-abstention"
+    },
+    "gimbalMs": 14647
   },
-  "gimbalMs": 12156
- }
+  {
+    "cell": "login-submit-duplicate-added",
+    "app": "login",
+    "split": "train",
+    "mutation": "duplicate-added",
+    "truth": "ambiguous",
+    "results": {
+      "Gimbal": "correct-abstention",
+      "stored selector": "correct-abstention",
+      "role + name": "correct-abstention"
+    },
+    "gimbalMs": 14645
+  },
+  {
+    "cell": "login-create-duplicate-added",
+    "app": "login",
+    "split": "train",
+    "mutation": "duplicate-added",
+    "truth": "ambiguous",
+    "results": {
+      "Gimbal": "correct-abstention",
+      "stored selector": "correct-abstention",
+      "role + name": "correct-abstention"
+    },
+    "gimbalMs": 14643
+  },
+  {
+    "cell": "checkout-order-duplicate-added",
+    "app": "checkout",
+    "split": "train",
+    "mutation": "duplicate-added",
+    "truth": "ambiguous",
+    "results": {
+      "Gimbal": "correct-abstention",
+      "stored selector": "correct-abstention",
+      "role + name": "correct-abstention"
+    },
+    "gimbalMs": 14642
+  },
+  {
+    "cell": "table-export-duplicate-added",
+    "app": "table",
+    "split": "train",
+    "mutation": "duplicate-added",
+    "truth": "ambiguous",
+    "results": {
+      "Gimbal": "correct-abstention",
+      "stored selector": "correct-abstention",
+      "role + name": "correct-abstention"
+    },
+    "gimbalMs": 14641
+  },
+  {
+    "cell": "table-edit-alice-duplicate-added",
+    "app": "table",
+    "split": "train",
+    "mutation": "duplicate-added",
+    "truth": "ambiguous",
+    "results": {
+      "Gimbal": "correct-abstention",
+      "stored selector": "correct-abstention",
+      "role + name": "correct-abstention"
+    },
+    "gimbalMs": 14641
+  },
+  {
+    "cell": "checkout-coupon-duplicate-added",
+    "app": "checkout",
+    "split": "train",
+    "mutation": "duplicate-added",
+    "truth": "ambiguous",
+    "results": {
+      "Gimbal": "correct-abstention",
+      "stored selector": "correct-abstention",
+      "role + name": "correct-abstention"
+    },
+    "gimbalMs": 14641
+  },
+  {
+    "cell": "checkout-wrap-duplicate-added",
+    "app": "checkout",
+    "split": "train",
+    "mutation": "duplicate-added",
+    "truth": "ambiguous",
+    "results": {
+      "Gimbal": "correct-abstention",
+      "stored selector": "correct-abstention",
+      "role + name": "correct-abstention"
+    },
+    "gimbalMs": 14641
+  },
+  {
+    "cell": "tb-bold-duplicate-added",
+    "app": "toolbar",
+    "split": "test",
+    "mutation": "duplicate-added",
+    "truth": "ambiguous",
+    "results": {
+      "Gimbal": "correct-abstention",
+      "stored selector": "correct-abstention",
+      "role + name": "correct-abstention"
+    },
+    "gimbalMs": 14617
+  },
+  {
+    "cell": "table-edit-bob-duplicate-added",
+    "app": "table",
+    "split": "train",
+    "mutation": "duplicate-added",
+    "truth": "ambiguous",
+    "results": {
+      "Gimbal": "correct-abstention",
+      "stored selector": "correct-abstention",
+      "role + name": "correct-abstention"
+    },
+    "gimbalMs": 14620
+  },
+  {
+    "cell": "tb-link-duplicate-added",
+    "app": "toolbar",
+    "split": "test",
+    "mutation": "duplicate-added",
+    "truth": "ambiguous",
+    "results": {
+      "Gimbal": "correct-abstention",
+      "stored selector": "correct-abstention",
+      "role + name": "correct-abstention"
+    },
+    "gimbalMs": 14618
+  },
+  {
+    "cell": "tb-italic-duplicate-added",
+    "app": "toolbar",
+    "split": "test",
+    "mutation": "duplicate-added",
+    "truth": "ambiguous",
+    "results": {
+      "Gimbal": "correct-abstention",
+      "stored selector": "correct-abstention",
+      "role + name": "correct-abstention"
+    },
+    "gimbalMs": 14613
+  },
+  {
+    "cell": "nav-home-duplicate-added",
+    "app": "nav",
+    "split": "test",
+    "mutation": "duplicate-added",
+    "truth": "ambiguous",
+    "results": {
+      "Gimbal": "correct-abstention",
+      "stored selector": "correct-abstention",
+      "role + name": "correct-abstention"
+    },
+    "gimbalMs": 14642
+  },
+  {
+    "cell": "modal-cancel-duplicate-added",
+    "app": "modal",
+    "split": "test",
+    "mutation": "duplicate-added",
+    "truth": "ambiguous",
+    "results": {
+      "Gimbal": "correct-abstention",
+      "stored selector": "correct-abstention",
+      "role + name": "correct-abstention"
+    },
+    "gimbalMs": 14643
+  },
+  {
+    "cell": "modal-confirm-duplicate-added",
+    "app": "modal",
+    "split": "test",
+    "mutation": "duplicate-added",
+    "truth": "ambiguous",
+    "results": {
+      "Gimbal": "correct-abstention",
+      "stored selector": "correct-abstention",
+      "role + name": "correct-abstention"
+    },
+    "gimbalMs": 14637
+  },
+  {
+    "cell": "tb-share-duplicate-added",
+    "app": "toolbar",
+    "split": "test",
+    "mutation": "duplicate-added",
+    "truth": "ambiguous",
+    "results": {
+      "Gimbal": "correct-abstention",
+      "stored selector": "correct-abstention",
+      "role + name": "correct-abstention"
+    },
+    "gimbalMs": 14638
+  },
+  {
+    "cell": "nav-team-duplicate-added",
+    "app": "nav",
+    "split": "test",
+    "mutation": "duplicate-added",
+    "truth": "ambiguous",
+    "results": {
+      "Gimbal": "correct-abstention",
+      "stored selector": "correct-abstention",
+      "role + name": "correct-abstention"
+    },
+    "gimbalMs": 14628
+  },
+  {
+    "cell": "nav-billing-duplicate-added",
+    "app": "nav",
+    "split": "test",
+    "mutation": "duplicate-added",
+    "truth": "ambiguous",
+    "results": {
+      "Gimbal": "correct-abstention",
+      "stored selector": "correct-abstention",
+      "role + name": "correct-abstention"
+    },
+    "gimbalMs": 14629
+  },
+  {
+    "cell": "nav-support-duplicate-added",
+    "app": "nav",
+    "split": "test",
+    "mutation": "duplicate-added",
+    "truth": "ambiguous",
+    "results": {
+      "Gimbal": "correct-abstention",
+      "stored selector": "correct-abstention",
+      "role + name": "correct-abstention"
+    },
+    "gimbalMs": 14628
+  },
+  {
+    "cell": "settings-email-duplicate-added",
+    "app": "settings",
+    "split": "test",
+    "mutation": "duplicate-added",
+    "truth": "ambiguous",
+    "results": {
+      "Gimbal": "correct-abstention",
+      "stored selector": "correct-abstention",
+      "role + name": "incorrect-repair"
+    },
+    "gimbalMs": 14625
+  },
+  {
+    "cell": "settings-reset-duplicate-added",
+    "app": "settings",
+    "split": "test",
+    "mutation": "duplicate-added",
+    "truth": "ambiguous",
+    "results": {
+      "Gimbal": "correct-abstention",
+      "stored selector": "correct-abstention",
+      "role + name": "correct-abstention"
+    },
+    "gimbalMs": 14619
+  },
+  {
+    "cell": "settings-save-duplicate-added",
+    "app": "settings",
+    "split": "test",
+    "mutation": "duplicate-added",
+    "truth": "ambiguous",
+    "results": {
+      "Gimbal": "correct-abstention",
+      "stored selector": "correct-abstention",
+      "role + name": "correct-abstention"
+    },
+    "gimbalMs": 14620
+  }
 ]

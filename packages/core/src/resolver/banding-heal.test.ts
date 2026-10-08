@@ -28,4 +28,15 @@ describe("healAmbiguity", () => {
   it("accepts a lone candidate", () => {
     expect(healAmbiguity([c("a", 0.8, 1)], "a")).toBeNull();
   });
+
+  it("rejects two identically named elements with only a small score gap", () => {
+    const a = { ...c("a", 0.8, 1), label: "Bold" };
+    const b = { ...c("b", 0.7, 1), label: "Bold" };
+    expect(healAmbiguity([a, b], "a")).toMatch(/also named "Bold"/);
+  });
+  it("accepts identically named elements when one is far ahead", () => {
+    const a = { ...c("a", 0.9, 1), label: "Edit" };
+    const b = { ...c("b", 0.6, 1), label: "Edit" };
+    expect(healAmbiguity([a, b], "a")).toBeNull();
+  });
 });

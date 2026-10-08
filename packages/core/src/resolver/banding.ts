@@ -133,6 +133,17 @@ export function healAmbiguity(
     .sort((a, b) => b.score - a.score)[0];
   if (!winner || !runnerUp) return null;
   const margin = winner.score - runnerUp.score;
+  // Two elements with the very same name: a small positional difference is not evidence of which
+  // one the author meant.
+  const name = winner.label?.trim().toLowerCase();
+  const twin = candidates.find(
+    (c) =>
+      c.id !== selectedId &&
+      name !== undefined &&
+      c.label?.trim().toLowerCase() === name &&
+      winner.score - c.score < CONFIDENCE_MARGIN,
+  );
+  if (twin) return `ambiguous: another element is also named "${twin.label}"`;
   if (margin >= HEAL_MIN_MARGIN) return null;
   const clearLabel =
     winner.signals.semantics >= CLEAR_LABEL_MATCH &&

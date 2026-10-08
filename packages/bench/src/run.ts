@@ -131,6 +131,8 @@ for (const [app, list] of Object.entries(targets)) {
   for (const t of list)
     for (const m of MUTATIONS) {
       if (only && !`${t.id}-${m.name}`.startsWith(only)) continue;
+      if (process.env.BENCH_MUTATION && m.name !== process.env.BENCH_MUTATION)
+        continue;
       jobs.push(() => runCell(app, t, m));
     }
 }
