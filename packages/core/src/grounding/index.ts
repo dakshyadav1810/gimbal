@@ -22,6 +22,7 @@ import { openSession } from "../execution/playwright.js";
 import { computeEffect } from "../execution/verify.js";
 import type { DomCandidate } from "../resolver/base.js";
 import type { Resolver } from "../resolver/index.js";
+import { type SnapshotStore, buildSnapshot } from "../snapshots/index.js";
 import { captureAriaSnapshot } from "./aria-oracle.js";
 import { extractCandidatesWithScroll } from "./candidate.js";
 import { computeDomHash } from "./dom-hash.js";
@@ -115,7 +116,27 @@ export class PlaywrightGroundingService implements GroundingService {
   constructor(
     private resolver: Resolver,
     private config: GimbalConfig,
+    private snapshots?: SnapshotStore,
   ) {}
+
+  // Grounding already extracted these candidates; remembering what the page looked like costs nothing.
+  private async remember(page: Page, candidates: DomCandidate[]) {
+    if (!this.snapshots || this.config.snapshots === "off") return;
+    try {
+      await this.snapshots.save(
+        buildSnapshot({
+          candidates,
+          url: page.url(),
+          title: await page.title().catch(() => ""),
+          viewport: page.viewportSize(),
+          source: "ground",
+          config: this.config,
+        }),
+      );
+    } catch {
+      // observability only; never fail grounding over it
+    }
+  }
 
   async ground(
     spec: SpecIR,
@@ -242,6 +263,7 @@ export class PlaywrightGroundingService implements GroundingService {
             step.generalization,
           );
           beforeCands = domCandidates;
+          await this.remember(session.page, domCandidates);
           resolution = await this.resolver.resolve(input);
           if (accept(resolution.band) && resolution.selected) break;
           if (!isWaitForSelector || Date.now() >= deadline) break;

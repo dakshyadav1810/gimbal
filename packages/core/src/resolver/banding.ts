@@ -104,3 +104,38 @@ function tiebreak(tied: Scored[], target?: Tier1Target): Scored | null {
 
   return null; // genuinely ambiguous — caller downgrades the band
 }
+
+// Runtime healing acts on a live app with nothing but this choice to go on, so it is stricter than
+// grounding: the winner must clearly beat the runner-up, or match the label clearly better.
+// Calibrated on the 45-cell fixture bench (packages/bench/results): wrong picks had margins <= 0.03
+// or weak label evidence, correct ones an exact label match.
+export const HEAL_MIN_MARGIN = 0.05;
+const CLEAR_LABEL_MATCH = 0.95;
+const CLEAR_LABEL_LEAD = 0.15;
+
+interface RankedCandidate {
+  id: string;
+  label?: string;
+  score: number;
+  signals: { semantics: number };
+}
+
+export function healAmbiguity(
+  candidates: RankedCandidate[],
+  selectedId: string | null,
+): string | null {
+  const winner = candidates.find((c) => c.id === selectedId);
+  const runnerUp = candidates
+    .filter((c) => c.id !== selectedId)
+    .sort((a, b) => b.score - a.score)[0];
+  if (!winner || !runnerUp) return null;
+  const margin = winner.score - runnerUp.score;
+  if (margin >= HEAL_MIN_MARGIN) return null;
+  const clearLabel =
+    winner.signals.semantics >= CLEAR_LABEL_MATCH &&
+    winner.signals.semantics - runnerUp.signals.semantics >= CLEAR_LABEL_LEAD;
+  if (clearLabel) return null;
+  return margin < 0
+    ? `ambiguous: "${runnerUp.label ?? runnerUp.id}" outscores the chosen candidate`
+    : `ambiguous: "${runnerUp.label ?? runnerUp.id}" is within ${margin.toFixed(2)} of the chosen candidate`;
+}

@@ -9,6 +9,11 @@ export const GimbalConfig = z.object({
   artifactsDir: z.string().default(".gimbal/tests"),
   screenshotsDir: z.string().default(".gimbal/screenshots"),
   fixturesDir: z.string().default(".gimbal/fixtures"),
+  snapshotsDir: z.string().default(".gimbal/snapshots"),
+  // ground: remember pages seen while grounding · always: also after runs · off: never store.
+  snapshots: z.enum(["ground", "always", "off"]).default("ground"),
+  // The running app, used by doctor and the demos.
+  appUrl: z.string().url().optional(),
   embeddingModel: z.string().default("Xenova/all-MiniLM-L6-v2"),
   // Pinned model commit: resolver scores must be reproducible across machines and over time, so the
   // weights are never fetched from a moving branch.

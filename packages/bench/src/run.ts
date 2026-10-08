@@ -82,6 +82,7 @@ function classify(truth: string, hits: string[], id: string): Outcome {
 const only = process.env.BENCH_ONLY; // e.g. login-submit-removed, for debugging one cell
 const core = await startCore();
 const fx = await startFixtureServer(fixtures, targets);
+const cells: unknown[] = [];
 const tally: Record<string, Record<Outcome, number>> = {};
 const t0 = Date.now();
 
@@ -125,6 +126,7 @@ try {
           ],
         };
         let outcome: Outcome = "error";
+        let evidence: unknown;
         try {
           fx.setMutation(null);
           const { testId } = await api(core.base, "POST", "/api/tests", spec);
@@ -143,9 +145,20 @@ try {
           }
           await new Promise((r) => setTimeout(r, 200));
           outcome = classify(m.truth, fx.takeHits(), t.id);
+          const doc = JSON.parse(
+            fs.readFileSync(
+              path.join(core.dir, "tests", testId, "repairs.json"),
+              "utf8",
+            ),
+          );
+          const heal = doc.repairs.find(
+            (r: { kind: string }) => r.kind === "heal",
+          );
+          evidence = heal && { ...heal.evidence, chose: heal.after?.label };
         } catch (e) {
           console.error(`  ${flowId}: ${(e as Error).message.slice(0, 160)}`);
         }
+        cells.push({ cell: flowId, truth: m.truth, outcome, evidence });
         if (!tally[m.name]) {
           tally[m.name] = {
             "correct-repair": 0,
@@ -162,8 +175,15 @@ try {
 } finally {
   await fx.close();
   core.proc.kill();
-  fs.rmSync(core.dir, { recursive: true, force: true });
+  if (process.env.BENCH_KEEP) console.log(`kept ${core.dir}`);
+  else fs.rmSync(core.dir, { recursive: true, force: true });
 }
+
+fs.mkdirSync(path.join(here, "../results"), { recursive: true });
+fs.writeFileSync(
+  path.join(here, "../results/cells-latest.json"),
+  JSON.stringify(cells, null, 1),
+);
 
 const pad = (s: string | number, n: number) => String(s).padEnd(n);
 console.log(

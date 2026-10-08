@@ -9,3 +9,4 @@ export * from "./schema/config.js";
 export * from "./schema/dto.js";
 export * from "./schema/ws.js";
 export * from "./schema/repair.js";
+export * from "./schema/snapshot.js";

@@ -14,6 +14,8 @@ function config(overrides: Partial<GimbalConfig> = {}): GimbalConfig {
     embeddingModel: "x",
     embeddingRevision: "x",
     healing: { mode: "propose" },
+    snapshotsDir: "snapshots",
+    snapshots: "ground",
     bands: { high: 0.7, medium: 0.5 },
     timeouts: {
       actionMs: 5000,

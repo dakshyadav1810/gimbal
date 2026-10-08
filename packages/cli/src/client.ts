@@ -1,6 +1,8 @@
 import type {
+  GetPageResponse,
   GroundedTest,
   MaintainRequest,
+  Repair,
   RepairPayload,
   RunReport,
   RunRequest,
@@ -67,11 +69,34 @@ export class CoreClient {
   health() {
     return this.req<{ ok: boolean }>("GET", "/health");
   }
-  getKdg(entryUrl: string) {
-    return this.req<unknown>(
-      "GET",
-      `/api/kdg?entry=${encodeURIComponent(entryUrl)}`,
-    );
+  async getPage(url: string, refresh = false) {
+    if (!refresh) {
+      try {
+        return await this.req<GetPageResponse>(
+          "GET",
+          `/api/snapshots?url=${encodeURIComponent(url)}`,
+        );
+      } catch (e) {
+        // Never observed yet: fall through and look at it now.
+        if (!(e instanceof CoreApiError && e.status === 404)) throw e;
+      }
+    }
+    return this.req<GetPageResponse>("POST", "/api/snapshots/refresh", { url });
+  }
+  listRepairs(opts: { testId?: string; status?: string } = {}) {
+    const q = new URLSearchParams();
+    if (opts.testId) q.set("testId", opts.testId);
+    if (opts.status) q.set("status", opts.status);
+    const qs = q.toString();
+    return this.req<Repair[]>("GET", `/api/repairs${qs ? `?${qs}` : ""}`);
+  }
+  acceptRepair(repairId: string) {
+    return this.req<Repair>("POST", `/api/repairs/${repairId}/accept`);
+  }
+  rejectRepair(repairId: string, reason?: string) {
+    return this.req<Repair>("POST", `/api/repairs/${repairId}/reject`, {
+      reason,
+    });
   }
   submitSpec(spec: SpecIR) {
     return this.req<{ testId: string; spec: SpecIR }>(
@@ -123,13 +148,16 @@ export class CoreClient {
   getReport(runId: string) {
     return this.req<RunReport>("GET", `/api/runs/${runId}`);
   }
-  getRepairPayload(testId: string) {
-    return this.req<RepairPayload>("GET", `/api/tests/${testId}/repair`);
+  getRepairContext(testId: string) {
+    return this.req<RepairPayload>(
+      "GET",
+      `/api/tests/${testId}/repair-context`,
+    );
   }
-  maintain(testId: string, req: MaintainRequest) {
+  submitRepair(testId: string, req: MaintainRequest) {
     return this.req<{ testId: string }>(
       "POST",
-      `/api/tests/${testId}/maintain`,
+      `/api/tests/${testId}/repair`,
       req,
     );
   }

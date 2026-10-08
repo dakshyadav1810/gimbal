@@ -9,6 +9,7 @@ import type { CacheStore } from "../cache/index.js";
 import { accept } from "../grounding/gate.js";
 import type { GroundingService } from "../grounding/index.js";
 import type { NewRepair, RepairStore } from "../repairs/store.js";
+import { healAmbiguity } from "../resolver/banding.js";
 import { audit } from "./audit.js";
 
 export type HealOutcome =
@@ -52,6 +53,11 @@ export async function runtimeHeal(
       healedCandidate.region !== "modal",
   );
 
+  const ambiguity = healAmbiguity(
+    result.resolution.candidates,
+    result.resolution.selected,
+  );
+
   // A selector the reviewer already rejected for this step must not come back as a fresh proposal.
   const rejected = (await repairs.list(storeTestId)).some(
     (r) =>
@@ -71,7 +77,8 @@ export async function runtimeHeal(
     accept(result.band) &&
     result.cachedSelector &&
     !crossContainerDrift &&
-    !rejected
+    !rejected &&
+    !ambiguity
   ) {
     const runnerUp = result.resolution.candidates.find(
       (c) => c.id !== result.resolution.selected,
@@ -113,7 +120,9 @@ export async function runtimeHeal(
     ? "cross-container boundary drift: candidate outside original modal"
     : rejected
       ? "best candidate was previously rejected by a reviewer"
-      : "no candidate reached medium confidence";
+      : ambiguity
+        ? ambiguity
+        : "no candidate reached medium confidence";
 
   const topCandidates = result.resolution.candidates.slice(0, 5);
   await repairs.add({

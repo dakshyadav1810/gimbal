@@ -226,7 +226,7 @@ describe("runtimeHeal", () => {
 });
 
 describe("buildRepairPayload", () => {
-  it("assembles specIR + testCase with a null kdg placeholder", async () => {
+  it("assembles specIR + testCase", async () => {
     const store = {
       loadSpec: vi
         .fn()
@@ -245,7 +245,6 @@ describe("buildRepairPayload", () => {
     } as ArtifactStore;
 
     const payload = await buildRepairPayload(store, "t1");
-    expect(payload.kdg).toBeNull();
     expect(store.loadSpec).toHaveBeenCalledWith("t1");
     expect(store.loadGrounded).toHaveBeenCalledWith("t1");
   });

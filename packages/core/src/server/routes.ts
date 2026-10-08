@@ -1,5 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { MaintainRequest, RunRequest } from "@gimbal/shared";
+import {
+  type GetPageResponse,
+  MaintainRequest,
+  type PageSnapshot,
+  RunRequest,
+} from "@gimbal/shared";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import {
   type ExploreUiRequest,
@@ -7,6 +12,7 @@ import {
 } from "../authoring/telemetry.js";
 import { summarizeUngrounded } from "../grounding/summarize.js";
 import { RepairError, acceptRepair, rejectRepair } from "../repairs/decide.js";
+import { refreshSnapshot } from "../snapshots/refresh.js";
 import type { Container } from "./container.js";
 import type { WsHub } from "./ws-hub.js";
 
@@ -107,7 +113,7 @@ function registerApiRoutes(app: FastifyInstance, c: Container, hub: WsHub) {
     return outcome;
   });
 
-  app.get("/tests/:id/repair", async (req) => {
+  app.get("/tests/:id/repair-context", async (req) => {
     const { id } = req.params as { id: string };
     const payload = await c.healing.buildRepairPayload(id);
     const candidates = await c.store.loadCandidates(id);
@@ -138,7 +144,7 @@ function registerApiRoutes(app: FastifyInstance, c: Container, hub: WsHub) {
     return { snapshot };
   });
 
-  app.post("/tests/:id/maintain", async (req) => {
+  app.post("/tests/:id/repair", async (req) => {
     const { id } = req.params as { id: string };
     const { stepIds, spec } = MaintainRequest.parse(req.body);
     return c.healing.maintain(id, stepIds, spec);
@@ -182,16 +188,19 @@ function registerApiRoutes(app: FastifyInstance, c: Container, hub: WsHub) {
     decide((id, body) => rejectRepair(c.repairs, id, body.reason)),
   );
 
-  // Transitional view for the dashboard's old review queue; replaced by the Repairs page (Phase 3).
-  app.get("/reviews", async () =>
-    (await c.repairs.listAll())
+  // Transitional views for the dashboard's old review queue; replaced by the Repairs page (Phase 3).
+  const openAsReviews = async (testId?: string) =>
+    (testId ? await c.repairs.list(testId) : await c.repairs.listAll())
       .filter((r) => r.status === "needed" || r.status === "proposed")
       .map((r) => ({
         testId: r.testId,
         stepId: r.stepId,
         url: "",
         candidatesJson: "[]",
-      })),
+      }));
+  app.get("/reviews", async () => openAsReviews());
+  app.get("/tests/:id/reviews", async (req) =>
+    openAsReviews((req.params as { id: string }).id),
   );
 
   // --- runs ---
@@ -255,10 +264,52 @@ function registerApiRoutes(app: FastifyInstance, c: Container, hub: WsHub) {
     }
   });
 
-  // --- kdg ---
-  app.get("/kdg", async (req) => {
-    const { entry } = req.query as { entry?: string };
-    return c.kdg.build(entry ?? "");
+  // --- page snapshots (what getPage serves) ---
+  app.get("/snapshots", async (req, reply) => {
+    const { url } = req.query as { url?: string };
+    if (!url) {
+      reply.code(400);
+      return apiError("validation", "url is required");
+    }
+    const snapshot = await c.snapshots.latest(url);
+    if (!snapshot) {
+      reply.code(404);
+      return apiError(
+        "not_found",
+        `no snapshot of ${url} yet; call again with refresh to observe it now`,
+      );
+    }
+    return withAge(snapshot);
   });
-  app.get("/kdg/delta", async () => ({ changed: [] })); // future — needs KDG versioning (SPEC-005)
+
+  // Opens the page in a fresh browser and stores what is there now.
+  app.post("/snapshots/refresh", async (req, reply) => {
+    const { url } = (req.body ?? {}) as { url?: string };
+    if (!url) {
+      reply.code(400);
+      return apiError("validation", "url is required");
+    }
+    try {
+      const snapshot = await refreshSnapshot(c.config, url);
+      await c.snapshots.save(snapshot);
+      return withAge(snapshot);
+    } catch (e) {
+      reply.code(502);
+      return apiError(
+        "browser_error",
+        `could not open ${url}: ${String(e).slice(0, 200)}. Is the app running?`,
+      );
+    }
+  });
+}
+
+function withAge(snapshot: PageSnapshot): GetPageResponse {
+  return {
+    snapshot,
+    ageSeconds: Math.max(
+      0,
+      Math.round((Date.now() - Date.parse(snapshot.capturedAt)) / 1000),
+    ),
+    note: `Observed at ${snapshot.capturedAt}. States that were not visited (logged-out vs logged-in views, open dialogs, other data) are absent. Treat this as a hint; grounding against the live page decides.`,
+  };
 }

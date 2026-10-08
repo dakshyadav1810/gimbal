@@ -51,7 +51,7 @@ export function useTestCandidates(testId: string) {
 export function useRepairPayload(testId: string) {
   return useQuery({
     queryKey: ["tests", testId, "repair"],
-    queryFn: () => api.getRepairPayload(testId),
+    queryFn: () => api.getRepairContext(testId),
     enabled: false,
   });
 }

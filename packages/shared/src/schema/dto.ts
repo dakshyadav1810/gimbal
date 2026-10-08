@@ -70,13 +70,11 @@ export type ApiError = z.infer<typeof ApiError>;
 export interface RepairPayload {
   specIR: SpecIR;
   testCase: GroundedTest;
-  kdg?: unknown;
 }
 export const RepairPayload: z.ZodType<RepairPayload, z.ZodTypeDef, unknown> =
   z.object({
     specIR: SpecIR,
     testCase: GroundedTest,
-    kdg: z.unknown().optional(), // KDG data structure deferred (ADR-002 out-of-scope)
   });
 
 // LLD-010 §2.1: thin projection of RunReport for the run-history list — no steps[] body.

@@ -33,50 +33,48 @@ function toolHandler<T>(fn: () => Promise<T>) {
   };
 }
 
+const INSTRUCTIONS =
+  "Gimbal runs browser tests described as JSON/YAML and keeps them working when the UI changes. " +
+  "Workflow: getPage (see the real controls) -> author DOM-blind with authorTest or executeDsl -> runTest. " +
+  "When the UI changes, Gimbal heals at run time and records a repair; steps it cannot trust are marked " +
+  "'needed'. Use listRepairs, then getRepairContext and submitRepair to fix them. Never invent selectors. " +
+  "Heal proposals are accepted or rejected by the developer, not by you. Give every click or submit " +
+  "an expected outcome or assertion so a wrong heal is caught.";
+
 // Agent-facing MCP control plane, hosted by `gimbal mcp`. Every tool proxies to core over REST,
 // no in-process shortcut (invariant #7, LLD-008).
 export function buildMcpServer(client: CoreClient): McpServer {
-  const server = new McpServer({ name: "gimbal", version: "0.1.0" });
-
-  server.registerTool(
-    "getMap",
-    {
-      description:
-        "Look up a route's UI structure before authoring a test against it. Returns the Knowledge " +
-        "Dependency Graph (KDG) for one entry URL: parent/child component containment plus every " +
-        "conditional render branch (ternary, &&, .map, early-return, switch) resolved to one of three " +
-        "states: resolved (raw condition, safe to read), needs_trace (a pointer to the exact file/line " +
-        "to check next), or unknown (runtime-only, e.g. a network feature flag). Next.js App Router only " +
-        "in v1. Static analysis, no LLM call, cheap to re-run. Use this instead of re-reading the whole " +
-        "frontend every time you author or repair a test. It is a hint, not ground truth: grounding " +
-        "against the live DOM always wins if they disagree.",
-      inputSchema: {
-        entryUrl: z
-          .string()
-          .describe(
-            "The route URL whose page.tsx you want the component subgraph for, e.g. '/login'.",
-          ),
-      },
-    },
-    async ({ entryUrl }) => toolHandler(() => client.getKdg(entryUrl))(),
+  const server = new McpServer(
+    { name: "gimbal", version: "0.1.0" },
+    { instructions: INSTRUCTIONS },
   );
 
   server.registerTool(
-    "getDelta",
+    "getPage",
     {
       description:
-        "Check what changed in the KDG since a version you already fetched with getMap, instead of " +
-        "re-fetching the whole subgraph. Use after a code change when you want to know if anything " +
-        "relevant to your test moved.",
+        "See what a page looked like the last time Gimbal observed it: element roles, accessible names, " +
+        "regions (form/modal/section), test ids and disabled state, plus whether the browser was logged in. " +
+        "Use it BEFORE authoring so you describe real controls instead of guessing. It is one observation, " +
+        "not the app: states nobody visited (other users, open dialogs, other data) are absent, and the " +
+        "response says when it was captured. Never contains typed values or URL query strings. Served from " +
+        "memory when available; set refresh=true (or call it for a page never seen) to open the page now. " +
+        "It is a hint: grounding against the live page decides.",
       inputSchema: {
-        sinceVersion: z
+        url: z
           .string()
-          .describe("A KDG version identifier previously returned by getMap."),
+          .describe("Full page URL, e.g. 'http://localhost:3000/login'."),
+        refresh: z
+          .boolean()
+          .optional()
+          .default(false)
+          .describe(
+            "Open the page now instead of using the remembered snapshot.",
+          ),
       },
     },
-    async () => ({
-      content: [{ type: "text", text: JSON.stringify({ changed: [] }) }],
-    }),
+    async ({ url, refresh }) =>
+      toolHandler(() => client.getPage(url, refresh))(),
   );
 
   server.registerTool(
@@ -206,7 +204,7 @@ export function buildMcpServer(client: CoreClient): McpServer {
     },
     async ({ testId }) =>
       toolHandler(async () => {
-        const payload = await client.getRepairPayload(testId);
+        const payload = await client.getRepairContext(testId);
         const dsl = decompileSpec(payload.specIR);
         return { dsl };
       })(),
@@ -296,45 +294,62 @@ export function buildMcpServer(client: CoreClient): McpServer {
   );
 
   server.registerTool(
-    "healing",
+    "getRepairContext",
     {
       description:
-        "Fetch the repair payload for a stale test: the current Spec IR, the last grounded test case, and " +
-        "the KDG context for the route. Read-only: it never repairs anything itself, and no LLM call " +
-        "happens on Gimbal's side. You are the one who reasons over this payload, re-authors just the " +
-        "affected Tier-1 target(s) (stay DOM-blind, don't guess a selector), and submits the fix via " +
-        "updateTest. A step usually goes stale because the element was removed, the app reached an " +
-        "unreached state, its semantic identity fully changed, or two candidates are ambiguously tied, " +
-        "not because of routine attribute/class churn, which the runtime heal already absorbed silently.",
+        "Read-only. Returns what you need to repair a test whose step went stale or whose healing you " +
+        "disagree with: the current Spec IR and the last grounded test. Gimbal calls no model here; you " +
+        "do the reasoning. Re-author only the affected Tier-1 target(s), staying DOM-blind (describe by " +
+        "role, name and intent, never a selector), then send the full patched spec with submitRepair. " +
+        "Steps usually go stale because the element was removed, the app is in a state nobody grounded, " +
+        "its meaning changed, or two candidates tie. Routine class or attribute churn is already absorbed " +
+        "by healing and shows up in listRepairs as a proposal, not here.",
       inputSchema: {
         testId: z
           .string()
-          .describe("The ID of the stale test to fetch repair context for."),
+          .describe("The test to fetch repair context for (see listRepairs)."),
       },
     },
-    async ({ testId }) => toolHandler(() => client.getRepairPayload(testId))(),
+    async ({ testId }) => toolHandler(() => client.getRepairContext(testId))(),
   );
 
   server.registerTool(
-    "updateTest",
+    "submitRepair",
     {
       description:
-        "Submit your re-authored fix for a stale test. This is the only repair path: there is no core-side " +
-        "fallback, so spec is required and must be the full patched Spec IR (not a diff). Pass the stepIds " +
-        "you actually changed so the review surface can highlight them. After this call, the affected " +
-        "step(s) get re-grounded automatically and the result is a diff for the developer to review, never " +
-        "an auto-committed change. Only touch the steps that actually need repair: a layer-targeted fix " +
-        "(re-ground a broken selector, or re-author a changed intent) beats regenerating the whole test.",
+        "Send your patched spec for a test. This is the only way an agent changes a test's meaning: " +
+        "spec must be the FULL patched Spec IR, not a diff. List the stepIds you changed; only those " +
+        "are re-resolved, the rest are replayed from their stored selectors (if replay breaks, Gimbal " +
+        "re-grounds everything and says so). The spec and grounding are saved immediately. Nothing is " +
+        "committed to git for you. Touch as few steps as you can.",
       inputSchema: {
-        testId: z.string().describe("The stale test's ID."),
-        stepIds: z
-          .array(z.string())
-          .describe("IDs of the steps you actually repaired."),
-        spec: SpecIR.describe("The full patched Spec IR, not a partial diff."),
+        testId: z.string().describe("The test being repaired."),
+        stepIds: z.array(z.string()).describe("IDs of the steps you changed."),
+        spec: SpecIR.describe("The full patched Spec IR."),
       },
     },
     async ({ testId, stepIds, spec }) =>
-      toolHandler(() => client.maintain(testId, { stepIds, spec }))(),
+      toolHandler(() => client.submitRepair(testId, { stepIds, spec }))(),
+  );
+
+  server.registerTool(
+    "listRepairs",
+    {
+      description:
+        "List repairs Gimbal recorded: heal proposals from runs (a different element was used and " +
+        "verified), steps it abstained on (status 'needed': nothing trustworthy was found), and earlier " +
+        "decisions. Each has before/after, the evidence behind it and how it was verified. Use status " +
+        "'needed' to find what you must fix with getRepairContext + submitRepair. Accepting or rejecting " +
+        "a heal proposal is the developer's call in the dashboard or `gimbal repair`; do not assume it.",
+      inputSchema: {
+        testId: z.string().optional().describe("Only this test."),
+        status: z
+          .enum(["proposed", "needed", "accepted", "rejected", "superseded"])
+          .optional(),
+      },
+    },
+    async ({ testId, status }) =>
+      toolHandler(() => client.listRepairs({ testId, status }))(),
   );
 
   server.registerTool(

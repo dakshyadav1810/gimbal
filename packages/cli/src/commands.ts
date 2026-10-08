@@ -100,19 +100,91 @@ export function registerCommands(program: Command) {
       process.exitCode = allPassed ? 0 : 1;
     });
 
-  program
-    .command("heal")
+  const repair = program
+    .command("repair")
+    .description("review what Gimbal healed or could not heal");
+  const client = () => new CoreClient(baseUrl(loadConfig()));
+
+  repair
+    .command("list")
+    .option("--test <testId>", "only this test")
+    .option("--status <status>", "proposed | needed | accepted | rejected")
+    .description("list repairs (default: everything still open)")
+    .action(async (opts) => {
+      const all = await client().listRepairs({
+        testId: opts.test,
+        status: opts.status,
+      });
+      const rows = opts.status
+        ? all
+        : all.filter((r) => r.status === "proposed" || r.status === "needed");
+      if (rows.length === 0) console.log("nothing to review");
+      for (const r of rows) {
+        const to = r.after ? ` -> ${r.after.label ?? r.after.selector}` : "";
+        console.log(
+          `${r.id.slice(0, 8)}  ${r.status.padEnd(9)} ${r.testId}/${r.stepId}  ${r.before.label ?? r.before.selector}${to}${r.reason ? `  (${r.reason})` : ""}`,
+        );
+      }
+    });
+
+  const findRepair = async (prefix: string) => {
+    const matches = (await client().listRepairs()).filter((r) =>
+      r.id.startsWith(prefix),
+    );
+    if (matches.length !== 1)
+      throw new Error(
+        matches.length === 0
+          ? `no repair starts with ${prefix}`
+          : `${prefix} matches ${matches.length} repairs; use more characters`,
+      );
+    return matches[0];
+  };
+
+  repair
+    .command("show")
+    .argument("<repairId>", "repair id (or its first characters)")
+    .action(async (id) => {
+      console.log(JSON.stringify(await findRepair(id), null, 2));
+    });
+
+  repair
+    .command("accept")
+    .argument("<repairId>")
+    .description("fold a heal proposal into the test's grounded.json")
+    .action(async (id) => {
+      const r = await client().acceptRepair((await findRepair(id)).id);
+      console.log(
+        `accepted: ${r.testId}/${r.stepId} now uses ${r.after?.selector}. Commit .gimbal/tests/${r.testId}/grounded.json.`,
+      );
+    });
+
+  repair
+    .command("reject")
+    .argument("<repairId>")
+    .option("--reason <text>")
+    .description(
+      "reject a proposal; the same selector will not be proposed again",
+    )
+    .action(async (id, opts) => {
+      const r = await client().rejectRepair(
+        (await findRepair(id)).id,
+        opts.reason,
+      );
+      console.log(`rejected: ${r.testId}/${r.stepId}`);
+    });
+
+  repair
+    .command("context")
     .argument("<testId>")
     .description(
-      "print the repair payload for a stale test (read-only — no LLM call)",
+      "print the repair context for a test (read-only; hand it to your coding agent)",
     )
     .action(async (testId) => {
-      const client = new CoreClient(baseUrl(loadConfig()));
-      const payload = await client.getRepairPayload(testId);
-      console.log(JSON.stringify(payload, null, 2));
       console.log(
-        "\nHand this to your connected coding agent, then have it call `updateTest` (or `gimbal heal` " +
-          "again after it submits a fix) — Gimbal has no LLM of its own to repair this automatically.",
+        JSON.stringify(await client().getRepairContext(testId), null, 2),
+      );
+      console.log(
+        "\nHand this to your connected agent and have it call `submitRepair`. Gimbal has no model of its own to repair this.",
       );
     });
 

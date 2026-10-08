@@ -59,7 +59,16 @@ export class PlaywrightTestRunner implements TestRunner {
   ): Promise<RunReport> {
     const runId = opts.runId ?? randomUUID();
     const startedAt = new Date().toISOString();
-    const session = await openSession(this.config);
+    // Registered before the browser launches so a client polling right after POST /runs sees
+    // "running" instead of a 404.
+    this.cache.startRun(runId, opts.testId, startedAt);
+    let session: Awaited<ReturnType<typeof openSession>>;
+    try {
+      session = await openSession(this.config);
+    } catch (e) {
+      this.cache.failRun(runId, new Date().toISOString());
+      throw e;
+    }
     const dbSession = openDbSession(this.config);
     if (dbSession) await dbSession.beginFixture();
     const ctx: RunContext = {
@@ -78,9 +87,6 @@ export class PlaywrightTestRunner implements TestRunner {
     };
     const results: StepResult[] = [];
 
-    // Placeholder row so GET /runs/:id can tell "still running" apart from "never existed" while
-    // this executes — without it, polling during the run is indistinguishable from a bad run id.
-    this.cache.startRun(runId, opts.testId, startedAt);
     opts.emit?.({ type: "run.start", runId, testId: opts.testId });
     try {
       await session.page.goto(test.groundedUrl, {

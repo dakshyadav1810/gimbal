@@ -27,7 +27,7 @@ export function ReviewDetailPage({
     : [];
 
   const copyForAgent = async () => {
-    const repairPayload = await api.getRepairPayload(testId);
+    const repairPayload = await api.getRepairContext(testId);
     const text = `This Gimbal test step is stale and needs repair. Fix the target/spec and call the \`updateTest\` MCP tool with testId=${testId} and the corrected spec.\n\n${JSON.stringify(repairPayload, null, 2)}`;
     await navigator.clipboard.writeText(text);
     setCopied(true);

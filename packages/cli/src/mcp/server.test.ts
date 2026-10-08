@@ -12,15 +12,16 @@ import { buildMcpServer } from "./server.js";
 
 function mockClient() {
   return {
-    getKdg: vi.fn(),
+    getPage: vi.fn(),
+    listRepairs: vi.fn(),
     submitSpec: vi.fn(),
     groundTest: vi.fn(),
     authorTest: vi.fn(),
     runTest: vi.fn(),
     runTestSync: vi.fn(),
     getReport: vi.fn(),
-    getRepairPayload: vi.fn(),
-    maintain: vi.fn(),
+    getRepairContext: vi.fn(),
+    submitRepair: vi.fn(),
     deleteTest: vi.fn(),
     explore: vi.fn(),
   } as unknown as CoreClient;
@@ -73,24 +74,66 @@ async function setupMcp(client: CoreClient) {
           isError?: boolean;
         };
       },
+      listTools: () => mcpClient.listTools(),
+      getInstructions: () => mcpClient.getInstructions(),
     },
     server,
   };
 }
 
 describe("MCP Server Tools", () => {
-  it("getMap calls client.getKdg", async () => {
+  it("exposes exactly the documented tool set", async () => {
+    const { mcpClient } = await setupMcp(mockClient());
+    const { tools } = await mcpClient.listTools();
+    expect(tools.map((t: { name: string }) => t.name).sort()).toEqual(
+      [
+        "authorTest",
+        "compileDsl",
+        "decompileSpec",
+        "deleteTest",
+        "executeDsl",
+        "exploreUiState",
+        "getPage",
+        "getReport",
+        "getRepairContext",
+        "listRepairs",
+        "runTest",
+        "submitRepair",
+      ].sort(),
+    );
+    expect(mcpClient.getInstructions()).toContain("getPage");
+  });
+
+  it("getPage calls client.getPage", async () => {
     const client = mockClient();
-    vi.mocked(client.getKdg).mockResolvedValue({ route: "/login", nodes: {} });
+    vi.mocked(client.getPage).mockResolvedValue({
+      snapshot: { url: "http://app/login" },
+    } as never);
     const { mcpClient } = await setupMcp(client);
 
     const res = await mcpClient.callTool({
-      name: "getMap",
-      arguments: { entryUrl: "/login" },
+      name: "getPage",
+      arguments: { url: "http://app/login" },
     });
 
-    expect(client.getKdg).toHaveBeenCalledWith("/login");
+    expect(client.getPage).toHaveBeenCalledWith("http://app/login", false);
     expect(res.content[0].text).toContain("/login");
+  });
+
+  it("listRepairs passes filters through", async () => {
+    const client = mockClient();
+    vi.mocked(client.listRepairs).mockResolvedValue([]);
+    const { mcpClient } = await setupMcp(client);
+
+    await mcpClient.callTool({
+      name: "listRepairs",
+      arguments: { status: "needed" },
+    });
+
+    expect(client.listRepairs).toHaveBeenCalledWith({
+      testId: undefined,
+      status: "needed",
+    });
   });
 
   it("authorTest with SpecIR calls client.authorTest", async () => {
@@ -180,33 +223,33 @@ describe("MCP Server Tools", () => {
     expect(res.content[0].text).toContain("passed");
   });
 
-  it("healing calls client.getRepairPayload", async () => {
+  it("getRepairContext calls client.getRepairContext", async () => {
     const client = mockClient();
-    vi.mocked(client.getRepairPayload).mockResolvedValue({
+    vi.mocked(client.getRepairContext).mockResolvedValue({
       spec: validSpec,
     } as unknown as RepairPayload);
     const { mcpClient } = await setupMcp(client);
 
     const res = await mcpClient.callTool({
-      name: "healing",
+      name: "getRepairContext",
       arguments: { testId: "t1" },
     });
 
-    expect(client.getRepairPayload).toHaveBeenCalledWith("t1");
+    expect(client.getRepairContext).toHaveBeenCalledWith("t1");
     expect(res.content[0].text).toContain("spec");
   });
 
-  it("updateTest calls client.maintain", async () => {
+  it("submitRepair calls client.submitRepair", async () => {
     const client = mockClient();
-    vi.mocked(client.maintain).mockResolvedValue({ testId: "t1" });
+    vi.mocked(client.submitRepair).mockResolvedValue({ testId: "t1" });
     const { mcpClient } = await setupMcp(client);
 
     const res = await mcpClient.callTool({
-      name: "updateTest",
+      name: "submitRepair",
       arguments: { testId: "t1", stepIds: ["s1"], spec: validSpec },
     });
 
-    expect(client.maintain).toHaveBeenCalledWith("t1", {
+    expect(client.submitRepair).toHaveBeenCalledWith("t1", {
       stepIds: ["s1"],
       spec: expect.objectContaining({ version: "1.0" }),
     });
@@ -229,14 +272,14 @@ describe("MCP Server Tools", () => {
 
   it("surfaces CoreApiError as clean MCP error message", async () => {
     const client = mockClient();
-    vi.mocked(client.getKdg).mockRejectedValue(
+    vi.mocked(client.getPage).mockRejectedValue(
       new CoreApiError(400, "bad_request", "invalid route"),
     );
     const { mcpClient } = await setupMcp(client);
 
     const res = await mcpClient.callTool({
-      name: "getMap",
-      arguments: { entryUrl: "/login" },
+      name: "getPage",
+      arguments: { url: "/login" },
     });
 
     expect(res.isError).toBe(true);

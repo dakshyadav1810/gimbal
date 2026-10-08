@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { normalizeLlmOutput } from "./emitter.js";
 import { AuthoringError, CoreAuthoringService } from "./index.js";
-import { EmptyKdgContextProvider } from "./kdg-context.js";
 
 function validSpecCamelCase() {
   return {
@@ -64,20 +63,9 @@ describe("normalizeLlmOutput", () => {
   });
 });
 
-describe("EmptyKdgContextProvider", () => {
-  it("always returns an empty routes/conditionals context regardless of entryUrl", async () => {
-    const provider = new EmptyKdgContextProvider();
-    expect(await provider.build("https://app.test/")).toEqual({
-      routes: [],
-      conditionals: [],
-    });
-    expect(await provider.build("")).toEqual({ routes: [], conditionals: [] });
-  });
-});
-
 describe("CoreAuthoringService", () => {
   it("submit() normalizes snake_case input, validates it against SpecIR, and returns the parsed spec", async () => {
-    const service = new CoreAuthoringService(new EmptyKdgContextProvider());
+    const service = new CoreAuthoringService();
     const snakeCaseInput = {
       version: "1.0",
       flow: {
@@ -94,22 +82,14 @@ describe("CoreAuthoringService", () => {
   });
 
   it("submit() rejects a spec that fails lint (e.g. no assertion/expectedOutcome anywhere)", async () => {
-    const service = new CoreAuthoringService(new EmptyKdgContextProvider());
+    const service = new CoreAuthoringService();
     const spec = validSpecCamelCase();
     spec.steps[0].expectedOutcome = [];
     await expect(service.submit(spec)).rejects.toThrow(AuthoringError);
   });
 
   it("submit() rejects input that doesn't even match the SpecIR schema shape", async () => {
-    const service = new CoreAuthoringService(new EmptyKdgContextProvider());
+    const service = new CoreAuthoringService();
     await expect(service.submit({ garbage: true })).rejects.toThrow();
-  });
-
-  it("context() delegates to the injected KdgContextProvider", async () => {
-    const service = new CoreAuthoringService(new EmptyKdgContextProvider());
-    expect(await service.context("https://app.test/")).toEqual({
-      routes: [],
-      conditionals: [],
-    });
   });
 });

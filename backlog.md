@@ -9,3 +9,7 @@
 - 1.11: add a route test for the 409 `model_mismatch` on `POST /runs`, and an offline check (`HF_HUB_OFFLINE`) in `gimbal doctor`.
 - 1.3: `runId` is not recorded on repairs (heal path has no run context). Rejected-selector blocking only covers heals, not the proposal-reuse path.
 - Bench: `duplicate-added` truth is "ambiguous", so even clicking the original counts as a false positive; revisit whether that is the right scoring once abstention exists (1.7).
+- 2.5: `getPage` also should capture on `exploreUiState` and (with `snapshots: always`) after runs; only grounding and `refresh` capture today. Page snapshots are not yet excluded by a generated `.gimbal/.gitignore` (comes with `gimbal init`, 2.2).
+- 2.5/Phase 7: the knowledge-graph docs (docs/lld/LLD-011-kdg.md, docs/specs/SPEC-006-kdg.md and mentions in README/ADRs/LLDs) still describe the removed feature; cleanup belongs to the docs phase.
+- 2.8: `/api/reviews` and `/api/tests/:id/reviews` are kept as derived views for the old dashboard page until Phase 3 replaces it with a Repairs page.
+- Bench harness: cells without a heal log a harmless ENOENT for repairs.json; check existence first.

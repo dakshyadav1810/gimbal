@@ -17,10 +17,10 @@ export async function buildRepairPayload(
 ): Promise<RepairPayload> {
   const specIR = await store.loadSpec(testId);
   const testCase = await store.loadGrounded(testId);
-  return { specIR, testCase, kdg: null };
+  return { specIR, testCase };
 }
 
-// One path: the agent read buildRepairPayload via the MCP `healing` tool, re-authored the affected
+// One path: the agent read buildRepairPayload via the MCP `getRepairContext` tool, re-authored the affected
 // Tier-1 target(s) itself, and submits the result here. Core never re-authors anything (LLD-006 §6).
 export async function maintain(
   authoring: AuthoringService,

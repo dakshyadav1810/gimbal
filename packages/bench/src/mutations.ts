@@ -19,7 +19,7 @@ export const MUTATIONS: Mutation[] = [
   {
     name: "wrapper-insert",
     truth: "same",
-    script: `const w = document.createElement("div"); w.className = "wrap" + seed; el.replaceWith(w); w.appendChild(el);`,
+    script: `el.removeAttribute("id"); const w = document.createElement("div"); w.className = "wrap" + seed; el.replaceWith(w); w.appendChild(el);`,
   },
   {
     name: "label-synonym",
@@ -29,7 +29,7 @@ export const MUTATIONS: Mutation[] = [
   {
     name: "duplicate-added",
     truth: "ambiguous",
-    script: `const d = el.cloneNode(true); d.removeAttribute("id"); d.addEventListener("click", (e) => { e.preventDefault(); window.__hit("decoy"); }); el.after(d);`,
+    script: `el.removeAttribute("id"); const d = el.cloneNode(true); d.addEventListener("click", (e) => { e.preventDefault(); window.__hit("decoy"); }); el.after(d);`,
   },
   {
     name: "removed",

@@ -73,6 +73,8 @@ function fakeCache(overrides: Partial<CacheStore> = {}): CacheStore {
 const testConfig = {
   maxScrollPasses: 3,
   healing: { mode: "propose" },
+  snapshotsDir: "snapshots",
+  snapshots: "ground",
 } as unknown as GimbalConfig;
 
 function fakeHealing(overrides: Partial<HealingService> = {}): HealingService {

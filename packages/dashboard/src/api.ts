@@ -39,8 +39,8 @@ export const api = {
   listReviews: () => req<ReviewRecord[]>("/reviews"),
   listTestReviews: (testId: string) =>
     req<ReviewRecord[]>(`/tests/${testId}/reviews`),
-  getRepairPayload: (testId: string) =>
-    req<RepairPayload>(`/tests/${testId}/repair`),
+  getRepairContext: (testId: string) =>
+    req<RepairPayload>(`/tests/${testId}/repair-context`),
   getCandidates: (testId: string) =>
     req<CandidatesDoc | null>(`/tests/${testId}/candidates`),
   updateSpec: (testId: string, spec: SpecIR) =>

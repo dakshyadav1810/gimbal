@@ -1,6 +1,5 @@
 import type { GimbalConfig } from "@gimbal/shared";
 import { CoreAuthoringService } from "../authoring/index.js";
-import { EmptyKdgContextProvider } from "../authoring/kdg-context.js";
 import { openDb } from "../cache/db.js";
 import { SqliteCacheStore } from "../cache/index.js";
 import { migrate } from "../cache/migrate.js";
@@ -13,6 +12,7 @@ import {
   TransformersEmbeddingModel,
 } from "../resolver/embeddings.js";
 import { MultiSignalResolver } from "../resolver/index.js";
+import { FsSnapshotStore } from "../snapshots/index.js";
 import { FsArtifactStore } from "../storage/index.js";
 
 // Composition root — wires every subsystem behind its interface (invariant #8).
@@ -32,9 +32,9 @@ export function buildContainer(config: GimbalConfig) {
   const resolver = new MultiSignalResolver(embedder, config.bands);
 
   const store = new FsArtifactStore(config.artifactsDir);
-  const grounding = new PlaywrightGroundingService(resolver, config);
-  const kdg = new EmptyKdgContextProvider();
-  const authoring = new CoreAuthoringService(kdg);
+  const snapshots = new FsSnapshotStore(config.snapshotsDir);
+  const grounding = new PlaywrightGroundingService(resolver, config, snapshots);
+  const authoring = new CoreAuthoringService();
   const repairs = new RepairStore(config.artifactsDir);
   const healing = new CoreHealingService(
     grounding,
@@ -54,8 +54,8 @@ export function buildContainer(config: GimbalConfig) {
     authoring,
     healing,
     repairs,
+    snapshots,
     runner,
-    kdg,
   };
 }
 export type Container = ReturnType<typeof buildContainer>;
