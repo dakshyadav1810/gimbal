@@ -4,7 +4,8 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "smoke": "tsx src/run.ts"
+    "smoke": "tsx src/run.ts",
+    "demo": "tsx src/demo-verify.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

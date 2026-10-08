@@ -1,13 +1,11 @@
-import { type ChildProcess, spawn } from "node:child_process";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { startFixtureServer } from "./fixture-server.js";
+import { api, repo, startCore } from "./harness.js";
 import { MUTATIONS } from "./mutations.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const repo = path.resolve(here, "../../..");
 const fixtures = path.join(repo, "fixtures");
 const targets = JSON.parse(
   fs.readFileSync(path.join(fixtures, "apps/targets.json"), "utf8"),
@@ -19,54 +17,6 @@ type Outcome =
   | "correct-abstention"
   | "missed-repair"
   | "error";
-
-async function startCore(): Promise<{
-  proc: ChildProcess;
-  base: string;
-  dir: string;
-}> {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "gimbal-bench-"));
-  const port = 24000 + Math.floor(Math.random() * 3000);
-  fs.writeFileSync(
-    path.join(dir, "gimbal.config.json"),
-    JSON.stringify({
-      port,
-      dbPath: path.join(dir, "cache.db"),
-      artifactsDir: path.join(dir, "tests"),
-      screenshotsDir: path.join(dir, "shots"),
-      fixturesDir: path.join(dir, "fixtures"),
-      timeouts: { actionMs: 2500, navMs: 10000 },
-    }),
-  );
-  const proc = spawn("node", [path.join(repo, "packages/core/dist/main.js")], {
-    cwd: dir,
-    stdio: "ignore",
-  });
-  const base = `http://127.0.0.1:${port}`;
-  for (let i = 0; i < 60; i++) {
-    try {
-      if ((await fetch(`${base}/health`)).ok) return { proc, base, dir };
-    } catch {}
-    await new Promise((r) => setTimeout(r, 500));
-  }
-  proc.kill();
-  throw new Error("core did not start");
-}
-
-async function api(base: string, method: string, url: string, body?: unknown) {
-  const res = await fetch(base + url, {
-    method,
-    headers: { "content-type": "application/json" },
-    signal: AbortSignal.timeout(60_000),
-    body: method === "GET" ? undefined : JSON.stringify(body ?? {}),
-  });
-  const json = await res.json().catch(() => null);
-  if (!res.ok)
-    throw new Error(
-      `${method} ${url} -> ${res.status} ${JSON.stringify(json)}`,
-    );
-  return json as any;
-}
 
 function classify(truth: string, hits: string[], id: string): Outcome {
   const acted = hits.length > 0;
@@ -80,7 +30,10 @@ function classify(truth: string, hits: string[], id: string): Outcome {
 }
 
 const only = process.env.BENCH_ONLY; // e.g. login-submit-removed, for debugging one cell
-const core = await startCore();
+const core = await startCore({
+  dbPath: "cache.db",
+  artifactsDir: "tests",
+});
 const fx = await startFixtureServer(fixtures, targets);
 const cells: unknown[] = [];
 const tally: Record<string, Record<Outcome, number>> = {};
@@ -145,12 +98,15 @@ try {
           }
           await new Promise((r) => setTimeout(r, 200));
           outcome = classify(m.truth, fx.takeHits(), t.id);
-          const doc = JSON.parse(
-            fs.readFileSync(
-              path.join(core.dir, "tests", testId, "repairs.json"),
-              "utf8",
-            ),
+          const repairsFile = path.join(
+            core.dir,
+            "tests",
+            testId,
+            "repairs.json",
           );
+          const doc = fs.existsSync(repairsFile)
+            ? JSON.parse(fs.readFileSync(repairsFile, "utf8"))
+            : { repairs: [] };
           const heal = doc.repairs.find(
             (r: { kind: string }) => r.kind === "heal",
           );
@@ -174,9 +130,8 @@ try {
   }
 } finally {
   await fx.close();
-  core.proc.kill();
   if (process.env.BENCH_KEEP) console.log(`kept ${core.dir}`);
-  else fs.rmSync(core.dir, { recursive: true, force: true });
+  core.stop(Boolean(process.env.BENCH_KEEP));
 }
 
 fs.mkdirSync(path.join(here, "../results"), { recursive: true });
