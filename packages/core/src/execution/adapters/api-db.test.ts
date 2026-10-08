@@ -41,6 +41,7 @@ function ctx(overrides: Partial<RunContext> = {}): RunContext {
     vars: {},
     cache: {} as RunContext["cache"],
     healing: {} as RunContext["healing"],
+    embedder: {} as RunContext["embedder"],
     config: {} as any,
     runId: "r1",
     screenshotsDir: "/tmp",

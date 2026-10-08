@@ -1,3 +1,4 @@
+import type { CachedEmbedder } from "../resolver/embeddings.js";
 import type {
   GimbalConfig,
   GroundedTest,
@@ -122,6 +123,7 @@ describe("PlaywrightTestRunner", () => {
       config(),
       fakeCache(),
       fakeHealing(),
+      {} as CachedEmbedder,
     );
     await runner.run(groundedTest([dbStep()]), { testId: "t1" });
     expect(dbFixtureMock.beginFixture).toHaveBeenCalled();
@@ -137,6 +139,7 @@ describe("PlaywrightTestRunner", () => {
       config(),
       fakeCache(),
       fakeHealing(),
+      {} as CachedEmbedder,
     );
     await runner.run(groundedTest([dbStep()]), { testId: "t1" });
     expect(dbFixtureMock.beginFixture).not.toHaveBeenCalled();
@@ -145,7 +148,7 @@ describe("PlaywrightTestRunner", () => {
 
   it("runs all steps, aggregates a passing report, and persists it via cache.saveRun", async () => {
     const cache = fakeCache();
-    const runner = new PlaywrightTestRunner(config(), cache, fakeHealing());
+    const runner = new PlaywrightTestRunner(config(), cache, fakeHealing(), {} as CachedEmbedder);
     const executeSpy = vi
       .spyOn(DbAdapter.prototype, "execute")
       .mockResolvedValue({ stepId: "s1", status: "passed", durationMs: 1 });
@@ -161,7 +164,7 @@ describe("PlaywrightTestRunner", () => {
 
   it("retries a failed step exactly once when onFailure is retry_once, and keeps the retry's own result", async () => {
     const cache = fakeCache();
-    const runner = new PlaywrightTestRunner(config(), cache, fakeHealing());
+    const runner = new PlaywrightTestRunner(config(), cache, fakeHealing(), {} as CachedEmbedder);
     const executeSpy = vi
       .spyOn(DbAdapter.prototype, "execute")
       .mockResolvedValueOnce({
@@ -183,7 +186,7 @@ describe("PlaywrightTestRunner", () => {
 
   it("does not retry a second time even if the retry also fails", async () => {
     const cache = fakeCache();
-    const runner = new PlaywrightTestRunner(config(), cache, fakeHealing());
+    const runner = new PlaywrightTestRunner(config(), cache, fakeHealing(), {} as CachedEmbedder);
     const executeSpy = vi
       .spyOn(DbAdapter.prototype, "execute")
       .mockResolvedValue({
@@ -203,7 +206,7 @@ describe("PlaywrightTestRunner", () => {
 
   it("downgrades a failed optional step to 'warning' and does not abort the run", async () => {
     const cache = fakeCache();
-    const runner = new PlaywrightTestRunner(config(), cache, fakeHealing());
+    const runner = new PlaywrightTestRunner(config(), cache, fakeHealing(), {} as CachedEmbedder);
     const test = groundedTest([
       dbStep({ id: "s1", onFailure: "optional" }), // fails: NO_DB_CONFIGURED (no dbQuery wired)
       dbStep({ id: "s2", onFailure: "abort" }),
@@ -217,7 +220,7 @@ describe("PlaywrightTestRunner", () => {
 
   it("stops the run at the first fatal (onFailure: abort) failure and does not execute later steps", async () => {
     const cache = fakeCache();
-    const runner = new PlaywrightTestRunner(config(), cache, fakeHealing());
+    const runner = new PlaywrightTestRunner(config(), cache, fakeHealing(), {} as CachedEmbedder);
     const test = groundedTest([
       dbStep({ id: "s1", onFailure: "abort" }), // fails: NO_DB_CONFIGURED
       dbStep({ id: "s2", onFailure: "abort" }),
@@ -232,7 +235,7 @@ describe("PlaywrightTestRunner", () => {
 
   it("emits run.start, step.start, step.result per step, and run.complete in order", async () => {
     const cache = fakeCache();
-    const runner = new PlaywrightTestRunner(config(), cache, fakeHealing());
+    const runner = new PlaywrightTestRunner(config(), cache, fakeHealing(), {} as CachedEmbedder);
     const test = groundedTest([dbStep({ id: "s1" })]);
     const emitted: WsMessage["type"][] = [];
     const emit = vi.fn((m: WsMessage) => emitted.push(m.type));
@@ -249,7 +252,7 @@ describe("PlaywrightTestRunner", () => {
 
   it("uses the supplied runId, or generates one if omitted", async () => {
     const cache = fakeCache();
-    const runner = new PlaywrightTestRunner(config(), cache, fakeHealing());
+    const runner = new PlaywrightTestRunner(config(), cache, fakeHealing(), {} as CachedEmbedder);
     const test = groundedTest([dbStep({ id: "s1" })]);
 
     const withId = await runner.run(test, {
@@ -265,7 +268,7 @@ describe("PlaywrightTestRunner", () => {
 
   it("merges flow.vars with the caller-supplied vars, caller vars taking precedence", async () => {
     const cache = fakeCache();
-    const runner = new PlaywrightTestRunner(config(), cache, fakeHealing());
+    const runner = new PlaywrightTestRunner(config(), cache, fakeHealing(), {} as CachedEmbedder);
     const test = groundedTest([dbStep({ id: "s1" })]);
     test.flow.vars = { a: "flow-value", b: "flow-b" };
 
@@ -285,7 +288,7 @@ describe("PlaywrightTestRunner", () => {
 
   it("starts a 'running' placeholder row before executing steps, then persists the final report", async () => {
     const cache = fakeCache();
-    const runner = new PlaywrightTestRunner(config(), cache, fakeHealing());
+    const runner = new PlaywrightTestRunner(config(), cache, fakeHealing(), {} as CachedEmbedder);
     const executeSpy = vi
       .spyOn(DbAdapter.prototype, "execute")
       .mockImplementation(async () => {
@@ -312,7 +315,7 @@ describe("PlaywrightTestRunner", () => {
 
   it("marks the run 'failed' via cache.failRun and rethrows when a step throws unexpectedly, without ever calling saveRun", async () => {
     const cache = fakeCache();
-    const runner = new PlaywrightTestRunner(config(), cache, fakeHealing());
+    const runner = new PlaywrightTestRunner(config(), cache, fakeHealing(), {} as CachedEmbedder);
     const executeSpy = vi
       .spyOn(DbAdapter.prototype, "execute")
       .mockRejectedValue(new Error("adapter blew up"));
@@ -336,6 +339,7 @@ describe("PlaywrightTestRunner", () => {
       config(),
       fakeCache(),
       fakeHealing(),
+      {} as CachedEmbedder,
     );
     const executeSpy = vi
       .spyOn(DbAdapter.prototype, "execute")

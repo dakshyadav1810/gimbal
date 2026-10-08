@@ -185,6 +185,18 @@ function registerApiRoutes(app: FastifyInstance, c: Container, hub: WsHub) {
       reply.code(409);
       return apiError("ungrounded", `test ${testId} is not grounded yet`);
     }
+    const r = test.resolver;
+    if (
+      r &&
+      (r.model !== c.config.embeddingModel ||
+        r.revision !== c.config.embeddingRevision)
+    ) {
+      reply.code(409);
+      return apiError(
+        "model_mismatch",
+        `test ${testId} was grounded with ${r.model}@${r.revision.slice(0, 8)} but the configured model is ${c.config.embeddingModel}@${c.config.embeddingRevision.slice(0, 8)}; re-ground the test`,
+      );
+    }
     const runId = randomUUID();
     // fire-and-forget: client polls GET /runs/:id or streams GET /ws/runs/:id (LLD-008 §3-4)
     c.runner

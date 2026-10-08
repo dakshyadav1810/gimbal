@@ -57,6 +57,7 @@ export const ApiError = z.object({
       "not_found",
       "ungrounded",
       "stale",
+      "model_mismatch",
       "browser_error",
       "internal",
     ]),

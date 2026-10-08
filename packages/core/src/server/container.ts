@@ -43,7 +43,7 @@ export function buildContainer(config: GimbalConfig) {
     store,
     repairs,
   );
-  const runner = new PlaywrightTestRunner(config, cache, healing);
+  const runner = new PlaywrightTestRunner(config, cache, healing, embedder);
 
   return {
     config,

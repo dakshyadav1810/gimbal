@@ -7,6 +7,7 @@ import type {
   WsMessage,
 } from "@gimbal/shared";
 import type { CacheStore } from "../cache/index.js";
+import type { CachedEmbedder } from "../resolver/embeddings.js";
 import type { HealingService } from "../healing/index.js";
 import { ApiAdapter } from "./adapters/api.js";
 import { DbAdapter } from "./adapters/db.js";
@@ -44,6 +45,7 @@ export class PlaywrightTestRunner implements TestRunner {
     private config: GimbalConfig,
     private cache: CacheStore,
     private healing: HealingService,
+    private embedder: CachedEmbedder,
   ) {}
 
   async run(
@@ -68,6 +70,7 @@ export class PlaywrightTestRunner implements TestRunner {
       vars: { ...test.flow.vars, ...(opts.vars ?? {}) },
       cache: this.cache,
       healing: this.healing,
+      embedder: this.embedder,
       config: this.config,
       dbQuery: dbSession?.query.bind(dbSession),
       runId,

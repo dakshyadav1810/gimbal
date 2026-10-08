@@ -19,11 +19,13 @@ export function toGroundedTest(
   spec: SpecIR,
   steps: GroundedStep[],
   groundedUrl: string,
+  resolver?: { model: string; revision: string },
 ) {
   return {
     ...spec,
     groundedAt: new Date().toISOString(),
     groundedUrl,
+    ...(resolver ? { resolver } : {}),
     steps,
   };
 }

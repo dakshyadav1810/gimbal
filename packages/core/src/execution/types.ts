@@ -1,6 +1,7 @@
 import type { GimbalConfig, GroundedTest, Step, StepKind, StepResult } from "@gimbal/shared";
 import type { BrowserContext, Page } from "playwright";
 import type { CacheStore } from "../cache/index.js";
+import type { CachedEmbedder } from "../resolver/embeddings.js";
 import type { HealingService } from "../healing/index.js";
 
 export interface RunContext {
@@ -13,6 +14,8 @@ export interface RunContext {
   vars: Record<string, string>;
   cache: CacheStore;
   healing: HealingService;
+  // Shared embedding cache, for assertions that compare text semantically (Phase 5).
+  embedder: CachedEmbedder;
   config: GimbalConfig; // passed down so the auto-wait gate can read timeouts
   dbQuery?: (query: string) => Promise<unknown>;
   runId: string;

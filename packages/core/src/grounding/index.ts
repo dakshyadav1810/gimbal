@@ -222,7 +222,10 @@ export class PlaywrightGroundingService implements GroundingService {
 
     return {
       candidates: candidatesDoc,
-      grounded: toGroundedTest(spec, groundedSteps, spec.flow.startUrl),
+      grounded: toGroundedTest(spec, groundedSteps, spec.flow.startUrl, {
+        model: this.config.embeddingModel,
+        revision: this.config.embeddingRevision,
+      }),
       stoppedAt,
       ariaSnapshot,
     };

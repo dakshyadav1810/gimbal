@@ -36,6 +36,9 @@ export type GroundedStep = z.infer<typeof GroundedStep>;
 export const GroundedTest = SpecIR.omit({ steps: true }).extend({
   groundedAt: z.string(),
   groundedUrl: z.string().url(),
+  // Embedding model the scores were produced with; a run under a different one is refused so
+  // confidence bands from two models are never mixed.
+  resolver: z.object({ model: z.string(), revision: z.string() }).optional(),
   steps: z.array(GroundedStep),
 });
 export type GroundedTest = z.infer<typeof GroundedTest>;
