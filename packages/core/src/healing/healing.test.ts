@@ -15,6 +15,7 @@ import os from "node:os";
 import path from "node:path";
 import { RepairStore } from "../repairs/store.js";
 import { audit } from "./audit.js";
+import { CoreHealingService } from "./index.js";
 import { buildRepairPayload, maintain } from "./repair.js";
 import { runtimeHeal } from "./runtime.js";
 
@@ -93,33 +94,56 @@ describe("runtimeHeal", () => {
       band: "high",
       from: "#old",
     });
-    // resolution_cache stays keyed by flow.id, not the storage-layer testId.
-    expect(cache.putSelector).toHaveBeenCalledWith(
-      expect.objectContaining({
-        testId: "test-1",
-        stepId: "s1",
-        cachedSelector: "#healed",
-        band: "high",
-      }),
-    );
-    // the audit log is looked up by the storage-layer testId elsewhere (verdict.ts), so it must
-    // use storeTestId, not test.flow.id.
-    expect(cache.appendHeal).toHaveBeenCalledWith(
-      expect.objectContaining({
-        testId: "store-test-1",
-        event: "healed",
-        fromSel: "#old",
-        toSel: "#healed",
-      }),
-    );
-    const [proposal] = await repairs.list("store-test-1");
-    expect(proposal).toMatchObject({
+    // nothing is persisted until the caller has verified the healed action
+    expect(cache.putSelector).not.toHaveBeenCalled();
+    expect(await repairs.list("store-test-1")).toEqual([]);
+    expect(outcome.status === "healed" && outcome.proposal).toMatchObject({
       kind: "heal",
       status: "proposed",
       stepId: "s1",
       before: { selector: "#old" },
       after: { selector: "#healed" },
     });
+  });
+
+  it("commitHeal writes the cache, audit log and repairs.json, keyed by the right ids", async () => {
+    const cache = fakeCache();
+    const repairs = tmpRepairs();
+    const svc = new CoreHealingService(
+      {} as GroundingService,
+      cache,
+      {} as AuthoringService,
+      {} as ArtifactStore,
+      repairs,
+    );
+    const heal = {
+      status: "healed" as const,
+      cachedSelector: "#healed",
+      band: "high" as const,
+      from: "#old",
+      domHash: "h1",
+      proposal: {
+        testId: "store-test-1",
+        stepId: "s1",
+        kind: "heal" as const,
+        status: "proposed" as const,
+        before: { selector: "#old" },
+        after: { selector: "#healed" },
+      },
+    };
+    await svc.commitHeal(groundedTest(), "store-test-1", "s1", heal, {
+      level: "effect",
+      result: "verified",
+    });
+    // resolution_cache stays keyed by flow.id; audit and repairs use the storage-layer id.
+    expect(cache.putSelector).toHaveBeenCalledWith(
+      expect.objectContaining({ testId: "test-1", cachedSelector: "#healed" }),
+    );
+    expect(cache.appendHeal).toHaveBeenCalledWith(
+      expect.objectContaining({ testId: "store-test-1", event: "healed", toSel: "#healed" }),
+    );
+    const [saved] = await repairs.list("store-test-1");
+    expect(saved.verification).toEqual({ level: "effect", result: "verified" });
   });
 
   it("records a needed repair and a 'stale' audit event when reground can't clear low band", async () => {

@@ -4,6 +4,7 @@ import type {
   GimbalConfig,
   GroundedStep,
   GroundedTest,
+  GroundedUiStep,
   Resolution,
   SpecIR,
 } from "@gimbal/shared";
@@ -18,6 +19,8 @@ import {
   waitForPageHydration,
 } from "../execution/hydration.js";
 import { openSession } from "../execution/playwright.js";
+import { computeEffect } from "../execution/verify.js";
+import type { DomCandidate } from "../resolver/base.js";
 import type { Resolver } from "../resolver/index.js";
 import { captureAriaSnapshot } from "./aria-oracle.js";
 import { extractCandidatesWithScroll } from "./candidate.js";
@@ -145,6 +148,7 @@ export class PlaywrightGroundingService implements GroundingService {
         const deadline = Date.now() + waitBudgetMs;
 
         let resolution: Resolution;
+        let beforeCands: DomCandidate[] = [];
         for (;;) {
           const domCandidates = await extractCandidatesWithScroll(
             session.page,
@@ -155,6 +159,7 @@ export class PlaywrightGroundingService implements GroundingService {
             domCandidates,
             step.generalization,
           );
+          beforeCands = domCandidates;
           resolution = await this.resolver.resolve(input);
           if (accept(resolution.band) && resolution.selected) break;
           if (!isWaitForSelector || Date.now() >= deadline) break;
@@ -185,6 +190,22 @@ export class PlaywrightGroundingService implements GroundingService {
             await awaitNavigationIfExpected(step, session.page, urlBefore);
             await waitForPendingUiToClear(session.page);
             await waitForPageHydration(session.page, undefined, hydrationTimeouts);
+            // Remember what acting did, so a later runtime heal can be sanity-checked against it.
+            const afterCands = await extractCandidatesWithScroll(
+              session.page,
+              this.config.maxScrollPasses,
+            );
+            const last = groundedSteps.length - 1;
+            groundedSteps[last] = {
+              ...(groundedSteps[last] as GroundedUiStep),
+              effect: computeEffect(
+                beforeCands,
+                afterCands,
+                urlBefore,
+                session.page.url(),
+                beforeCands.find((c) => c.id === resolution.selected)?.label,
+              ),
+            };
           }
         } else {
           groundedSteps.push(mergeResolution(step, toWinnerOnly(resolution)));

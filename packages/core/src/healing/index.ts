@@ -6,7 +6,11 @@ import type { GroundingService } from "../grounding/index.js";
 import type { RepairStore } from "../repairs/store.js";
 import type { ArtifactStore } from "../storage/index.js";
 import { type RepairResult, buildRepairPayload, maintain } from "./repair.js";
+import type { Repair } from "@gimbal/shared";
+import { audit } from "./audit.js";
 import { type HealOutcome, runtimeHeal } from "./runtime.js";
+
+export type Healed = Extract<HealOutcome, { status: "healed" }>;
 
 export type { HealOutcome } from "./runtime.js";
 export type { RepairResult } from "./repair.js";
@@ -19,6 +23,21 @@ export interface HealingService {
     previousSelector: string | null,
     storeTestId: string,
   ): Promise<HealOutcome>;
+  /** Persists a heal once its action has been verified: selector cache, audit log, repairs.json. */
+  commitHeal(
+    test: GroundedTest,
+    storeTestId: string,
+    stepId: string,
+    heal: Healed,
+    verification: Repair["verification"],
+  ): Promise<void>;
+  /** A heal whose action failed verification: only the audit log hears about it. */
+  rejectHeal(
+    storeTestId: string,
+    stepId: string,
+    heal: Healed,
+    detail: string,
+  ): void;
   /** A still-open proposed selector for this step, reused when the cache has been cleared. */
   findProposal(storeTestId: string, stepId: string): Promise<string | null>;
   buildRepairPayload(testId: string): Promise<RepairPayload>;
@@ -56,6 +75,39 @@ export class CoreHealingService implements HealingService {
       storeTestId,
       this.repairs,
     );
+  }
+
+  async commitHeal(
+    test: GroundedTest,
+    storeTestId: string,
+    stepId: string,
+    heal: Healed,
+    verification: Repair["verification"],
+  ) {
+    // resolution_cache stays keyed by flow.id (see locate.ts); audit and repairs use the
+    // storage-layer id.
+    this.cache.putSelector({
+      testId: test.flow.id,
+      stepId,
+      domHash: heal.domHash,
+      cachedSelector: heal.cachedSelector,
+      band: heal.band,
+    });
+    audit(this.cache, storeTestId, stepId, "healed", {
+      from: heal.from,
+      to: heal.cachedSelector,
+      band: heal.band,
+    });
+    await this.repairs.add({ ...heal.proposal, verification });
+  }
+
+  rejectHeal(storeTestId: string, stepId: string, heal: Healed, detail: string) {
+    audit(this.cache, storeTestId, stepId, "heal_rejected", {
+      from: heal.from,
+      to: heal.cachedSelector,
+      band: heal.band,
+      reason: detail,
+    });
   }
 
   async findProposal(storeTestId: string, stepId: string) {

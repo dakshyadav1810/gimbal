@@ -10,8 +10,19 @@ export const GroundedTarget = Tier1Target.extend({
 });
 export type GroundedTarget = z.infer<typeof GroundedTarget>;
 
+// What acting on this step changed at grounding time (URL path, elements that appeared or went
+// away). Used to sanity-check a runtime heal when the author wrote no outcome for the step.
+export const EffectFingerprint = z.object({
+  urlPathChanged: z.boolean(),
+  toPath: z.string().optional(),
+  appeared: z.array(z.string()).default([]),
+  disappeared: z.array(z.string()).default([]),
+});
+export type EffectFingerprint = z.infer<typeof EffectFingerprint>;
+
 export const GroundedUiStep = UiStep.omit({ target: true }).extend({
   target: GroundedTarget.optional(),
+  effect: EffectFingerprint.optional(),
 });
 export type GroundedUiStep = z.infer<typeof GroundedUiStep>;
 

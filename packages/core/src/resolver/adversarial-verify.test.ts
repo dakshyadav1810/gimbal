@@ -13,6 +13,7 @@ const config: GimbalConfig = {
   screenshotsDir: "/tmp/s",
   embeddingModel: "Xenova/all-MiniLM-L6-v2",
   embeddingRevision: "751bff37182d3f1213fa05d7196b954e230abad9",
+  healing: { mode: "propose" },
   bands: { high: 0.7, medium: 0.5 },
   timeouts: { actionMs: 5000, navMs: 10000, hydrationNetworkIdleMs: 2000, hydrationQuietWindowMs: 150 },
   db: { readOnly: true },

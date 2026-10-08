@@ -55,6 +55,7 @@ describe("Gimbal Full E2E Pipeline", () => {
       determinism: {},
       embeddingModel: "Xenova/all-MiniLM-L6-v2",
       embeddingRevision: "751bff37182d3f1213fa05d7196b954e230abad9",
+      healing: { mode: "propose" },
       bands: { high: 0.7, medium: 0.5 },
       timeouts: { actionMs: 5000, navMs: 10000, hydrationNetworkIdleMs: 2000, hydrationQuietWindowMs: 150 },
       db: { readOnly: true },
@@ -191,5 +192,46 @@ describe("Gimbal Full E2E Pipeline", () => {
 
     const step2ResultFail = report3.steps.find((s) => s.stepId === "step-2");
     expect(step2ResultFail?.status).toBe("stale"); // verified it escalated to stale!
+  }, 30000);
+
+  it("fails the step and persists no heal when the healed action misses the author's outcome", async () => {
+    pageHtml = `<html><body>
+      <button id="login-button" onclick="window.location.href='/dashboard'">Log In</button>
+    </body></html>`;
+    const spec = SpecIR.parse({
+      version: "1.0",
+      flow: {
+        id: "wrong-heal",
+        name: "wrong heal",
+        intent: "login",
+        startUrl: `http://127.0.0.1:${PORT}/`,
+        vars: {},
+      },
+      steps: [
+        {
+          id: "s1",
+          kind: "ui",
+          action: "click",
+          intent: "log in",
+          target: {
+            label: "Log In",
+            role: "button",
+            semantics: ["log in", "submit"],
+            actions: ["click"],
+            intent: "log in",
+          },
+          assertions: [{ type: "urlContains", expected: "/dashboard" }],
+        },
+      ],
+    });
+    const { grounded } = await container.grounding.ground(spec, {});
+    // The real button disappears; a near-miss that goes somewhere else takes its place.
+    pageHtml = `<html><body>
+      <button id="help" onclick="window.location.href='/nowhere'">Log In Help</button>
+    </body></html>`;
+    const report = await container.runner.run(grounded, { testId: "wrong-heal" });
+    expect(report.steps[0].status).not.toBe("passed");
+    const heals = (await container.repairs.list("wrong-heal")).filter((r) => r.kind === "heal");
+    expect(heals).toEqual([]);
   }, 30000);
 });

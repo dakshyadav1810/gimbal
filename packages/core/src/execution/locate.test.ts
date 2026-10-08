@@ -102,7 +102,7 @@ describe("locate", () => {
       cache,
       fakeHealing(),
       "store-test-1",
-      { maxScrollPasses: 3 } as unknown as import("@gimbal/shared").GimbalConfig,
+      { maxScrollPasses: 3, healing: { mode: "propose" } } as unknown as import("@gimbal/shared").GimbalConfig,
     );
     expect(result.source).toBe("cached");
     expect(result.locator).not.toBeNull();
@@ -147,7 +147,7 @@ describe("locate", () => {
       cache,
       fakeHealing(),
       "store-test-1",
-      { maxScrollPasses: 3 } as unknown as import("@gimbal/shared").GimbalConfig,
+      { maxScrollPasses: 3, healing: { mode: "propose" } } as unknown as import("@gimbal/shared").GimbalConfig,
     );
     expect(result.source).toBe("cached");
     expect(cache.putSelector).toHaveBeenCalledWith(
@@ -180,7 +180,7 @@ describe("locate", () => {
       cache,
       healing,
       "store-test-1",
-      { maxScrollPasses: 3 } as unknown as import("@gimbal/shared").GimbalConfig,
+      { maxScrollPasses: 3, healing: { mode: "propose" } } as unknown as import("@gimbal/shared").GimbalConfig,
     );
     expect(healing.runtimeHeal).toHaveBeenCalled();
     expect(result.source).toBe("resolver");
@@ -206,7 +206,7 @@ describe("locate", () => {
       cache,
       healing,
       "store-test-1",
-      { maxScrollPasses: 3 } as unknown as import("@gimbal/shared").GimbalConfig,
+      { maxScrollPasses: 3, healing: { mode: "propose" } } as unknown as import("@gimbal/shared").GimbalConfig,
     );
     expect(result.source).toBe("none");
     expect(result.locator).toBeNull();

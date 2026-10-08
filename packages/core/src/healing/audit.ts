@@ -5,7 +5,7 @@ export function audit(
   cache: CacheStore,
   testId: string,
   stepId: string,
-  event: "healed" | "stale",
+  event: "healed" | "stale" | "heal_rejected",
   opts: {
     from?: string | null;
     to?: string | null;

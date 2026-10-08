@@ -4,7 +4,7 @@ import type { CacheStore } from "../cache/index.js";
 import { accept } from "../grounding/gate.js";
 import type { GroundingService } from "../grounding/index.js";
 import { audit } from "./audit.js";
-import type { RepairStore } from "../repairs/store.js";
+import type { NewRepair, RepairStore } from "../repairs/store.js";
 
 export type HealOutcome =
   | {
@@ -12,6 +12,10 @@ export type HealOutcome =
       cachedSelector: string;
       band: Band;
       from: string | null;
+      domHash: string;
+      // Not persisted yet: the caller writes it (and the selector cache) only after the healed
+      // action has been verified, so a wrong heal never leaves a trace that later runs trust.
+      proposal: NewRepair;
     }
   | { status: "stale"; reason: string; topCandidates: Candidate[] };
 
@@ -61,24 +65,10 @@ export async function runtimeHeal(
     !crossContainerDrift &&
     !rejected
   ) {
-    // resolution_cache stays keyed by flow.id (see locate.ts) — only the review queue and audit
-    // log, which are looked up by the storage-layer id elsewhere (verdict.ts), use storeTestId.
-    cache.putSelector({
-      testId: test.flow.id,
-      stepId,
-      domHash: result.domHash,
-      cachedSelector: result.cachedSelector,
-      band: result.band,
-    });
-    audit(cache, storeTestId, stepId, "healed", {
-      from: previousSelector,
-      to: result.cachedSelector,
-      band: result.band,
-    });
     const runnerUp = result.resolution.candidates.find(
       (c) => c.id !== result.resolution.selected,
     );
-    await repairs.add({
+    const proposal: NewRepair = {
       testId: storeTestId,
       stepId,
       kind: "heal",
@@ -100,12 +90,14 @@ export async function runtimeHeal(
           ? { label: runnerUp.label, score: runnerUp.score }
           : undefined,
       },
-    });
+    };
     return {
       status: "healed",
       cachedSelector: result.cachedSelector,
       band: result.band,
       from: previousSelector,
+      domHash: result.domHash,
+      proposal,
     };
   }
 

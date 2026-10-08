@@ -3,12 +3,14 @@ import type { Locator, Page } from "playwright";
 import type { CacheStore } from "../cache/index.js";
 import { extractCandidatesWithScroll } from "../grounding/candidate.js";
 import { computeDomHash } from "../grounding/dom-hash.js";
-import type { HealingService } from "../healing/index.js";
+import type { Healed, HealingService } from "../healing/index.js";
 
 export interface LocateResult {
   locator: Locator | null;
   selector: string | null;
   source: "cached" | "resolver" | "none";
+  // Set when this selector came from a fresh runtime heal that still needs verifying.
+  heal?: Healed;
 }
 
 async function isUniqueVisible(locator: Locator): Promise<boolean> {
@@ -78,6 +80,10 @@ export async function locate(
     };
   }
 
+  if (config.healing.mode === "off") {
+    return { locator: null, selector: null, source: "none" };
+  }
+
   // A proposal from an earlier run: reuse it even when cache.db was wiped, so the same heal isn't
   // recomputed (and possibly decided differently) on every fresh machine.
   const proposed = await healing.findProposal(storeTestId, step.id);
@@ -101,6 +107,7 @@ export async function locate(
       locator: page.locator(outcome.cachedSelector),
       selector: outcome.cachedSelector,
       source: "resolver",
+      heal: outcome,
     };
   }
   return { locator: null, selector: null, source: "none" }; // -> STALE (SPEC-003 §7)

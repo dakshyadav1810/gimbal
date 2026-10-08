@@ -13,6 +13,7 @@ function config(overrides: Partial<GimbalConfig> = {}): GimbalConfig {
     screenshotsDir: "/tmp",
     embeddingModel: "x",
     embeddingRevision: "x",
+    healing: { mode: "propose" },
     bands: { high: 0.7, medium: 0.5 },
     timeouts: {
       actionMs: 5000,

@@ -119,3 +119,32 @@ describe("GroundedTest", () => {
     expect(() => GroundedTest.parse(grounded)).not.toThrow();
   });
 });
+
+describe("lintSpec — unchecked click", () => {
+  const base = (steps: unknown[]) =>
+    SpecIR.parse({
+      version: "1.0",
+      flow: { id: "f", name: "f", intent: "i", startUrl: "http://localhost/", vars: {} },
+      steps,
+    });
+  const click = (id: string, extra = {}) => ({
+    id,
+    kind: "ui",
+    action: "click",
+    intent: "go",
+    target: { label: "Go", role: "button", semantics: ["go"], actions: ["click"], intent: "go" },
+    ...extra,
+  });
+  const wait = { id: "w", kind: "ui", action: "wait", intent: "w", assertions: [{ type: "textContains", expected: "ok" }] };
+
+  it("warns when nothing checks the click", () => {
+    const r = lintSpec(base([click("b", { assertions: [{ type: "textContains", expected: "ok" }] }), click("a")]));
+    expect(r.warnings.some((w) => w.includes("step a"))).toBe(true);
+    expect(r.warnings.some((w) => w.includes("step b"))).toBe(false);
+  });
+
+  it("is satisfied by an assertion on the next step", () => {
+    const r = lintSpec(base([click("a"), wait]));
+    expect(r.warnings.filter((w) => w.includes("step a"))).toEqual([]);
+  });
+});

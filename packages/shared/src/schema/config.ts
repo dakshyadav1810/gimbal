@@ -43,6 +43,11 @@ export const GimbalConfig = z.object({
   // (timing, state, network) the resolver can't touch by construction. All unset by default —
   // behavior-neutral until a project opts in. Grounding should never default to "replay" (it would
   // silently mask a real backend change during the capture that plants Tier-2 anchors).
+  // propose: heal in-run, verify, record a repair for review · strict: heals must be verified or the
+  // step fails · off: never heal at runtime, a missing selector is a stale step.
+  healing: z
+    .object({ mode: z.enum(["propose", "strict", "off"]).default("propose") })
+    .default({}),
   determinism: z
     .object({
       fixedTime: z.string().datetime().optional(),

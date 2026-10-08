@@ -41,6 +41,7 @@ function config(): GimbalConfig {
     screenshotsDir: "/tmp/screenshots",
     embeddingModel: "x",
     embeddingRevision: "x",
+    healing: { mode: "propose" },
     bands: { high: 0.7, medium: 0.5 },
     timeouts: {
       actionMs: 15000,

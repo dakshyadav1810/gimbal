@@ -14,7 +14,7 @@ export interface CachedSelector {
 export interface HealAuditEntry {
   testId: string;
   stepId: string;
-  event: "healed" | "stale";
+  event: "healed" | "stale" | "heal_rejected";
   fromSel: string | null;
   toSel: string | null;
   band?: Band;

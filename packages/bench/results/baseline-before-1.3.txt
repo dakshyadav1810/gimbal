@@ -1,0 +1,9 @@
+
+mutation          located  FP   abstain  missed  error
+class-rename      3        5    0        1       0
+wrapper-insert    7        0    0        2       0
+label-synonym     7        0    0        2       0
+duplicate-added   0        7    2        0       0
+removed           0        8    1        0       0
+
+cells=45 located=17 false-positives=20 (538s)

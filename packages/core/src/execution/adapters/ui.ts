@@ -1,8 +1,11 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import type { StepResult, UiStep } from "@gimbal/shared";
+import type { GroundedUiStep, StepResult, UiStep } from "@gimbal/shared";
 import pino from "pino";
 import type { Page } from "playwright";
+import { extractCandidatesWithScroll } from "../../grounding/candidate.js";
+import type { Healed } from "../../healing/index.js";
+import type { DomCandidate } from "../../resolver/base.js";
 import { act } from "../act.js";
 import { evaluateAssertion, evaluateExpectedOutcome } from "../assert.js";
 import { locateWithStabilityGate } from "../auto-wait.js";
@@ -11,6 +14,7 @@ import {
   type StepAdapter,
   checkPrecondition,
 } from "../types.js";
+import { verifyHeal } from "../verify.js";
 import { hydrationTimeoutsFrom, waitForPageHydration } from "../hydration.js";
 
 const logger = pino({ name: "ui-adapter" });
@@ -90,6 +94,9 @@ export class UiAdapter implements StepAdapter {
     let selection: StepResult["selection"] = undefined;
     let band: StepResult["band"] = undefined;
     let resolvedSelector: string | null = null;
+    let heal: Healed | undefined;
+    let effect: GroundedUiStep["effect"];
+    let unverified = false;
 
     if (isTarget) {
       const groundedStep = ctx.test.steps.find((s) => s.id === step.id);
@@ -121,9 +128,17 @@ export class UiAdapter implements StepAdapter {
       }
       band = groundedStep.target?.resolution?.band;
       resolvedSelector = result.selector;
+      heal = result.heal;
+      effect = groundedStep.effect;
     }
 
     const urlBefore = ctx.page.url();
+    const snapshot = (): Promise<DomCandidate[]> =>
+      extractCandidatesWithScroll(ctx.page, ctx.config.maxScrollPasses).catch(
+        () => [],
+      );
+    // Only a freshly healed step pays for the extra DOM snapshots.
+    const beforeCands = heal ? await snapshot() : [];
     const pagesBefore = ctx.context.pages().length;
     // Adopts a popup/new-tab the step's own action opened, for every SUBSEQUENT step — ctx is a
     // plain mutable object read fresh by each step's execute() call. Only mutates ctx.page once
@@ -151,6 +166,7 @@ export class UiAdapter implements StepAdapter {
         hydrationTimeouts,
       );
     } catch (e) {
+      if (heal) ctx.healing.rejectHeal(ctx.testId, step.id, heal, `action failed: ${e}`);
       const screenshot = await captureScreenshot(ctx, step.id);
       const note = adoptPopupIfOpened();
       return maybeInvert(
@@ -207,6 +223,36 @@ export class UiAdapter implements StepAdapter {
       }
     }
 
+    if (heal) {
+      const v = verifyHeal({
+        step,
+        effect,
+        outcomeFailed: Boolean(outcomeFailure),
+        before: beforeCands,
+        after: await snapshot(),
+        urlBefore,
+        urlAfter: ctx.page.url(),
+        actedLabel: heal.proposal.after?.label,
+      });
+      const strictBlock =
+        ctx.config.healing.mode === "strict" && v.result !== "verified";
+      if (v.result === "mismatch" || strictBlock) {
+        const detail = v.detail ?? "heal could not be verified";
+        ctx.healing.rejectHeal(ctx.testId, step.id, heal, detail);
+        outcomeFailure ??= fail(
+          step.id,
+          "HEAL_UNVERIFIED",
+          `healed selector ${heal.cachedSelector} was not accepted: ${detail}`,
+          start,
+          selection,
+          band,
+        );
+      } else {
+        await ctx.healing.commitHeal(ctx.test, ctx.testId, step.id, heal, v);
+        unverified = v.result === "inconclusive";
+      }
+    }
+
     await waitForPageHydration(ctx.page, 1000, hydrationTimeouts);
     const screenshot = await captureScreenshot(ctx, step.id);
     const note = adoptPopupIfOpened();
@@ -221,12 +267,18 @@ export class UiAdapter implements StepAdapter {
 
     const passed: StepResult = {
       stepId: step.id,
-      status: "passed",
+      status: unverified ? "warning" : "passed",
       selection,
       band,
       screenshot,
       durationMs: Date.now() - start,
-      ...(note ? { note } : {}),
+      ...(note || unverified
+        ? {
+            note: [note, unverified && "healed selector could not be verified"]
+              .filter(Boolean)
+              .join("; "),
+          }
+        : {}),
     };
     return maybeInvert(step, passed, selection, band);
   }
