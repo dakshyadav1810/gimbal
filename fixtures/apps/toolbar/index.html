@@ -1,0 +1,14 @@
+<!doctype html><html><head><title>Editor</title></head><body>
+<main><h1>Document</h1>
+<div class="toolbar" role="toolbar">
+<button id="tb-bold" aria-label="Bold"><svg width="12" height="12"><rect width="12" height="12"/></svg></button>
+<button id="tb-italic" aria-label="Italic"><svg width="12" height="12"><circle cx="6" cy="6" r="6"/></svg></button>
+<button id="tb-link" aria-label="Insert link"><svg width="12" height="12"><path d="M0 0L12 12"/></svg></button>
+<button id="tb-share" aria-label="Share document"><svg width="12" height="12"><path d="M0 12L12 0"/></svg></button>
+</div><p>Hello</p></main>
+<script>
+gt("tb-bold", document.getElementById("tb-bold"));
+gt("tb-italic", document.getElementById("tb-italic"));
+gt("tb-link", document.getElementById("tb-link"));
+gt("tb-share", document.getElementById("tb-share"));
+</script></body></html>

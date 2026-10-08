@@ -19,6 +19,10 @@ async function main() {
   console.log("### SANDBOX REPORT SUMMARY");
   console.log(`Total cases:                  ${aggregate.totalCases}`);
   console.log(`Non-known-gap cases:          ${nonKnownGapResults.length}`);
+  const bySuite = (s: string) => results.filter((r) => r.suite === s);
+  console.log(
+    `Resolver suite: ${bySuite("resolver").filter((r) => r.passed).length}/${bySuite("resolver").length} pass | Flow suite: ${bySuite("flow").filter((r) => r.passed).length}/${bySuite("flow").length} pass`,
+  );
   console.log(`Known-gap cases:              ${knownGapResults.length}`);
   console.log(
     `Non-located rate:             ${(aggregate.nonLocatedRate * 100).toFixed(1)}%`,

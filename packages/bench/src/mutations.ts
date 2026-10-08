@@ -24,7 +24,17 @@ export const MUTATIONS: Mutation[] = [
   {
     name: "label-synonym",
     truth: "same",
-    script: "el.textContent = t.synonym;",
+    script: `el.removeAttribute("id"); setLabel(el, t.synonym);`,
+  },
+  {
+    name: "label-i18n",
+    truth: "same",
+    script: `el.removeAttribute("id"); setLabel(el, t.i18n);`,
+  },
+  {
+    name: "reorder",
+    truth: "same",
+    script: `el.removeAttribute("id"); const p = el.parentElement; p.insertBefore(el, p.firstElementChild);`,
   },
   {
     name: "duplicate-added",

@@ -1,0 +1,93 @@
+[
+  {
+    "cell": "login-submit-label-synonym",
+    "app": "login",
+    "split": "train",
+    "mutation": "label-synonym",
+    "truth": "same",
+    "results": {
+      "Gimbal": "correct-repair",
+      "stored selector": "missed-repair",
+      "role + name": "missed-repair"
+    },
+    "gimbalMs": 12623
+  },
+  {
+    "cell": "login-submit-class-rename",
+    "app": "login",
+    "split": "train",
+    "mutation": "class-rename",
+    "truth": "same",
+    "results": {
+      "Gimbal": "correct-repair",
+      "stored selector": "missed-repair",
+      "role + name": "correct-repair"
+    },
+    "gimbalMs": 12623
+  },
+  {
+    "cell": "login-submit-label-i18n",
+    "app": "login",
+    "split": "train",
+    "mutation": "label-i18n",
+    "truth": "same",
+    "results": {
+      "Gimbal": "missed-repair",
+      "stored selector": "missed-repair",
+      "role + name": "missed-repair"
+    },
+    "gimbalMs": 14632
+  },
+  {
+    "cell": "login-submit-wrapper-insert",
+    "app": "login",
+    "split": "train",
+    "mutation": "wrapper-insert",
+    "truth": "same",
+    "results": {
+      "Gimbal": "missed-repair",
+      "stored selector": "missed-repair",
+      "role + name": "correct-repair"
+    },
+    "gimbalMs": 14610
+  },
+  {
+    "cell": "login-submit-reorder",
+    "app": "login",
+    "split": "train",
+    "mutation": "reorder",
+    "truth": "same",
+    "results": {
+      "Gimbal": "correct-repair",
+      "stored selector": "missed-repair",
+      "role + name": "correct-repair"
+    },
+    "gimbalMs": 12111
+  },
+  {
+    "cell": "login-submit-duplicate-added",
+    "app": "login",
+    "split": "train",
+    "mutation": "duplicate-added",
+    "truth": "ambiguous",
+    "results": {
+      "Gimbal": "correct-abstention",
+      "stored selector": "correct-abstention",
+      "role + name": "correct-abstention"
+    },
+    "gimbalMs": 14124
+  },
+  {
+    "cell": "login-submit-removed",
+    "app": "login",
+    "split": "train",
+    "mutation": "removed",
+    "truth": "removed",
+    "results": {
+      "Gimbal": "correct-abstention",
+      "stored selector": "correct-abstention",
+      "role + name": "correct-abstention"
+    },
+    "gimbalMs": 14129
+  }
+]

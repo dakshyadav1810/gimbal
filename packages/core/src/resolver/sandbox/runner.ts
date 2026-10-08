@@ -7,6 +7,8 @@ import { type Browser, type Page, chromium } from "playwright";
 import { buildContainer } from "../../server/container.js";
 import { sandboxCases } from "./cases.js";
 
+export const FLOW_TAGS = ["popup", "virtualization", "file-input"];
+
 export interface EvaluationResult {
   caseId: string;
   name: string;
@@ -18,6 +20,9 @@ export interface EvaluationResult {
   score: number;
   tags: string[];
   isKnownGap: boolean;
+  // "flow" cases need execution capabilities (new tabs, scrolling, file inputs), not better scoring;
+  // keeping them apart stops flow gaps from being read as resolver weakness.
+  suite: "resolver" | "flow";
 }
 
 export interface AggregateReport {
@@ -164,6 +169,7 @@ export async function runEvaluation(): Promise<{
         score: winner?.score ?? 0,
         tags,
         isKnownGap: tags.includes("known-gap"),
+        suite: tags.some((t) => FLOW_TAGS.includes(t)) ? "flow" : "resolver",
       });
     }
   } finally {

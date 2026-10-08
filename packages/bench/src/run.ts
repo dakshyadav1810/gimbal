@@ -1,160 +1,175 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { classify, launch, runBaseline } from "./baselines.js";
 import { startFixtureServer } from "./fixture-server.js";
-import { api, repo, startCore } from "./harness.js";
+import { api, repo, runAndWait, startCore } from "./harness.js";
 import { MUTATIONS } from "./mutations.js";
+import { type Cell, type Outcome, markdownTable, quantile } from "./stats.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const fixtures = path.join(repo, "fixtures");
 const targets = JSON.parse(
   fs.readFileSync(path.join(fixtures, "apps/targets.json"), "utf8"),
-);
+) as Record<string, any[]>;
+const split = JSON.parse(
+  fs.readFileSync(path.join(fixtures, "apps/split.json"), "utf8"),
+) as { train: string[]; test: string[] };
 
-type Outcome =
-  | "correct-repair"
-  | "incorrect-repair"
-  | "correct-abstention"
-  | "missed-repair"
-  | "error";
+const arg = (name: string, dflt: string) => {
+  const i = process.argv.indexOf(`--${name}`);
+  return i > -1 ? process.argv[i + 1] : dflt;
+};
+const want = arg("split", "all"); // train | test | all
+const only = process.env.BENCH_ONLY; // flow id prefix, for debugging one cell
+const CONCURRENCY = Number(process.env.BENCH_CONCURRENCY ?? 4);
+const SYSTEMS = ["stored selector", "role + name", "Gimbal"];
 
-function classify(truth: string, hits: string[], id: string): Outcome {
-  const acted = hits.length > 0;
-  if (truth === "same")
-    return hits.length === 1 && hits[0] === id
-      ? "correct-repair"
-      : acted
-        ? "incorrect-repair"
-        : "missed-repair";
-  return acted ? "incorrect-repair" : "correct-abstention";
+const core = await startCore({ dbPath: "cache.db", artifactsDir: "tests" });
+const browser = await launch();
+
+async function runCell(
+  app: string,
+  t: any,
+  m: (typeof MUTATIONS)[number],
+): Promise<Cell> {
+  const flowId = `${t.id}-${m.name}`;
+  const cellSplit = split.train.includes(app) ? "train" : "test";
+  const cell: Cell = {
+    cell: flowId,
+    app,
+    split: cellSplit,
+    mutation: m.name,
+    truth: m.truth,
+    results: {},
+  };
+  const fx = await startFixtureServer(path.join(fixtures), targets);
+  const url = `http://127.0.0.1:${fx.port}/${app}/?target=${t.id}`;
+  try {
+    const spec = {
+      version: "1.0",
+      flow: {
+        id: flowId,
+        name: flowId,
+        intent: `Click ${t.label}`,
+        startUrl: url,
+        vars: {},
+      },
+      steps: [
+        {
+          id: "s1",
+          kind: "ui",
+          action: "click",
+          intent: `click ${t.label}`,
+          target: {
+            label: t.label,
+            role: t.role,
+            semantics: t.semantics,
+            actions: ["click"],
+            intent: `click ${t.label}`,
+          },
+        },
+        {
+          id: "s2",
+          kind: "ui",
+          action: "wait",
+          intent: "page still open",
+          assertions: [{ type: "urlContains", expected: "target=" }],
+        },
+      ],
+    };
+    const { testId } = await api(core.base, "POST", "/api/tests", spec);
+    await api(core.base, "POST", `/api/tests/${testId}/ground`);
+    const grounded = JSON.parse(
+      fs.readFileSync(
+        path.join(core.dir, "tests", testId, "grounded.json"),
+        "utf8",
+      ),
+    );
+    const stored: string | undefined =
+      grounded.steps[0]?.target?.resolution?.cachedSelector;
+    fx.takeHits();
+    fx.setMutation(m.name);
+
+    const t0 = Date.now();
+    await runAndWait(core.base, testId);
+    cell.gimbalMs = Date.now() - t0;
+    await new Promise((r) => setTimeout(r, 250));
+    cell.results.Gimbal = classify(m.truth, fx.takeHits(), t.id);
+
+    const viaStored = stored
+      ? await runBaseline(browser, url, (p) => p.locator(stored))
+      : "abstained";
+    await new Promise((r) => setTimeout(r, 100));
+    cell.results["stored selector"] =
+      viaStored === "acted"
+        ? classify(m.truth, fx.takeHits(), t.id)
+        : classify(m.truth, [], t.id);
+    fx.takeHits();
+
+    const viaRole = await runBaseline(browser, url, (p) =>
+      p.getByRole(t.role, { name: t.label }),
+    );
+    await new Promise((r) => setTimeout(r, 100));
+    cell.results["role + name"] =
+      viaRole === "acted"
+        ? classify(m.truth, fx.takeHits(), t.id)
+        : classify(m.truth, [], t.id);
+  } catch (e) {
+    console.error(`  ${flowId}: ${(e as Error).message.slice(0, 160)}`);
+    for (const s of SYSTEMS) cell.results[s] ??= "error" as Outcome;
+  } finally {
+    await fx.close();
+  }
+  return cell;
 }
 
-const only = process.env.BENCH_ONLY; // e.g. login-submit-removed, for debugging one cell
-const core = await startCore({
-  dbPath: "cache.db",
-  artifactsDir: "tests",
-});
-const fx = await startFixtureServer(fixtures, targets);
-const cells: unknown[] = [];
-const tally: Record<string, Record<Outcome, number>> = {};
-const t0 = Date.now();
-
-try {
-  for (const [app, list] of Object.entries(targets as Record<string, any[]>)) {
-    for (const t of list) {
-      for (const m of MUTATIONS) {
-        const flowId = `${t.id}-${m.name}`;
-        if (only && !flowId.startsWith(only)) continue;
-        console.log(`> ${flowId}`);
-        const spec = {
-          version: "1.0",
-          flow: {
-            id: flowId,
-            name: flowId,
-            intent: `Click ${t.label}`,
-            startUrl: `http://127.0.0.1:${fx.port}/${app}/?target=${t.id}`,
-            vars: {},
-          },
-          steps: [
-            {
-              id: "s1",
-              kind: "ui",
-              action: "click",
-              intent: `click ${t.label}`,
-              target: {
-                label: t.label,
-                role: t.role,
-                semantics: t.semantics,
-                actions: ["click"],
-                intent: `click ${t.label}`,
-              },
-            },
-            {
-              id: "s2",
-              kind: "ui",
-              action: "wait",
-              intent: "page still open",
-              assertions: [{ type: "urlContains", expected: "target=" }],
-            },
-          ],
-        };
-        let outcome: Outcome = "error";
-        let evidence: unknown;
-        try {
-          fx.setMutation(null);
-          const { testId } = await api(core.base, "POST", "/api/tests", spec);
-          await api(core.base, "POST", `/api/tests/${testId}/ground`);
-          fx.takeHits();
-          fx.setMutation(m.name);
-          const { runId } = await api(core.base, "POST", "/api/runs", {
-            testId,
-          });
-          for (let i = 0; i < 120; i++) {
-            const r = await api(core.base, "GET", `/api/runs/${runId}`).catch(
-              () => null,
-            ); // 404 until the run is stored
-            if (r && r.status !== "running") break;
-            await new Promise((r) => setTimeout(r, 500));
-          }
-          await new Promise((r) => setTimeout(r, 200));
-          outcome = classify(m.truth, fx.takeHits(), t.id);
-          const repairsFile = path.join(
-            core.dir,
-            "tests",
-            testId,
-            "repairs.json",
-          );
-          const doc = fs.existsSync(repairsFile)
-            ? JSON.parse(fs.readFileSync(repairsFile, "utf8"))
-            : { repairs: [] };
-          const heal = doc.repairs.find(
-            (r: { kind: string }) => r.kind === "heal",
-          );
-          evidence = heal && { ...heal.evidence, chose: heal.after?.label };
-        } catch (e) {
-          console.error(`  ${flowId}: ${(e as Error).message.slice(0, 160)}`);
-        }
-        cells.push({ cell: flowId, truth: m.truth, outcome, evidence });
-        if (!tally[m.name]) {
-          tally[m.name] = {
-            "correct-repair": 0,
-            "incorrect-repair": 0,
-            "correct-abstention": 0,
-            "missed-repair": 0,
-            error: 0,
-          };
-        }
-        tally[m.name][outcome]++;
-      }
+const jobs: Array<() => Promise<Cell>> = [];
+for (const [app, list] of Object.entries(targets)) {
+  const appSplit = split.train.includes(app) ? "train" : "test";
+  if (want !== "all" && want !== appSplit) continue;
+  for (const t of list)
+    for (const m of MUTATIONS) {
+      if (only && !`${t.id}-${m.name}`.startsWith(only)) continue;
+      jobs.push(() => runCell(app, t, m));
     }
-  }
+}
+
+const cells: Cell[] = [];
+const t0 = Date.now();
+try {
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: CONCURRENCY }, async () => {
+      while (next < jobs.length) {
+        const job = jobs[next++];
+        cells.push(await job());
+        process.stdout.write(`\r${cells.length}/${jobs.length} cells`);
+      }
+    }),
+  );
 } finally {
-  await fx.close();
-  if (process.env.BENCH_KEEP) console.log(`kept ${core.dir}`);
+  await browser.close();
   core.stop(Boolean(process.env.BENCH_KEEP));
 }
+console.log("");
 
-fs.mkdirSync(path.join(here, "../results"), { recursive: true });
+const out = path.join(here, "../results");
+fs.mkdirSync(out, { recursive: true });
 fs.writeFileSync(
-  path.join(here, "../results/cells-latest.json"),
+  path.join(out, "bench-latest.json"),
   JSON.stringify(cells, null, 1),
 );
-
-const pad = (s: string | number, n: number) => String(s).padEnd(n);
+const secs = cells.map((c) => (c.gimbalMs ?? 0) / 1000);
+const sections = (["train", "test"] as const)
+  .filter((s) => cells.some((c) => c.split === s))
+  .map((s) => {
+    const sub = cells.filter((c) => c.split === s);
+    return `### ${s === "test" ? "Held-out apps" : "Tuning apps"} (${sub.length} cases, apps: ${[...new Set(sub.map((c) => c.app))].join(", ")})\n\n${markdownTable(sub, SYSTEMS)}`;
+  });
+const md = `## Healing benchmark\n\n${sections.join("\n\n")}\n\nOutcomes are per (target, mutation) case; intervals are 95% bootstrap over cases. Median Gimbal run time per case: ${quantile(secs, 0.5).toFixed(1)}s (p95 ${quantile(secs, 0.95).toFixed(1)}s, includes browser start).\n`;
+fs.writeFileSync(path.join(out, "bench-latest.md"), md);
+console.log(md);
 console.log(
-  `\n${pad("mutation", 18)}${pad("located", 9)}${pad("FP", 5)}${pad("abstain", 9)}${pad("missed", 8)}error`,
-);
-let fp = 0;
-let located = 0;
-let total = 0;
-for (const [name, r] of Object.entries(tally)) {
-  console.log(
-    `${pad(name, 18)}${pad(r["correct-repair"], 9)}${pad(r["incorrect-repair"], 5)}${pad(r["correct-abstention"], 9)}${pad(r["missed-repair"], 8)}${r.error}`,
-  );
-  fp += r["incorrect-repair"];
-  located += r["correct-repair"];
-  total += Object.values(r).reduce((a, b) => a + b, 0);
-}
-console.log(
-  `\ncells=${total} located=${located} false-positives=${fp} (${((Date.now() - t0) / 1000).toFixed(0)}s)`,
+  `${cells.length} cases in ${((Date.now() - t0) / 1000).toFixed(0)}s`,
 );

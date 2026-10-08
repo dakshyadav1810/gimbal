@@ -15,7 +15,8 @@
     "format": "biome format --write .",
     "pack:cli": "pnpm build && pnpm --filter gimbal pack",
     "bench:smoke": "pnpm --filter @gimbal/core build && pnpm --filter @gimbal/bench smoke",
-    "demo:verify": "pnpm build && pnpm --filter @gimbal/bench demo"
+    "demo:verify": "pnpm build && pnpm --filter @gimbal/bench demo",
+    "bench": "pnpm --filter @gimbal/core build && pnpm --filter @gimbal/bench bench"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",

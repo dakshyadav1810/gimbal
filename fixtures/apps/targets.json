@@ -5,21 +5,24 @@
       "label": "Sign in",
       "synonym": "Log in",
       "role": "button",
-      "semantics": ["sign in", "log in", "submit"]
+      "semantics": ["sign in", "log in", "submit"],
+      "i18n": "Iniciar sesión"
     },
     {
       "id": "login-forgot",
       "label": "Forgot password?",
       "synonym": "Reset password",
       "role": "link",
-      "semantics": ["forgot password", "reset"]
+      "semantics": ["forgot password", "reset"],
+      "i18n": "¿Olvidaste tu contraseña?"
     },
     {
       "id": "login-create",
       "label": "Create account",
       "synonym": "Register",
       "role": "button",
-      "semantics": ["create account", "sign up", "register"]
+      "semantics": ["create account", "sign up", "register"],
+      "i18n": "Crear cuenta"
     }
   ],
   "checkout": [
@@ -28,21 +31,24 @@
       "label": "Place order",
       "synonym": "Complete purchase",
       "role": "button",
-      "semantics": ["place order", "buy", "purchase"]
+      "semantics": ["place order", "buy", "purchase"],
+      "i18n": "Realizar pedido"
     },
     {
       "id": "checkout-coupon",
       "label": "Apply coupon",
       "synonym": "Redeem code",
       "role": "button",
-      "semantics": ["apply coupon", "promo code"]
+      "semantics": ["apply coupon", "promo code"],
+      "i18n": "Aplicar cupón"
     },
     {
       "id": "checkout-wrap",
       "label": "Add gift wrap",
       "synonym": "Gift wrapping",
       "role": "button",
-      "semantics": ["gift wrap", "gift"]
+      "semantics": ["gift wrap", "gift"],
+      "i18n": "Añadir envoltorio de regalo"
     }
   ],
   "table": [
@@ -51,21 +57,136 @@
       "label": "Export CSV",
       "synonym": "Download CSV",
       "role": "button",
-      "semantics": ["export csv", "download"]
+      "semantics": ["export csv", "download"],
+      "i18n": "Exportar CSV"
     },
     {
       "id": "table-edit-alice",
       "label": "Edit Alice",
       "synonym": "Modify Alice",
       "role": "button",
-      "semantics": ["edit alice", "modify"]
+      "semantics": ["edit alice", "modify"],
+      "i18n": "Editar Alice"
     },
     {
       "id": "table-edit-bob",
       "label": "Edit Bob",
       "synonym": "Modify Bob",
       "role": "button",
-      "semantics": ["edit bob", "modify"]
+      "semantics": ["edit bob", "modify"],
+      "i18n": "Editar Bob"
+    }
+  ],
+  "toolbar": [
+    {
+      "id": "tb-bold",
+      "label": "Bold",
+      "synonym": "Strong",
+      "i18n": "Negrita",
+      "role": "button",
+      "semantics": ["bold", "strong"]
+    },
+    {
+      "id": "tb-italic",
+      "label": "Italic",
+      "synonym": "Emphasis",
+      "i18n": "Cursiva",
+      "role": "button",
+      "semantics": ["italic", "emphasis"]
+    },
+    {
+      "id": "tb-link",
+      "label": "Insert link",
+      "synonym": "Add hyperlink",
+      "i18n": "Insertar enlace",
+      "role": "button",
+      "semantics": ["insert link", "hyperlink"]
+    },
+    {
+      "id": "tb-share",
+      "label": "Share document",
+      "synonym": "Send document",
+      "i18n": "Compartir documento",
+      "role": "button",
+      "semantics": ["share", "send"]
+    }
+  ],
+  "modal": [
+    {
+      "id": "modal-confirm",
+      "label": "Confirm delete",
+      "synonym": "Yes, delete",
+      "i18n": "Confirmar eliminación",
+      "role": "button",
+      "semantics": ["confirm delete", "delete"]
+    },
+    {
+      "id": "modal-cancel",
+      "label": "Cancel",
+      "synonym": "Never mind",
+      "i18n": "Cancelar",
+      "role": "button",
+      "semantics": ["cancel", "dismiss"]
+    }
+  ],
+  "nav": [
+    {
+      "id": "nav-home",
+      "label": "Home",
+      "synonym": "Start",
+      "i18n": "Inicio",
+      "role": "link",
+      "semantics": ["home", "start"]
+    },
+    {
+      "id": "nav-billing",
+      "label": "Billing",
+      "synonym": "Payments",
+      "i18n": "Facturación",
+      "role": "link",
+      "semantics": ["billing", "payments"]
+    },
+    {
+      "id": "nav-team",
+      "label": "Team members",
+      "synonym": "People",
+      "i18n": "Miembros del equipo",
+      "role": "link",
+      "semantics": ["team members", "people"]
+    },
+    {
+      "id": "nav-support",
+      "label": "Contact support",
+      "synonym": "Get help",
+      "i18n": "Contactar con soporte",
+      "role": "link",
+      "semantics": ["contact support", "help"]
+    }
+  ],
+  "settings": [
+    {
+      "id": "settings-email",
+      "label": "Email me weekly summaries",
+      "synonym": "Send weekly email digests",
+      "i18n": "Envíame resúmenes semanales",
+      "role": "checkbox",
+      "semantics": ["email summaries", "weekly"]
+    },
+    {
+      "id": "settings-save",
+      "label": "Save preferences",
+      "synonym": "Apply changes",
+      "i18n": "Guardar preferencias",
+      "role": "button",
+      "semantics": ["save preferences", "save"]
+    },
+    {
+      "id": "settings-reset",
+      "label": "Reset to defaults",
+      "synonym": "Restore defaults",
+      "i18n": "Restablecer valores",
+      "role": "button",
+      "semantics": ["reset", "defaults"]
     }
   ]
 }

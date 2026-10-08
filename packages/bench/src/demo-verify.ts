@@ -166,7 +166,9 @@ try {
 
   if (process.env.DEMO_HOLD) {
     // For screenshots: leave the app and core running with the proposal open.
-    console.log(`\nHolding with an open proposal. Dashboard: ${core.base}/repairs  App: ${appUrl}/login`);
+    console.log(
+      `\nHolding with an open proposal. Dashboard: ${core.base}/repairs  App: ${appUrl}/login`,
+    );
     await new Promise(() => {});
   }
 

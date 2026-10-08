@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { sandboxCases } from "./cases.js";
-import { runEvaluation } from "./runner.js";
+import { FLOW_TAGS, runEvaluation } from "./runner.js";
 
 // Known-gap case IDs documented in cases.ts (tags: ["known-gap", ...]). Each
 // records the CORRECT real-world expectedWinnerId/expectedBand for a
@@ -34,5 +34,18 @@ describe("Resolver Sandbox Evaluation Suite", () => {
   describe.each(KNOWN_GAP_CASE_IDS)("known gap: %s", (caseId) => {
     const c = sandboxCases.find((sc) => sc.id === caseId)!;
     it.todo(`${caseId}: ${c.description}`);
+  });
+
+  it("keeps flow-capability gaps out of the resolver suite", () => {
+    const flow = sandboxCases.filter((c) =>
+      (c.tags ?? []).some((t) => FLOW_TAGS.includes(t)),
+    );
+    expect(flow.map((c) => c.id).sort()).toEqual([
+      "file-input-upload",
+      "popup-new-tab-target",
+      "virtualized-list-scroll",
+    ]);
+    // each is a documented known gap, so none can silently turn into a resolver regression
+    expect(flow.every((c) => (c.tags ?? []).includes("known-gap"))).toBe(true);
   });
 });

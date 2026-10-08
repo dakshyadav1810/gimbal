@@ -1,0 +1,13 @@
+<!doctype html><html><head><title>Settings</title></head><body>
+<main><h1>Notification settings</h1>
+<form class="card" onsubmit="return false">
+<label><input id="s-email" type="checkbox"> Email me weekly summaries</label>
+<label><input id="s-sms" type="checkbox"> Text me security alerts</label>
+<button id="s-save" class="btn primary">Save preferences</button>
+<button id="s-reset" class="btn">Reset to defaults</button>
+</form></main>
+<script>
+gt("settings-email", document.getElementById("s-email"));
+gt("settings-save", document.getElementById("s-save"));
+gt("settings-reset", document.getElementById("s-reset"));
+</script></body></html>

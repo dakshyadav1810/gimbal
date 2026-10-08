@@ -1,0 +1,4 @@
+{
+  "train": ["login", "checkout", "table"],
+  "test": ["toolbar", "modal", "nav", "settings"]
+}

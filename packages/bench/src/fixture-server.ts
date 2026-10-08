@@ -13,6 +13,13 @@ export interface FixtureServer {
 const HEAD = `<script>
 window.__targets = {};
 window.__hit = (id) => fetch("/__hit?t=" + encodeURIComponent(id), { keepalive: true });
+function setLabel(el, text) {
+  if (el.hasAttribute("aria-label")) { el.setAttribute("aria-label", text); return; }
+  if (el.tagName === "INPUT" && el.parentElement && el.parentElement.tagName === "LABEL") {
+    const n = el.parentElement.lastChild; if (n) n.textContent = " " + text; return;
+  }
+  el.textContent = text;
+}
 function gt(id, el) { window.__targets[id] = el; el.addEventListener("click", (e) => { e.preventDefault(); window.__hit(id); }); }
 </script>`;
 
