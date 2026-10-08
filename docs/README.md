@@ -7,6 +7,7 @@ architecture, implementation contracts, and operating workflows.
 - **Low-level designs** describe implementation contracts and code boundaries.
 - **ADRs** record durable architectural decisions.
 - **Plans and research** capture current sequencing and supporting analysis.
+- **[Distribution and npm releases](DISTRIBUTION.md)** documents packaging and publication.
 
 ## Read in this order
 

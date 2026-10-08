@@ -1,4 +1,9 @@
-import type { SpecIR } from "@gimbal/shared";
+import type {
+  GroundedTest,
+  RepairPayload,
+  RunReport,
+  SpecIR,
+} from "@gimbal/shared";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { describe, expect, it, vi } from "vitest";
@@ -58,9 +63,15 @@ async function setupMcp(client: CoreClient) {
   await mcpClient.connect(clientTransport);
   return {
     mcpClient: {
-      callTool: async (params: { name: string; arguments?: Record<string, unknown> }) => {
+      callTool: async (params: {
+        name: string;
+        arguments?: Record<string, unknown>;
+      }) => {
         const res = await mcpClient.callTool(params);
-        return res as { content: Array<{ type: string; text: string }>; isError?: boolean };
+        return res as {
+          content: Array<{ type: string; text: string }>;
+          isError?: boolean;
+        };
       },
     },
     server,
@@ -86,7 +97,7 @@ describe("MCP Server Tools", () => {
     const client = mockClient();
     vi.mocked(client.authorTest).mockResolvedValue({
       testId: "test-id",
-      grounded: {} as any,
+      grounded: {} as unknown as GroundedTest,
     });
     const { mcpClient } = await setupMcp(client);
 
@@ -103,7 +114,9 @@ describe("MCP Server Tools", () => {
 
   it("authorTest with testId only re-grounds existing test", async () => {
     const client = mockClient();
-    vi.mocked(client.groundTest).mockResolvedValue({ grounded: {} as any });
+    vi.mocked(client.groundTest).mockResolvedValue({
+      grounded: {} as unknown as GroundedTest,
+    });
     const { mcpClient } = await setupMcp(client);
 
     const res = await mcpClient.callTool({
@@ -121,7 +134,7 @@ describe("MCP Server Tools", () => {
       runId: "r-sync",
       status: "passed",
       steps: [],
-    } as any);
+    } as unknown as RunReport);
     const { mcpClient } = await setupMcp(client);
 
     const res = await mcpClient.callTool({
@@ -155,7 +168,7 @@ describe("MCP Server Tools", () => {
     vi.mocked(client.getReport).mockResolvedValue({
       runId: "r1",
       status: "passed",
-    } as any);
+    } as unknown as RunReport);
     const { mcpClient } = await setupMcp(client);
 
     const res = await mcpClient.callTool({
@@ -171,7 +184,7 @@ describe("MCP Server Tools", () => {
     const client = mockClient();
     vi.mocked(client.getRepairPayload).mockResolvedValue({
       spec: validSpec,
-    } as any);
+    } as unknown as RepairPayload);
     const { mcpClient } = await setupMcp(client);
 
     const res = await mcpClient.callTool({
@@ -265,7 +278,7 @@ describe("MCP Server Tools", () => {
     const client = mockClient();
     vi.mocked(client.authorTest).mockResolvedValue({
       testId: "t-authored",
-      grounded: {} as any,
+      grounded: {} as unknown as GroundedTest,
     });
     const { mcpClient } = await setupMcp(client);
 
@@ -296,7 +309,7 @@ steps:
       runId: "r-sync",
       status: "passed",
       steps: [],
-    } as any);
+    } as unknown as RunReport);
     const { mcpClient } = await setupMcp(client);
 
     const res = await mcpClient.callTool({
@@ -312,13 +325,13 @@ steps:
     const client = mockClient();
     vi.mocked(client.authorTest).mockResolvedValue({
       testId: "t-dsl",
-      grounded: {} as any,
+      grounded: {} as unknown as GroundedTest,
     });
     vi.mocked(client.runTestSync).mockResolvedValue({
       runId: "r-dsl",
       status: "passed",
       steps: [],
-    } as any);
+    } as unknown as RunReport);
     const { mcpClient } = await setupMcp(client);
 
     const dsl = `
@@ -337,7 +350,10 @@ steps:
     });
 
     expect(client.authorTest).toHaveBeenCalled();
-    expect(client.runTestSync).toHaveBeenCalledWith({ testId: "t-dsl", vars: undefined }, 30000);
+    expect(client.runTestSync).toHaveBeenCalledWith(
+      { testId: "t-dsl", vars: undefined },
+      30000,
+    );
     expect(res.content[0].text).toContain("r-dsl");
   });
 });

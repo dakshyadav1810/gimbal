@@ -7,7 +7,6 @@ import { compileDsl } from "../dsl/compiler.js";
 import { decompileSpec } from "../dsl/decompiler.js";
 import { parseDsl } from "../dsl/parser.js";
 
-
 // Every tool handler is wrapped with this so a CoreApiError (or any other throw) surfaces as a
 // clean, human-readable MCP error instead of an unformatted exception — this is the first thing
 // a new user sees on their first three calls (submitSpec/groundTest/runTest), so the message
@@ -157,8 +156,8 @@ export function buildMcpServer(client: CoreClient): McpServer {
           return client.groundTest(input.testId);
         }
         let spec: SpecIR;
-        if ((input as any).dsl) {
-          const ast = parseDsl((input as any).dsl as string);
+        if (input.dsl) {
+          const ast = parseDsl(input.dsl);
           spec = compileDsl(ast);
         } else {
           spec = input as SpecIR;
@@ -173,13 +172,15 @@ export function buildMcpServer(client: CoreClient): McpServer {
       description:
         "Compile a YAML DSL string into a SpecIR JSON object without submitting it. " +
         "Use this to preview the compiled output before calling authorTest or executeDsl. " +
-        "Supports actions (`navigate: /path`, `click: button(\"Label\")`, `type: FieldName = \"value\"`, " +
-        "`select: Field = \"Option\"`) and assertions including spatial geometric checks " +
-        "(`assert: urlContains(\"/path\")`, `assert: visible(button(\"Label\"))`, " +
+        'Supports actions (`navigate: /path`, `click: button("Label")`, `type: FieldName = "value"`, ' +
+        '`select: Field = "Option"`) and assertions including spatial geometric checks ' +
+        '(`assert: urlContains("/path")`, `assert: visible(button("Label"))`, ' +
         "`assert: rightOf(target, refTarget)`, `assert: below(target, refTarget)`, `assert: inside(target, refTarget)`). " +
         "Assertions following a step are automatically attached to it.",
       inputSchema: {
-        dsl: z.string().describe("YAML DSL string to compile into SpecIR JSON."),
+        dsl: z
+          .string()
+          .describe("YAML DSL string to compile into SpecIR JSON."),
       },
     },
     async ({ dsl }) =>

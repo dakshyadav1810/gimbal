@@ -1,6 +1,6 @@
 import fs from "node:fs";
-import path from "node:path";
 import os from "node:os";
+import path from "node:path";
 import type { GimbalConfig } from "@gimbal/shared";
 import { execa } from "execa";
 import { baseUrl } from "./config.js";
@@ -45,7 +45,7 @@ export async function isCoreAlive(config: GimbalConfig): Promise<boolean> {
 export async function startCore(
   config: GimbalConfig,
   coreEntry: string,
- ): Promise<number | undefined> {
+): Promise<number | undefined> {
   const child = execa("node", [coreEntry], {
     env: { ...process.env, GIMBAL_PORT: String(config.port) },
     detached: true,

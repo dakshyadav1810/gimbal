@@ -1,5 +1,5 @@
-import { parse } from "yaml";
 import type { GeometricType } from "@gimbal/shared";
+import { parse } from "yaml";
 
 // ─── Target expression ───────────────────────────────────────────────────────
 
@@ -10,10 +10,7 @@ export interface DslTarget {
 
 // Parses expressions like:  button("Sign In")  |  textbox("Email")  |  "Sign In"
 // defaultRole is used when the expression is a bare quoted string.
-export function parseTargetExpr(
-  expr: string,
-  defaultRole?: string,
-): DslTarget {
+export function parseTargetExpr(expr: string, defaultRole?: string): DslTarget {
   const trimmed = expr.trim();
 
   // role("label") pattern
@@ -83,9 +80,7 @@ export interface DslAst {
 function parseFieldAssignment(expr: string): { field: string; value: string } {
   const m = expr.match(/^([^=]+?)\s*=\s*"([^"]*)"$/);
   if (!m)
-    throw new Error(
-      `Expected "Field = \\"value\\"" syntax but got: ${expr}`,
-    );
+    throw new Error(`Expected "Field = \\"value\\"" syntax but got: ${expr}`);
   return { field: m[1].trim(), value: m[2] };
 }
 
@@ -95,10 +90,12 @@ function parseAssertExpr(expr: string): DslStep & { kind: "assert" } {
   const trimmed = expr.trim();
 
   const urlMatch = trimmed.match(/^urlContains\("([^"]*)"\)$/);
-  if (urlMatch) return { kind: "assert", assertType: "urlContains", value: urlMatch[1] };
+  if (urlMatch)
+    return { kind: "assert", assertType: "urlContains", value: urlMatch[1] };
 
   const textMatch = trimmed.match(/^textContains\("([^"]*)"\)$/);
-  if (textMatch) return { kind: "assert", assertType: "textContains", value: textMatch[1] };
+  if (textMatch)
+    return { kind: "assert", assertType: "textContains", value: textMatch[1] };
 
   const visibleMatch = trimmed.match(/^visible\((.+)\)$/);
   if (visibleMatch)
@@ -153,11 +150,18 @@ function parseAssertExpr(expr: string): DslStep & { kind: "assert" } {
 
     // Check for two targets: fn(target, referenceTarget)
     const commaIndex = inner.indexOf('",');
-    if (commaIndex !== -1 && inner.includes('("') && inner.indexOf('("') < commaIndex) {
+    if (
+      commaIndex !== -1 &&
+      inner.includes('("') &&
+      inner.indexOf('("') < commaIndex
+    ) {
       const closingParen = inner.indexOf(")", commaIndex);
       if (closingParen !== -1) {
         const subjectExpr = inner.slice(0, closingParen + 1).trim();
-        const refExpr = inner.slice(closingParen + 1).replace(/^,\s*/, "").trim();
+        const refExpr = inner
+          .slice(closingParen + 1)
+          .replace(/^,\s*/, "")
+          .trim();
         if (refExpr) {
           return {
             kind: "assert",
@@ -266,7 +270,9 @@ export function parseDsl(source: string): DslAst {
 
   for (const required of ["id", "name", "intent", "startUrl"] as const) {
     if (typeof flow[required] !== "string" || !flow[required])
-      throw new Error(`flow.${required} is required and must be a non-empty string`);
+      throw new Error(
+        `flow.${required} is required and must be a non-empty string`,
+      );
   }
 
   // Validate steps

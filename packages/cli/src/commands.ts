@@ -135,14 +135,14 @@ export function registerCommands(program: Command) {
     .action(async (testId, opts) => {
       const client = new CoreClient(baseUrl(loadConfig()));
       const test = await client.getTest(testId);
-      if (!("groundedUrl" in test)) {
+      if (!("groundedAt" in test)) {
         throw new Error(
           `Test ${testId} is not grounded yet; run authorTest first.`,
         );
       }
       if (opts.format === "playwright") {
         const { exportToPlaywright } = await import("./export.js");
-        const code = exportToPlaywright(test as any);
+        const code = exportToPlaywright(test);
         console.log(code);
       } else {
         throw new Error(`Unsupported export format: ${opts.format}`);

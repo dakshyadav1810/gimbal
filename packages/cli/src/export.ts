@@ -4,20 +4,20 @@ import type { GroundedTest, GroundedUiStep } from "@gimbal/shared";
 // Invariant #2: JSON remains the primary execution format; this provides CI offramps and export portability.
 export function exportToPlaywright(test: GroundedTest): string {
   const lines: string[] = [
-    `import { test, expect } from "@playwright/test";`,
-    ``,
+    'import { test, expect } from "@playwright/test";',
+    "",
     `test.describe("${test.flow.name.replace(/"/g, '\\"')}", () => {`,
     `  test("${(test.flow.intent || test.flow.name).replace(/"/g, '\\"')}", async ({ page }) => {`,
-    `    // Initial navigation`,
+    "    // Initial navigation",
     `    await page.goto("${test.flow.startUrl}", { waitUntil: "domcontentloaded" });`,
-    ``,
+    "",
   ];
 
   for (const step of test.steps) {
     lines.push(`    // Step ${step.id}: ${step.intent}`);
     if (step.kind !== "ui") {
       lines.push(`    // (${step.kind} step export deferred)`);
-      lines.push(``);
+      lines.push("");
       continue;
     }
 
@@ -31,7 +31,9 @@ export function exportToPlaywright(test: GroundedTest): string {
         );
         break;
       case "wait":
-        lines.push(`    await page.waitForTimeout(${Number(ui.value) || 500});`);
+        lines.push(
+          `    await page.waitForTimeout(${Number(ui.value) || 500});`,
+        );
         break;
       case "click":
         if (sel) {
@@ -106,12 +108,12 @@ export function exportToPlaywright(test: GroundedTest): string {
       }
     }
 
-    lines.push(``);
+    lines.push("");
   }
 
-  lines.push(`  });`);
-  lines.push(`});`);
-  lines.push(``);
+  lines.push("  });");
+  lines.push("});");
+  lines.push("");
 
   return lines.join("\n");
 }

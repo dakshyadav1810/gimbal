@@ -1,4 +1,4 @@
-import { SpecIR, lintSpec } from "@gimbal/shared";
+import { type SpecIR, type UiStep, lintSpec } from "@gimbal/shared";
 import { describe, expect, it } from "vitest";
 import { compileDsl } from "./compiler.js";
 import { decompileSpec } from "./decompiler.js";
@@ -188,8 +188,8 @@ describe("decompileSpec", () => {
     for (let i = 0; i < spec1.steps.length; i++) {
       expect(spec2.steps[i].kind).toBe(spec1.steps[i].kind);
       if (spec1.steps[i].kind === "ui") {
-        expect((spec2.steps[i] as any).action).toBe(
-          (spec1.steps[i] as any).action,
+        expect((spec2.steps[i] as UiStep).action).toBe(
+          (spec1.steps[i] as UiStep).action,
         );
       }
     }
@@ -228,19 +228,28 @@ steps:
     expect(ast.steps).toHaveLength(4);
     const spec = compileDsl(ast);
     expect(spec.steps).toHaveLength(1);
-    const clickStep = spec.steps[0] as any;
+    const clickStep = spec.steps[0] as UiStep;
     expect(clickStep.assertions).toHaveLength(3);
     expect(clickStep.assertions[0]).toEqual({
       type: "isRightOf",
-      referenceTarget: expect.objectContaining({ role: "button", label: "Cancel" }),
+      referenceTarget: expect.objectContaining({
+        role: "button",
+        label: "Cancel",
+      }),
     });
     expect(clickStep.assertions[1]).toEqual({
       type: "isInside",
-      referenceTarget: expect.objectContaining({ role: "section", label: "Dialog" }),
+      referenceTarget: expect.objectContaining({
+        role: "section",
+        label: "Dialog",
+      }),
     });
     expect(clickStep.assertions[2]).toEqual({
       type: "isBelow",
-      referenceTarget: expect.objectContaining({ role: "textbox", label: "Username" }),
+      referenceTarget: expect.objectContaining({
+        role: "textbox",
+        label: "Username",
+      }),
     });
 
     const decompiled = decompileSpec(spec);

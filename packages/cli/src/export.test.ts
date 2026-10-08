@@ -81,9 +81,17 @@ describe("exportToPlaywright", () => {
     expect(code).toContain('import { test, expect } from "@playwright/test";');
     expect(code).toContain('test.describe("Login Flow", () => {');
     expect(code).toContain('await page.goto("https://example.com/login"');
-    expect(code).toContain('await page.locator("#email").fill("user@test.com");');
-    expect(code).toContain('await page.locator("button[type=\'submit\']").click();');
-    expect(code).toContain('await expect(page).toHaveURL(new RegExp("/dashboard"));');
-    expect(code).toContain('await expect(page.locator("body")).toContainText("Welcome");');
+    expect(code).toContain(
+      'await page.locator("#email").fill("user@test.com");',
+    );
+    expect(code).toContain(
+      "await page.locator(\"button[type='submit']\").click();",
+    );
+    expect(code).toContain(
+      'await expect(page).toHaveURL(new RegExp("/dashboard"));',
+    );
+    expect(code).toContain(
+      'await expect(page.locator("body")).toContainText("Welcome");',
+    );
   });
 });

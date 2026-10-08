@@ -1,5 +1,5 @@
-import { stringify } from "yaml";
 import type { ApiStep, DbStep, SpecIR, UiStep } from "@gimbal/shared";
+import { stringify } from "yaml";
 
 // Converts a Tier1Target role + label back into a DSL target expression.
 function targetExpr(role: string, label: string): string {
@@ -22,21 +22,15 @@ function uiStepLines(step: UiStep): string[] {
       break;
     case "click":
       if (step.target)
-        lines.push(
-          `click: ${targetExpr(step.target.role, step.target.label)}`,
-        );
+        lines.push(`click: ${targetExpr(step.target.role, step.target.label)}`);
       break;
     case "type":
       if (step.target)
-        lines.push(
-          `type: ${step.target.label} = "${step.value ?? ""}"`,
-        );
+        lines.push(`type: ${step.target.label} = "${step.value ?? ""}"`);
       break;
     case "select":
       if (step.target)
-        lines.push(
-          `select: ${step.target.label} = "${step.value ?? ""}"`,
-        );
+        lines.push(`select: ${step.target.label} = "${step.value ?? ""}"`);
       break;
     case "submit":
       if (step.target)

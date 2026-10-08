@@ -5,7 +5,7 @@ import {
   type UiStep,
   lintSpec,
 } from "@gimbal/shared";
-import { type DslAst, type DslStep, type DslTarget } from "./parser.js";
+import type { DslAst, DslStep, DslTarget } from "./parser.js";
 
 // ─── Synonym table ────────────────────────────────────────────────────────────
 
@@ -65,10 +65,7 @@ function normaliseRole(role: string): string {
 
 // ─── Target builder ──────────────────────────────────────────────────────────
 
-function buildTier1Target(
-  dslTarget: DslTarget,
-  stepKind: string,
-): Tier1Target {
+function buildTier1Target(dslTarget: DslTarget, stepKind: string): Tier1Target {
   return {
     label: dslTarget.label,
     role: normaliseRole(dslTarget.role) as Tier1Target["role"],
@@ -106,7 +103,9 @@ function buildAssertion(step: DslStep & { kind: "assert" }): Assertion {
       return {
         type: step.geometricType,
         referenceTarget: buildTier1Target(step.referenceTarget, "assert"),
-        ...(step.target ? { target: buildTier1Target(step.target, "assert") } : {}),
+        ...(step.target
+          ? { target: buildTier1Target(step.target, "assert") }
+          : {}),
       };
   }
 }
@@ -271,9 +270,5 @@ export function compileDsl(ast: DslAst): SpecIR {
   if (!lint.ok) {
     throw new Error(`DSL spec failed lint:\n${lint.errors.join("\n")}`);
   }
-  if (lint.warnings && lint.warnings.length > 0) {
-    (spec as any).warnings = lint.warnings;
-  }
-
   return spec;
 }
