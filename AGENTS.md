@@ -4,13 +4,13 @@
 >
 > This document defines the architectural boundaries, development philosophy, and engineering conventions for the project. It should be treated as the authoritative guide for implementing new features and modifying existing systems.
 >
-> **Stack:** Gimbal is a single-language **TypeScript on Node.js** project — see [ADR-003](docs/adr/ADR-003.md) and [PLAN-001](docs/PLAN-001.md). Earlier references to Bun, Python, or a standalone Next.js dashboard are superseded.
+> **Stack:** Gimbal is a single-language **TypeScript on Node.js** project. See [ADR-003](docs/adr/ADR-003.md) and [docs/architecture.md](docs/architecture.md).
 
 ---
 
 # Project Vision
 
-Gimbal is an open-source, AI-native software testing platform designed for modern development teams.
+Gimbal is an AI-native software testing platform designed for modern development teams.
 
 Unlike traditional testing frameworks that rely on brittle selectors or AI-first systems that invoke large language models for every failure, Gimbal follows a **deterministic-first** philosophy.
 
@@ -153,7 +153,7 @@ The CLI never executes tests.
 
 The resolver is deterministic first.
 
-The semantic signal uses a **local, fixed-weight embedding model** (deterministic, no generative/network call), not a runtime LLM. When deterministic confidence is insufficient, the step is marked stale for author review — an LLM is only re-invoked during explicit, developer-triggered maintenance (see ADR-001, ADR-002).
+The semantic signal uses a **local, fixed-weight embedding model** (deterministic, no generative/network call), not a runtime LLM. When deterministic confidence is insufficient, the step abstains and is marked as needing a fix. Gimbal never calls a generative model at run time; any model involvement happens in the developer's own agent, through MCP (see ADR-001, ADR-002).
 
 ## 6.
 
@@ -363,7 +363,7 @@ Signals include:
 
 Deterministic matching is attempted first. The semantic signal is a **local embedding search** (fixed-weight ONNX model + cosine similarity, embeddings cached in SQLite) — deterministic, not a generative LLM call.
 
-When confidence falls below the predefined bands, the step is marked stale for author review; an LLM re-enters only in explicit maintenance healing (ADR-002), never automatically at runtime.
+When confidence falls below the predefined bands, the step abstains and a repair is recorded for review (ADR-005). Gimbal calls no model at run time; the developer's agent may fix it through `submitRepair`.
 
 Never make the LLM the primary resolution strategy.
 
@@ -537,7 +537,7 @@ Comments should explain **why**, not **what**.
 
 # Decision Framework
 
-> **Important**: Record every specific architectural or implementation decision made by AI agents or human contributors in the [DECISIONS.md](docs/DECISIONS.md) file.
+> **Important**: Record significant architectural decisions as an ADR in [docs/adr/](docs/adr/). Small implementation choices belong in code comments, explaining why.
 
 When making engineering decisions, prioritize in this order:
 
