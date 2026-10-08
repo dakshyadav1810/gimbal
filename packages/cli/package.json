@@ -1,9 +1,23 @@
 {
-  "name": "@gimbal/cli",
+  "name": "gimbal",
   "version": "0.1.0",
+  "description": "Deterministic-first end-to-end testing for modern web applications",
   "license": "BUSL-1.1",
-  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dakshyadav1810/gimbal.git",
+    "directory": "packages/cli"
+  },
+  "bugs": {
+    "url": "https://github.com/dakshyadav1810/gimbal/issues"
+  },
+  "homepage": "https://github.com/dakshyadav1810/gimbal#readme",
+  "keywords": ["testing", "playwright", "e2e", "mcp", "test-automation"],
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": ["dist", "README.md"],
   "bin": {
     "gimbal": "./dist/index.js"
   },
@@ -20,6 +34,7 @@
     "execa": "^9.5.2",
     "open": "^10.1.0",
     "ws": "^8.18.0",
+    "yaml": "^2.7.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {

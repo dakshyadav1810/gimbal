@@ -1,8 +1,12 @@
-# Gimbal Design Docs
+# Gimbal Documentation
 
-Implementation-facing design for Gimbal, derived from the ADRs. **Specs** describe business logic and user
-flows; **LLDs** describe implementation and code detail. Design is clean-room from the ADRs — the retired
-Python `packages/core` is reference only.
+This directory is the maintained reference for Gimbal's product behavior,
+architecture, implementation contracts, and operating workflows.
+
+- **Specifications** describe product behavior and user flows.
+- **Low-level designs** describe implementation contracts and code boundaries.
+- **ADRs** record durable architectural decisions.
+- **Plans and research** capture current sequencing and supporting analysis.
 
 ## Read in this order
 
@@ -37,6 +41,13 @@ Then by pipeline stage (each SPEC pairs with its LLD):
 - **Bands:** `high ≥ 0.7 · medium ≥ 0.5 · low < 0.5`; grounding/runtime accept at `≥ medium`.
 - **Artifacts:** `spec.json` (Tier-1, versioned) → `candidates.json` (Tier-2) → grounded test (with `resolution` + `cachedSelector`). Versioned JSON in git; SQLite cache is regenerable.
 - **Runtime is LLM-free.** Low confidence → `stale` → author review; LLM re-enters only in explicit maintenance.
+
+## Maintainer guidance
+
+Update the relevant specification and low-level design when behavior changes.
+Record architectural decisions in [DECISIONS.md](DECISIONS.md), and keep
+[AGENTS.md](../AGENTS.md) aligned with the invariants here. Avoid duplicating
+the same workflow in multiple top-level guides.
 
 ## Scope of this pass
 

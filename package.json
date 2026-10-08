@@ -12,7 +12,8 @@
     "dev": "turbo run dev",
     "test": "turbo run test",
     "lint": "biome check .",
-    "format": "biome format --write ."
+    "format": "biome format --write .",
+    "pack:cli": "pnpm build && pnpm --filter gimbal pack"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",

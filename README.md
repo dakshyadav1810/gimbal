@@ -2,190 +2,143 @@
 
 ![License: BUSL-1.1](https://img.shields.io/badge/license-BUSL--1.1-blue.svg)
 
-**Testing infrastructure for the AI era — source-available, local-first, no vendor lock-in.**
+Gimbal is a local-first, deterministic end-to-end testing platform for modern
+web applications. It replaces brittle selectors with a multi-signal resolver
+that can re-locate elements when a UI changes, without calling an LLM during a
+test run.
 
-Gimbal replaces brittle CSS/XPath selectors with a **Multi-Signal Relational Resolver**: every element
-is located by scoring five independent signals — affordance, semantics, structure, context, and index —
-instead of one fragile string. When your UI changes, Gimbal re-derives the element deterministically, on
-your machine, with no LLM in the loop and no retry-and-hope.
-
-You describe intent in natural language to a coding agent (Claude Code, Cursor, ...) connected over MCP;
-Gimbal maps your app, resolves the element, and replays the run in a local dashboard so you verify
-behavior instead of hand-writing selectors.
-
-> **Status:** pre-release. The CLI is not yet published to npm — see [Development](#development) to run
-> it from source today. `npx gimbal` below is the target install command once published.
-
-## Table of contents
-
-- [The problem](#the-problem)
-- [Quick start](#quick-start)
-- [How it works](#how-it-works)
-- [Why Gimbal](#why-gimbal)
-- [Features](#features)
-- [Roadmap](#roadmap)
-- [Tiers](#tiers)
-- [Development](#development)
-- [Contributing](#contributing)
-- [License](#license)
-
-## The problem
-
-- **Brittle selectors.** `div > form > button.btn-blue` breaks on the next class rename or DOM reshuffle
-  — not because the feature broke, but because the test was never really testing the feature.
-- **The coverage illusion.** Green suites that assert nothing meaningful give false confidence; a passing
-  test and a *correct* test are not the same thing.
-- **CI thrash.** Selector drift turns into a maintenance treadmill — someone has to open the test file,
-  find the new selector, and re-run, every single time the UI changes.
-- **Closed-source AI healing.** The tools that do attempt AI-native healing lock your tests into a
-  proprietary cloud and bill you per LLM call, every time a test runs.
-
-## Quick start
-
-```bash
-npx gimbal init      # scaffold .gimbal/ + gimbal.config.json in your project
-npx gimbal start     # spawn the local server (no-op if already running), open the dashboard
-```
-
-`gimbal start` is for you, the human: it spawns the Fastify core server (default
-`http://127.0.0.1:4319`) if one isn't already running, and opens the dashboard, served from that same
-server. Your coding agent doesn't use this command: its MCP client registers `gimbal mcp` instead, which
-starts the MCP stdio server, connects to core (spawning one in the background if needed), and never opens
-a browser tab, so reconnecting or starting a new agent session doesn't spam your desktop with tabs.
-Gimbal itself never calls an LLM provider and holds no API key — whatever your coding agent already talks
-to (Claude, GPT, ...) is the only model in the loop, and that's a connection you already have, not one
-Gimbal adds.
-
-Then, from your coding agent (Claude Code, Cursor, or anything that speaks MCP), once it's registered with
-`gimbal mcp` (see [How it works](#1-connect)):
-
-```
-"Test the login flow" → agent calls the gimbal MCP tools → spec.json is authored, grounded, and run
-```
-
-See [Development](#development) if you want to run this from source before it's published.
-
-## How it works
-
-### 1. Connect
-
-Register `gimbal mcp` (not `start`) with your agent's MCP client, for example for Claude Code:
-`claude mcp add gimbal -- npx gimbal mcp`. It mounts a local
-[Model Context Protocol](https://modelcontextprotocol.io) server that exposes your app's structure and
-test lifecycle as tools your agent can call directly (`getMap`, `submitSpec`, `groundTest`, `runTest`,
-`getReport`, `healing`, `updateTest`, and more). It connects to an already-running core, silently spawning
-one in the background on first use, and never opens the dashboard itself: that split matters because
-your MCP client respawns this command on every session, and a command that opened a browser tab or
-duplicated core on every reconnect would get old fast.
-
-```
-$ npx gimbal start
-core listening on http://127.0.0.1:4319
-```
-
-### 2. Describe
-
-Tell your agent what to test, in plain language. The agent authors a DOM-blind spec — meaning
-(`label`, `semantics`, `role`, `intent`), never a selector — then Gimbal grounds it against your live app,
-resolving each step to a real element via the five-signal resolver:
-
-| Signal | Answers |
-|---|---|
-| **Semantics** | Does this element mean what the user intended? (local embedding + cosine similarity) |
-| **Affordance** | Can it actually perform this action? (visible, enabled, capability match — a hard gate) |
-| **Structure** | Can we identify it by what it is? (`data-testid`, `id`, role, tag) |
-| **Context** | Is it in the right place? (ancestor chain, region, nearby text) |
-| **Index** | Is it identified by position, as a last resort? |
-
-Gimbal has no LLM client of its own — authoring only happens through your connected agent's `submitSpec`
-MCP call. The bare CLI can ground and run a spec that already exists, but can't create one:
-
-```bash
-npx gimbal ground <testId>
-```
-
-### 3. Verify
-
-Run the test deterministically — no LLM call on this path. A selector miss triggers a local re-ground
-against the current DOM (still five-signal, still no model), not a silent failure and not an LLM retry:
-
-```bash
-$ npx gimbal test
-login-flow: passed
-```
-
-The dashboard streams each run live and shows per-step status, which locator source was used
-(cached vs. freshly resolved), confidence band, and timing, so you can see *why* a step passed, failed,
-or needs review instead of re-reading test code.
+> **Status:** pre-release. The npm package is being prepared for public
+> distribution and the API may change before 1.0.
 
 ## Why Gimbal
 
-| | **Gimbal** | **Playwright / Cypress** | **Closed-source AI testing** (KaneAI, TestSprite-style) |
-|---|---|---|---|
-| Element resolution | 5-signal deterministic resolver | Static selectors you write by hand | Proprietary, cloud-only |
-| Self-healing | Local, deterministic, no LLM call | None | LLM-based, billed per run |
-| Where tests live | Your own git repo, as JSON | Your own git repo, as code | Vendor's cloud |
-| LLM cost at runtime | None — ever | N/A | Usage-based credits |
-| Authoring | Your own Claude/Cursor session via MCP | You write the code | Vendor's model, vendor's bill |
-| License | Source-available (BUSL-1.1), free to self-host/modify | Open source (no AI-native healing) | Closed source |
+Traditional browser tests usually persist one selector for each element. A
+class rename or DOM reshuffle then creates maintenance work unrelated to the
+behavior under test. Gimbal stores semantic intent separately from live DOM
+anchors and resolves targets using:
 
-## Features
+- **Semantics** — meaning and accessible names, including local embeddings.
+- **Affordance** — visibility, enabled state, and action compatibility.
+- **Structure** — roles, test IDs, IDs, tags, and structural identity.
+- **Context** — ancestors, regions, nearby text, and spatial relationships.
+- **Index** — positional information as a final tie-breaker.
 
-- **UI flow testing** — multi-step browser flows authored from intent, grounded once, run deterministically.
-- **API contract testing** — `apiStatus` / `apiBody` assertions against JSON responses, in the same spec
-  as your UI steps, using the same runner.
-- **Unified assertions** — UI, API, and DB checks (`urlContains`, `textContains`, `elementVisible`,
-  `apiBody`, `dbRow`, ...) in one spec, one run, one report.
-- **Local dashboard** — live run log over WebSocket, per-step results (status, locator source, confidence
-  band, duration), and a JSON editor for hand-editing specs.
-- **MCP-native** — every part of the authoring/grounding/run/heal lifecycle is exposed as an MCP tool, so
-  a coding agent drives Gimbal the same way a human would over the CLI.
-- **Two-level healing** — automatic, deterministic re-grounding on drift; explicit, developer-triggered
-  maintenance (via your own LLM session) only when the deterministic path can't recover.
+The runtime is deterministic and local. A failed cached selector triggers a
+deterministic re-grounding attempt; if confidence remains too low, the step is
+marked stale for review.
 
-## Roadmap
+## Quick start
 
-Not yet built — tracked, not shipped:
+### From npm
 
-- **Coverage visibility** — what fraction of the app is actually under test.
-- **Flaky test detection** — surfacing steps that heal repeatedly as a signal to tighten the test, not
-  just logging the individual heal events.
-- **Visual replay** — screenshot capture per step and a replay view in the dashboard (the schema has a
-  slot for this; nothing populates it yet).
-- **KDG versioning** (`getDelta`) — diffing the app's knowledge graph across authoring sessions.
+Once the package is published:
 
-## Tiers
+```bash
+npx gimbal init
+npx gimbal start
+```
 
-- **Local (free, source-available):** the full resolver, the CLI, sequential local execution, the
-  dashboard — no license gate, no usage metering, self-host and modify freely. This is what's in this
-  repository today.
-- **Team/cloud:** not yet available. This is the one use the license carves out — see [License](#license).
-  Everything else (self-hosting, modifying, running it yourself) stays free.
+`start` runs the local Fastify core server and opens the dashboard. It does not
+start the MCP server.
+
+### From a checkout
+
+```bash
+corepack enable
+pnpm install
+pnpm build
+pnpm --filter @gimbal/core exec playwright install chromium
+pnpm --filter gimbal dev init
+pnpm --filter gimbal dev start
+```
+
+The application under test must already be running. Gimbal drives it through
+Playwright; it does not start the application for you.
+
+## Coding-agent workflow
+
+Register the MCP entry point with an MCP-compatible coding agent:
+
+```bash
+claude mcp add gimbal -- npx gimbal mcp
+```
+
+The agent can then:
+
+1. Call `getMap` for route-scoped application context.
+2. Submit a DOM-blind `SpecIR` through `submitSpec`.
+3. Ground the spec against the live application.
+4. Run it and inspect the report.
+5. Request maintenance context for stale steps and submit a corrected spec.
+
+Gimbal does not hold an LLM provider key or call a model provider. The
+connected coding agent authors and repairs specifications through MCP.
+
+## CLI reference
+
+```text
+gimbal init                 Create .gimbal/ and gimbal.config.json
+gimbal start                Start core and open the dashboard
+gimbal mcp                  Start the MCP server over stdio
+gimbal ground <test-id>     Ground a test against the live application
+gimbal test [test-id]       Run one test or the complete suite
+gimbal heal <test-id>       Print maintenance context for a stale test
+gimbal report <run-id>      Print a stored run report
+gimbal stop                 Stop the local core server
+```
+
+Configuration is read from `gimbal.config.json`, with environment variables
+such as `GIMBAL_PORT` taking precedence. Project state is stored under
+`.gimbal/`; it should not be committed except for versioned test artifacts.
+
+## Architecture
+
+```text
+Coding agent ── MCP/stdio ──▶ CLI ── REST/WebSocket ──▶ Core
+                                                       │
+                                                       ├─ Playwright
+                                                       ├─ Resolver
+                                                       ├─ Grounding
+                                                       └─ SQLite cache
+Dashboard ─────────────── REST/WebSocket ─────────────▶ Core
+```
+
+The monorepo contains:
+
+- `packages/shared` — shared Zod schemas and TypeScript types.
+- `packages/core` — Fastify server and all execution/business logic.
+- `packages/cli` — published `gimbal` CLI and MCP control plane.
+- `packages/dashboard` — Vite/React client bundled and served by core.
+
+Tests are JSON artifacts. The dashboard and CLI are clients; execution belongs
+to core.
+
+## Documentation
+
+Start with [the documentation index](docs/README.md). It links the product
+specifications, implementation designs, architectural decisions, contributor
+guidance, and the agent workflow.
+
+- [Engineering and agent guidance](AGENTS.md)
+- [Contributing](CONTRIBUTING.md)
+- [Using Gimbal in another repository](docs/USING_GIMBAL_IN_ANOTHER_REPO.md)
+- [Architectural decisions](docs/adr)
+- [Product specifications](docs/specs)
+- [Low-level designs](docs/lld)
 
 ## Development
 
-The CLI isn't on npm yet. To run it from source:
-
 ```bash
-git clone https://github.com/dakshyadav1810/gimbal.git
-cd gimbal
-pnpm install
 pnpm build
-node packages/cli/dist/index.js start
+pnpm test
+pnpm lint
+pnpm pack:cli
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the full dev setup, test/typecheck commands, and the
-monorepo layout (`packages/shared`, `packages/core`, `packages/cli`, `packages/dashboard`). The design
-docs live in [docs/](docs/) — [docs/specs](docs/specs) for behavior, [docs/lld](docs/lld) for
-implementation, [docs/adr](docs/adr) for why the stack looks the way it does.
-
-## Contributing
-
-Issues and PRs welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
+The last command creates an npm tarball for inspection without publishing it.
+Before a release, verify the tarball contents and test it in a clean temporary
+project with `npm install /path/to/gimbal-*.tgz`.
 
 ## License
 
-[Business Source License 1.1](LICENSE) (BUSL-1.1) — **not** an OSI-approved open-source license, but free
-to use, self-host, and modify for any purpose. The one thing it blocks: offering Gimbal (or a modified
-version of it) to third parties as a competing hosted/managed service. Contributing back via a fork/PR is
-explicitly fine. On 2030-07-15, this version automatically converts to Apache License 2.0.
+Gimbal is licensed under the Business Source License 1.1. See [LICENSE](LICENSE).

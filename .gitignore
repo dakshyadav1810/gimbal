@@ -7,6 +7,7 @@ __pycache__/
 .gimbal/
 packages/core/static/*
 !packages/core/static/.gitkeep
+packages/cli/.axiom/
 *.log
 .DS_Store
 /packages/dashboard/.next
