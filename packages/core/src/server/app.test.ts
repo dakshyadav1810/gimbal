@@ -25,7 +25,7 @@ async function makeApp(): Promise<{ app: FastifyInstance; dir: string }> {
     embeddingModel: "Xenova/all-MiniLM-L6-v2",
     embeddingRevision: "751bff37182d3f1213fa05d7196b954e230abad9",
     healing: { mode: "propose" },
-    snapshotsDir: "snapshots",
+    snapshotsDir: path.join(dir, "snapshots"),
     snapshots: "ground",
     bands: { high: 0.7, medium: 0.5 },
     timeouts: {

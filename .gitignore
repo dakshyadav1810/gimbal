@@ -6,3 +6,4 @@ packages/core/static/*
 !packages/core/static/.gitkeep
 *.log
 .DS_Store
+packages/bench/results/cells-latest.json
