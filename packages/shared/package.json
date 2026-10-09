@@ -12,7 +12,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "files": ["dist"],
+  "files": ["dist", "README.md", "LICENSE"],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
